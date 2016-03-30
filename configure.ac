@@ -56,6 +56,10 @@ AC_TYPE_SIZE_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset])
 
+AC_DEFINE(HAVE_CNCBOR, [1], [Define if the system has cn-cbor])
+CPPFLAGS="$CPPFLAGS -I \$(top_srcdir)/ext/cn-cbor   "
+LDFLAGS="$LDFLAGS -L\$(top_srcdir)/ext/cn-cbor/build/dist/lib -lcn-cbor"
+
 AC_CONFIG_HEADERS([dcaf_config.h])
 
 AC_CONFIG_FILES([Makefile])
