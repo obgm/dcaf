@@ -6,6 +6,7 @@
 AC_PREREQ([2.64])
 AC_INIT([dcaf], [0.1.0])
 AM_INIT_AUTOMAKE([1.10 -Wall no-define no-dist-gzip dist-bzip2])
+PKG_PROG_PKG_CONFIG([0.20])
 
 AC_PROG_CC
 AM_PROG_CC_C_O
@@ -56,11 +57,58 @@ AC_TYPE_SIZE_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset])
 
-AC_DEFINE(HAVE_CNCBOR, [1], [Define if the system has cn-cbor])
-CPPFLAGS="$CPPFLAGS -I \$(top_srcdir)/ext/cn-cbor   "
-LDFLAGS="$LDFLAGS -L\$(top_srcdir)/ext/cn-cbor/build/dist/lib -lcn-cbor"
+PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
+PKG_CHECK_MODULES([libcoap], [libcoap-1])
 
 AC_CONFIG_HEADERS([dcaf_config.h])
 
-AC_CONFIG_FILES([Makefile])
+AC_MSG_CHECKING([operating system])
+
+# FIXME:
+host=-linux
+
+# Set up here some extra platform depended defines and variables.
+# The "ADDITIONAL_CFLAGS" is need as this stand-alone definition
+# for the doxygen part.
+case $host in
+	*-linux* | *-uclinux*)
+	AC_MSG_RESULT([Linux])
+	ADDITIONAL_CFLAGS="-D_GNU_SOURCE -DWITH_POSIX"
+        PLATFORM=posix
+
+	# Not yet needed but if some code definitions have to depend on the platform.
+	#AC_DEFINE(OS_LINUX, 1, [Linux backend])
+	#AC_SUBST(OS_LINUX)
+	;;
+
+	*-solaris*)
+	AC_MSG_RESULT([Solaris])
+	# set _XOPEN_SOURCE and _XOPEN_SOURCE_EXTENDED to enable XPG4v2 (POSIX 2004)
+	# set __EXTENSION__ to shut up feature test macros that restrict -std=c99
+	# to only C99 (and nothing newer)
+	ADDITIONAL_CFLAGS="-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED=600 -D__EXTENSIONS__=1 -DWITH_POSIX"
+        PLATFORM=posix
+	;;
+
+	*-darwin*)
+	AC_MSG_RESULT([Darwin])
+	ADDITIONAL_CFLAGS="-D_GNU_SOURCE -DWITH_POSIX"
+        PLATFORM=posix
+
+	AC_DEFINE(__APPLE_USE_RFC_3542, 1, [Define this to 1 for ancillary data on MacOS])
+
+	# Not yet needed but if some code definitions have to depend on the platform.
+	#AC_DEFINE(OS_MACOS, 1, [MacOS backend])
+	#AC_SUBST(OS_MACOS)
+	;;
+
+	*)
+	AC_MSG_WARN([unsupported operating system ${host}!])
+esac
+
+# Export platform definition
+AC_SUBST(PLATFORM)
+
+AC_CONFIG_FILES([Makefile
+                 examples/Makefile])
 AC_OUTPUT

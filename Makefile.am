@@ -14,21 +14,28 @@ ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
 ## Additional files for the distribution archive
 EXTRA_DIST = $(pkgconfig_DATA).in
 
-AM_CFLAGS = 
+AM_CPPFLAGS = @libcoap_CFLAGS@ @cn_cbor_CFLAGS@
 
-SUBDIRS = $(subdirs) .
+SUBDIRS = $(subdirs) . examples
 
 lib_LIBRARIES = libdcaf.a
 
-libdcaf_a_CFLAGS = -I @top_builddir@/include/dcaf/ $(WARNING_CFLAGS) -std=c99
+libdcaf_a_CFLAGS = -I @top_builddir@/include $(WARNING_CFLAGS)
 
 ## Source files comprising libdcaf.
-libdcaf_a_SOURCES = src/dcaf.c
+libdcaf_a_SOURCES = src/dcaf.c \
+   src/dcaf_optlist.c \
+   src/dcaf_transaction.c \
+   src/platform/@PLATFORM@/dcaf_address.c
 
 ## Public header files and their installation location.
 libdcaf_includedir = $(includedir)/dcaf/
 libdcaf_include_HEADERS = \
-   include/dcaf/dcaf.h
+   include/dcaf/dcaf.h \
+   include/dcaf/dcaf_int.h \
+   include/dcaf/dcaf_optlist.h \
+   include/dcaf/dcaf_transaction.h \
+   include/dcaf/dcaf_address.h
 
 ## Include autogen.sh in distribution but do not install it.
 dist_noinst_SCRIPTS = autogen.sh
