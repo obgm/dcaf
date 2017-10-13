@@ -1,4 +1,0 @@
-[submodule "ext/cn-cbor"]
-	path = ext/cn-cbor
-	url = https://github.com/obgm/cn-cbor.git
-	branch = pack-function
