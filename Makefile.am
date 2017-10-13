@@ -16,7 +16,7 @@ EXTRA_DIST = $(pkgconfig_DATA).in
 
 AM_CPPFLAGS = @libcoap_CFLAGS@ @cn_cbor_CFLAGS@
 
-SUBDIRS = $(subdirs) . examples
+SUBDIRS = $(subdirs) . as #examples
 
 lib_LIBRARIES = libdcaf.a
 

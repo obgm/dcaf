@@ -8,6 +8,8 @@ AC_INIT([dcaf], [0.1.0])
 AM_INIT_AUTOMAKE([1.10 -Wall no-define no-dist-gzip dist-bzip2])
 PKG_PROG_PKG_CONFIG([0.20])
 
+AM_SILENT_RULES([yes])
+
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_RANLIB
@@ -58,7 +60,13 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset])
 
 PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
-PKG_CHECK_MODULES([libcoap], [libcoap-1])
+PKG_CHECK_MODULES([libcoap], [libcoap-1], [have_libcoap="yes"])
+
+if test "x$have_libcoap" = "xyes"; then
+   # FIXME: this works only with bash parameter substitution and pkg-config
+   libcoap_L=`pkg-config --libs-only-L libcoap-1`
+   libcoap_LIBS="-Wl,-rpath=${libcoap_L:2} $libcoap_LIBS"
+fi
 
 AC_CONFIG_HEADERS([dcaf_config.h])
 
@@ -110,5 +118,6 @@ esac
 AC_SUBST(PLATFORM)
 
 AC_CONFIG_FILES([Makefile
+                 as/Makefile
                  examples/Makefile])
 AC_OUTPUT
