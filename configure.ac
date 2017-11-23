@@ -11,9 +11,11 @@ PKG_PROG_PKG_CONFIG([0.20])
 AM_SILENT_RULES([yes])
 
 AC_PROG_CC
-AM_PROG_CC_C_O
 AC_PROG_RANLIB
 AM_PROG_AR
+
+# C++
+AC_PROG_CXX
 
 # Adding some default warning options for code QS
 # see https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
@@ -36,7 +38,23 @@ WARNING_CFLAGS="\
 -Wunused-result \
 "
 
+WARNING_CXXFLAGS="\
+-pedantic \
+-Wall \
+-Wextra \
+-Wformat-security \
+-Winline \
+-Wmissing-declarations \
+-Wpointer-arith \
+-Wshadow \
+-Wswitch-default \
+-Wswitch-enum \
+-Wunused \
+-Wunused-result \
+"
+
 AC_SUBST([WARNING_CFLAGS])
+AC_SUBST([WARNING_CXXFLAGS])
 
 AC_PATH_PROG(DOXYGEN, doxygen, [:])
 
@@ -67,6 +85,9 @@ if test "x$have_libcoap" = "xyes"; then
    libcoap_L=`pkg-config --libs-only-L libcoap-1`
    libcoap_LIBS="-Wl,-rpath=${libcoap_L:2} $libcoap_LIBS"
 fi
+
+PKG_CHECK_MODULES([OpenSSL], [openssl],
+   [CPPFLAGS="${CPPFLAGS} -DBUILD_WITH_OPENSSL"])
 
 AC_CONFIG_HEADERS([dcaf_config.h])
 
@@ -118,6 +139,6 @@ esac
 AC_SUBST(PLATFORM)
 
 AC_CONFIG_FILES([Makefile
-                 as/Makefile
+                 am/Makefile
                  examples/Makefile])
 AC_OUTPUT
