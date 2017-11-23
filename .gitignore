@@ -15,15 +15,22 @@ compile
 install-sh
 
 libdcaf.a
-src/*.o
-src/.deps/
+*.o
 src/.dirstamp
 src/.libs/
 *~
 core
+.deps/
+.dirstamp
 
 doc/Doxyfile
 doc/Makefile.in
 doc/doxyfile.stamp
 doc/doxygen_sqlite3.db
 doc/html/
+
+libtool
+ltmain.sh
+TAGS
+
+am/dcaf-am
