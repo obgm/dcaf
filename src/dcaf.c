@@ -285,6 +285,16 @@ dcaf_alloc_type(dcaf_object_type obj) {
   }
 }
 
+static inline void
+dcaf_free_type(dcaf_object_type obj, void *p) {
+  /* FIXME: use static memory allocator on non-posix systems */
+  switch (obj) {
+  case DCAF_CONTEXT: coap_free(p); break;
+  default:
+    ;
+  }
+}
+
 static inline uint16_t
 coap_port(const dcaf_config_t *config) {
   return (config && config->coap_port) ?
@@ -307,7 +317,6 @@ set_endpoint(const dcaf_context_t *dcaf_context,
 dcaf_context_t *
 dcaf_new_context(const dcaf_config_t *config) {
   dcaf_context_t *dcaf_context;
-  coap_resource_t *resource;
   coap_address_t addr;
   const char *addr_str = "::";
 
@@ -353,6 +362,8 @@ dcaf_new_context(const dcaf_config_t *config) {
     }
   }
 
+  /* FIXME: set am_uri from config->am_uri */
+
   coap_register_option(dcaf_context->coap_context, COAP_OPTION_BLOCK2);
   coap_register_response_handler(dcaf_context->coap_context,
                                  handle_coap_response);
@@ -366,8 +377,9 @@ dcaf_new_context(const dcaf_config_t *config) {
 void dcaf_free_context(dcaf_context_t *context) {
   if (context) {
     coap_free(context->am_uri);
+    coap_free_context(context->coap_context);
   }
-  coap_free(context);
+  dcaf_free_type(DCAF_CONTEXT, context);
 }
 
 void
