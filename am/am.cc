@@ -172,7 +172,7 @@ main(int argc, char **argv) {
     coap_check_notify(ctx);
   }
 
-  coap_free_context(ctx);
+  dcaf_free_context(dcaf);
   coap_cleanup();
 
   return 0;
