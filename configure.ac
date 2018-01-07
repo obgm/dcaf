@@ -75,7 +75,7 @@ AC_TYPE_SIZE_T
 
 # Checks for library functions.
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([memset])
+AC_CHECK_FUNCS([memset getrandom])
 
 PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
 PKG_CHECK_MODULES([libcoap], [libcoap-1], [have_libcoap="yes"])
