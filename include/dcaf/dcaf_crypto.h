@@ -14,14 +14,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum dcaf_alg_t {
-  DCAF_NONE = 0,
-  DCAF_AES_128 = 1,             /**< AES-128-CCM */
-  DCAF_HS256 = 64               /**< HMAC-SHA256 */
-} dcaf_alg_t;
+#include "dcaf/dcaf_key.h"
 
-struct dcaf_key_t;
-typedef struct dcaf_key_t dcaf_key_t;
+typedef dcaf_key_type dcaf_alg_t;
 
 typedef struct dcaf_aes_ccm_t {
   dcaf_key_t *key;
@@ -41,6 +36,12 @@ typedef struct dcaf_crypto_param_t {
 
 bool dcaf_encrypt(const dcaf_crypto_param_t *params,
                   const uint8_t *data, size_t data_len,
+                  const uint8_t *aad, size_t aad_len,
+                  uint8_t *result, size_t *max_result_len);
+
+bool dcaf_decrypt(const dcaf_crypto_param_t *params,
+                  const uint8_t *data, size_t data_len,
+                  const uint8_t *aad, size_t add_len,
                   uint8_t *result, size_t *max_result_len);
 
 bool dcaf_hmac(const dcaf_crypto_param_t *params,

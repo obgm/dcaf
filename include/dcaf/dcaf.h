@@ -25,14 +25,21 @@ extern "C" {
 typedef enum {
   DCAF_OK,
   DCAF_ERROR_BUFFER_TOO_SMALL,
-  DCAF_ERROR_BAD_REQUEST,
-  DCAF_ERROR_INTERNAL_ERROR
+  DCAF_ERROR_INTERNAL_ERROR,
+  DCAF_ERROR_BAD_REQUEST          = 0x10,
+  DCAF_ERROR_UNAUTHORIZED         = 0x13,
+  DCAF_ERROR_INVALID_AIF          = 0x15,
+  DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16
 } dcaf_result_t;
 
 #include "dcaf_address.h"
+#include "dcaf_debug.h"
 #include "dcaf_crypto.h"
+#include "dcaf_key.h"
 #include "dcaf_optlist.h"
 #include "dcaf_prng.h"
+
+#include "cose.h"
 
 #define DCAF_TYPE_SAM   0
 #define DCAF_TYPE_SAI   1
@@ -52,6 +59,9 @@ typedef enum {
   DCAF_MEDIATYPE_DCAF_CBOR = 75,
   DCAF_MEDIATYPE_ACE_CBOR  = COAP_MEDIATYPE_APPLICATION_CBOR
 } dcaf_mediatype_t;
+
+#define  DCAF_MEDIATYPE_DCAF_CBOR_STRING "75"
+#define  DCAF_MEDIATYPE_ACE_CBOR_STRING  "60"
 
 /** Default configuration options for dcaf_initialize(). */
 typedef struct dcaf_config_t {
