@@ -12,11 +12,17 @@ AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
 
 ## Additional files for the distribution archive
-EXTRA_DIST = $(pkgconfig_DATA).in
+EXTRA_DIST = \
+  CONTRIBUTE \
+  TODO \
+  LICENSE \
+  $(pkgconfig_DATA).in \
+  tests/catch.hpp \
+  tests/test_cose.hh
 
 AM_CPPFLAGS = @libcoap_CFLAGS@ @cn_cbor_CFLAGS@
 
-SUBDIRS = $(subdirs) . am examples
+SUBDIRS = $(subdirs) . tests am examples
 
 lib_LIBRARIES = libdcaf.a
 
@@ -27,6 +33,10 @@ libdcaf_a_SOURCES = \
    src/cose.c \
    src/dcaf.c \
    src/dcaf_crypto_openssl.c \
+   src/dcaf_crypto_tinydtls.c \
+   src/dcaf_debug.c \
+   src/dcaf_key.c \
+   src/dcaf_mem.c \
    src/dcaf_optlist.c \
    src/dcaf_prng.c \
    src/dcaf_transaction.c \
@@ -37,9 +47,13 @@ libdcaf_includedir = $(includedir)/dcaf/
 libdcaf_include_HEADERS = \
    include/dcaf/ace.h \
    include/dcaf/cose.h \
+   include/dcaf/cose_types.h \
    include/dcaf/dcaf.h \
    include/dcaf/dcaf_crypto.h \
+   include/dcaf/dcaf_debug.h \
    include/dcaf/dcaf_int.h \
+   include/dcaf/dcaf_key.h \
+   include/dcaf/dcaf_mem.h \
    include/dcaf/dcaf_optlist.h \
    include/dcaf/dcaf_prng.h \
    include/dcaf/dcaf_transaction.h \
