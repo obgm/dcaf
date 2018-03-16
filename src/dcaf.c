@@ -1,13 +1,15 @@
 /*
  * dcaf.c -- libdcaf core
  *
- * Copyright (C) 2015-2016 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2016 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
  */
 
+#include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cn-cbor/cn-cbor.h>
@@ -17,6 +19,7 @@
 #include "dcaf/state.h"
 
 #include "dcaf/ace.h"
+#include "dcaf/cwt.h"
 #include "dcaf/cose.h"
 
 static inline int
@@ -49,6 +52,7 @@ handle_coap_response(struct coap_context_t *coap_context,
     return;
   }
 
+#if 0
   switch (t->state) {
   case DCAF_STATE_IDLE: {
     /* FIXME: check response code, handle DCAF SAM response 
@@ -70,6 +74,7 @@ handle_coap_response(struct coap_context_t *coap_context,
     coap_log(LOG_ALERT, "unknown transaction state\n");
     return;
   }
+#endif
 
   if (deliver && t->response_handler) {
     t->response_handler(dcaf_context, t, received);
@@ -276,25 +281,6 @@ handle_coap_response(struct coap_context_t *coap_context,
 #endif
 }
 
-static inline void *
-dcaf_alloc_type(dcaf_object_type obj) {
-  /* FIXME: use static memory allocator on non-posix systems */
-  switch (obj) {
-  default: return NULL;
-  case DCAF_CONTEXT: return coap_malloc(sizeof(dcaf_context_t));
-  }
-}
-
-static inline void
-dcaf_free_type(dcaf_object_type obj, void *p) {
-  /* FIXME: use static memory allocator on non-posix systems */
-  switch (obj) {
-  case DCAF_CONTEXT: coap_free(p); break;
-  default:
-    ;
-  }
-}
-
 static inline uint16_t
 coap_port(const dcaf_config_t *config) {
   return (config && config->coap_port) ?
@@ -312,6 +298,79 @@ set_endpoint(const dcaf_context_t *dcaf_context,
              const coap_address_t *addr,
              coap_proto_t proto) {
   return coap_new_endpoint(dcaf_context->coap_context, addr, proto) != NULL;
+}
+
+dcaf_ticket_t *dcaf_tickets = NULL;
+
+dcaf_ticket_t *
+dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
+  dcaf_ticket_t *ticket = NULL;
+  LL_FOREACH(dcaf_tickets,ticket) {
+    if ((kid_length == ticket->kid_length)
+        && (memcmp(kid, ticket->kid, ticket->kid_length) == 0)) {
+      return ticket;
+    }
+  }
+  return NULL;
+}
+
+dcaf_ticket_t *
+dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
+                const uint8_t *verifier, size_t verifier_length) {
+  dcaf_ticket_t *ticket = (dcaf_ticket_t *)dcaf_alloc_type(DCAF_TICKET);
+  if (ticket) {
+    memset(ticket, 0, sizeof(dcaf_ticket_t));
+    if (kid && kid_length) {
+      ticket->kid = (uint8_t *)coap_malloc(kid_length);
+      if (ticket->kid) {
+        memcpy(ticket->kid, kid, kid_length);
+        ticket->kid_length = kid_length;
+      }
+    }
+    if (verifier && verifier_length) {
+      ticket->verifier = (uint8_t *)coap_malloc(verifier_length);
+      if (ticket->verifier) {
+        memcpy(ticket->verifier, verifier, verifier_length);
+        ticket->verifier_length = verifier_length;
+      }
+    }
+  }
+  return ticket;
+}
+
+void
+dcaf_add_ticket(dcaf_ticket_t *ticket) {
+  LL_PREPEND(dcaf_tickets, ticket);
+}
+
+void
+dcaf_free_ticket(dcaf_ticket_t *ticket) {
+  if (ticket) {
+    coap_free(ticket->kid);
+    coap_free(ticket->verifier);
+    dcaf_free_type(DCAF_TICKET, ticket);
+  }
+}
+
+static size_t
+dcaf_get_server_psk(const coap_session_t *session,
+                    const uint8_t *identity, size_t identity_len,
+                    uint8_t *psk, size_t max_psk_len) {
+  (void)identity;
+  (void)identity_len;
+  const coap_context_t *ctx = session->context;
+  if (ctx) {
+    dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
+    if (!t) { /* FIXME: create new ticket if possible */
+      dcaf_log(LOG_DEBUG, "no ticket found\n");
+    }
+
+    if (t && t->verifier && (t->verifier_length <= max_psk_len)) {
+      memcpy(psk, t->verifier, t->verifier_length);
+      return t->verifier_length;
+    }
+  }
+  return 0;
 }
 
 dcaf_context_t *
@@ -334,6 +393,7 @@ dcaf_new_context(const dcaf_config_t *config) {
     goto error;
   }
 
+  dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
 
   if (config && config->host) {
@@ -362,7 +422,12 @@ dcaf_new_context(const dcaf_config_t *config) {
     }
   }
 
-  /* FIXME: set am_uri from config->am_uri */
+  /* set am_uri from config->am_uri */
+  if (config && config->am_uri) {
+    dcaf_set_am_uri(dcaf_context,
+                    (const unsigned char *)config->am_uri,
+                    strlen(config->am_uri));
+  }
 
   coap_register_option(dcaf_context->coap_context, COAP_OPTION_BLOCK2);
   coap_register_response_handler(dcaf_context->coap_context,
@@ -445,11 +510,14 @@ dcaf_select_interface(dcaf_context_t *context,
   return ep;
 }
 #endif
+
 int
 dcaf_is_authorized(const coap_session_t *session,
                    coap_pdu_t *pdu) {
   if (is_secure(session)) {
     /* FIXME: retrieve and check ticket */
+    coap_log(LOG_DEBUG, "PSK identity is '%.*s':\n",
+             (int)session->psk_identity_len, (char *)session->psk_identity);
     return pdu != NULL;
   }
   return 0;
@@ -471,6 +539,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   dcaf_context_t *dcaf_context;
   uint16_t sam_key = DCAF_TYPE_SAM, nonce_key = DCAF_TYPE_NONCE;
 
+  coap_log(LOG_DEBUG, "create SAM Information\n");
   coap_ticks(&now);
   assert(session != NULL);
   assert(session->context != NULL);
@@ -481,18 +550,21 @@ dcaf_set_sam_information(const coap_session_t *session,
   }
   dcaf_context = dcaf_get_dcaf_context(session->context);
   if (!dcaf_context) {
+    coap_log(LOG_DEBUG, "DCAF_ERROR_INTERNAL_ERROR\n");
     return DCAF_ERROR_INTERNAL_ERROR;
   }
 
   /* The DCAF unauthorized response is constructed only when a proper
    * SAM URI is set. */
   if (!dcaf_context->am_uri) {
+    coap_log(LOG_DEBUG, "no SAM URI\n");
     response->code = COAP_RESPONSE_CODE(401);
     return DCAF_OK;
   }
 
   if (!coap_add_option(response, COAP_OPTION_CONTENT_TYPE,
                        coap_encode_var_bytes(buf, mediatype), buf)) {
+    coap_log(LOG_DEBUG, "DCAF_ERROR_BUFFER_TOO_SMALL\n");
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
 
@@ -505,6 +577,7 @@ dcaf_set_sam_information(const coap_session_t *session,
     nonce_key = ACE_ASINFO_NONCE;
   }
 
+  coap_log(LOG_DEBUG, "CBOR...\n");
   cn_cbor_mapput_int(map, sam_key,
                      cn_cbor_string_create(uri, NULL),
                      NULL);
@@ -526,6 +599,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   cn_cbor_free(map);
 
   if (!coap_add_data(response, length, buf)) {
+    coap_log(LOG_DEBUG, "also too small\n");
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
 
@@ -550,15 +624,86 @@ dcaf_set_error_response(const coap_session_t *session,
   return DCAF_OK;
 }
 
+/* helper function to log cn-cbor parse errors */
+static inline void
+log_parse_error(const cn_cbor_errback err) {
+  dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
+}
+
+/**
+ * Parses @p data into @p result. This function returns true on
+ * success, or false on error.
+ *
+ * @param data      The token request to parse.
+ * @param data_len  The actual size of @p data.
+ * @param result    The result object if true.
+ *
+ * @return false on parse error, true otherwise.
+ */
+static bool
+parse_token_request(const uint8_t *data,
+                    size_t data_len,
+                    dcaf_authz_t *result) {
+  cn_cbor_errback errp;
+  const cn_cbor *token_request;
+  const cn_cbor *cnf, *k, *scope;
+
+  assert(data);
+  assert(result);
+
+  token_request = cn_cbor_decode(data, data_len, &errp);
+
+  if (!token_request) {
+    log_parse_error(errp);
+    result->code = DCAF_ERROR_BAD_REQUEST;
+    return false;
+  }
+
+  cnf = cn_cbor_mapget_int(token_request, CWT_CLAIM_CNF);
+  if (!cnf) {
+    result->code = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+
+  /* check contents of cnf item */
+  if (cnf->type != CN_CBOR_MAP) {
+    dcaf_log(LOG_DEBUG, "invalid cnf value in token request\n");
+    result->code = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+    
+  k = cn_cbor_mapget_int(cnf, CWT_CNF_KID);
+  if (k) {
+    /* TODO: check if kid is allowed for this session */
+    result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+  } else {
+    /* k = cn_cbor_mapget_int(cnf, CWT_CNF_COSE_KEY); */
+    /* TODO: ECC key */
+    /* result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE; */
+    dcaf_key_t *key = dcaf_new_key(DCAF_AES_128);
+    if (!key || !dcaf_key_rnd(key)) {
+      key->length = 16;
+      dcaf_delete_key(key);
+      result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+      goto finish;
+    }
+    dcaf_log(LOG_DEBUG, "generated key:\n");
+    dcaf_debug_hexdump(key->data, key->length);
+  }
+
+  scope = cn_cbor_mapget_int(cnf, ACE_CLAIM_SCOPE);
+  if (scope) {
+  }
+
+ finish:
+  cn_cbor_free((cn_cbor *)token_request);
+  return true;
+}
+
 dcaf_authz_t *
 dcaf_parse_authz_request(const coap_session_t *session,
                          const coap_pdu_t *request) {
-  static struct dcaf_authz_t tmp;
-  static dcaf_key_t the_key = {
-    .type = DCAF_KEY_HMAC_SHA256,
-    .length = 6,
-    .data = (uint8_t *)"secret",
-  };
+  static dcaf_authz_t tmp;
   (void)session;
 
   /* check if this is the correct SAM, 
@@ -571,14 +716,38 @@ dcaf_parse_authz_request(const coap_session_t *session,
   coap_opt_t *option =
     coap_check_option((coap_pdu_t *)request, COAP_OPTION_CONTENT_FORMAT, &oi);
   coap_option_t accept;
+  uint8_t *payload = NULL;
+  size_t payload_len = 0;
   
-  tmp.mediatype = DCAF_MEDIATYPE_DCAF_CBOR;
+  tmp.mediatype = DCAF_MEDIATYPE_ACE_CBOR;
   if (option && coap_opt_parse(option, coap_opt_size(option), &accept) > 0) {
     tmp.mediatype = coap_decode_var_bytes(accept.value, accept.length);
   }
-  tmp.aif = NULL;
-  tmp.key = &the_key;
+  if ((tmp.mediatype != DCAF_MEDIATYPE_ACE_CBOR) &&
+      (tmp.mediatype != DCAF_MEDIATYPE_DCAF_CBOR)) {
+    dcaf_log(DCAF_LOG_WARNING, "unknown content format\n");
+    tmp.code = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+
+  /* retrieve payload */
+  if (!coap_get_data((coap_pdu_t *)request, &payload_len, &payload)) {
+    dcaf_log(DCAF_LOG_WARNING, "drop request with empty payload\n");
+    tmp.code = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+
+  if (!parse_token_request(payload, payload_len, &tmp)) {
+    dcaf_log(DCAF_LOG_WARNING, "unknown content format\n");
+    tmp.code = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+    /* TODO: check aud, scope, token_type */
+
+
+  tmp.code = DCAF_OK;
   tmp.lifetime = 86400;
+ finish:
   return &tmp;
 }
 
@@ -611,6 +780,13 @@ static cn_cbor *
 make_cose_key(const dcaf_key_t *key) {
   cn_cbor *map = cn_cbor_map_create(NULL);
   cn_cbor *cose_key = cn_cbor_map_create(NULL);
+
+  uint8_t iv[] = { 0x63, 0x68, 0x98, 0x99, 0x4F, 0xF0, 0xEC, 0x7B,
+                   0xFC, 0xF6, 0xD3, 0xF9, 0x5B };
+  dcaf_crypto_param_t param = {
+    .alg = DCAF_AES_128,
+    .params.aes = { key, iv, sizeof(iv), 8, 2 }
+  };
 
   cn_cbor_mapput_int(map, COSE_KEY_KTY,
                      cn_cbor_int_create(COSE_KEY_KTY_SYMMETRIC, NULL),
@@ -647,7 +823,7 @@ make_ticket_face(const dcaf_authz_t *authz) {
                        cn_cbor_string_create(uri, NULL),
                        NULL);
     if (authz->ts > 0) {
-      cn_cbor_mapput_int(map, ACE_CLAIM_IAT,
+      cn_cbor_mapput_int(map, CWT_CLAIM_IAT,
                          cn_cbor_int_create(authz->ts, NULL),
                          NULL);
     }
@@ -655,7 +831,7 @@ make_ticket_face(const dcaf_authz_t *authz) {
   }
 
   /* must encrypt ticket face if key derivation is not used */
-  if (authz->key->type == DCAF_KEY_DIRECT) {
+  if (authz->key->type == 122 /*FIXME: DCAF_KEY_DIRECT */) {
     unsigned char buf[128], out[143];
     size_t outlen = sizeof(out);
     size_t buf_len;
@@ -714,6 +890,8 @@ dcaf_set_ticket_grant(const coap_session_t *session,
 
     buf[length + 2] = DCAF_TYPE_V; /* unsigned int */
 
+    /* FIXME: */
+#if 0
     switch (authz->key->type) {
     case DCAF_KEY_HMAC_SHA256:
       /* fall through */
@@ -733,13 +911,14 @@ dcaf_set_ticket_grant(const coap_session_t *session,
       }
       break;
     }
-    case DCAF_KEY_DIRECT:
-      /* TODO: include newly generated session key */
+    case DCAF_AES_CCM_16_64_128: {
+      /* TODO */
       break;
+    }
     default:
       ;
     }
-
+#endif
     cn_cbor_free(face);
   } else if (authz->mediatype == DCAF_MEDIATYPE_ACE_CBOR) {
     cn_cbor *map = cn_cbor_map_create(NULL);
@@ -752,7 +931,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
                        cn_cbor_int_create(authz->lifetime, NULL),
                        NULL);
     cn_cbor_mapput_int(map, ACE_CLAIM_PROFILE,
-                       cn_cbor_int_create(ACE_PROFILE_COAP_DTLS, NULL),
+                       cn_cbor_int_create(ACE_PROFILE_DTLS, NULL),
                        NULL);
     cn_cbor_mapput_int(map, ACE_CLAIM_CNF, make_cose_key(authz->key), NULL);
     length = cn_cbor_encoder_write(buf, 0, sizeof(buf), map);
