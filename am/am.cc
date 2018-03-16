@@ -1,8 +1,8 @@
 /*
  * as.cc -- DCAF authorization manager
  *
- * Copyright (C) 2015-2017 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2017 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -44,7 +44,8 @@ usage( const char *program, const char *version) {
     program = ++p;
 
   fprintf( stderr, "%s v%s -- DCAF Authorization Server\n"
-           "(c) 2017 Olaf Bergmann <bergmann@tzi.org>\n\n"
+           "(c) 2015-2018 Olaf Bergmann <bergmann@tzi.org>\n\n"
+           "(c) 2015-2018 Stefanie Gerdes <gerdes@tzi.org>\n\n"
            "usage: %s [-A address] [-p port]\n\n"
            "\t-A address\tinterface address to bind to\n"
            "\t-p port\t\tlisten on specified port\n"
@@ -89,11 +90,15 @@ init_resources(coap_context_t *coap_context) {
   coap_resource_t *resource;
   const unsigned char *token = (const unsigned char *)DCAF_TOKEN_DEFAULT;
   size_t token_len = sizeof(DCAF_TOKEN_DEFAULT) - 1;
+  const char mediatypes[] = DCAF_MEDIATYPE_DCAF_CBOR_STRING " " DCAF_MEDIATYPE_ACE_CBOR_STRING;
 
   resource = coap_resource_init(token, token_len, 0);
   coap_register_handler(resource, COAP_REQUEST_POST, hnd_post_token);
-  /* FIXME: add values for supported content-formats */
-  /*   coap_add_attr(r, (unsigned char *)"ct", 2, (unsigned char *)"0", 1, 0); */
+  /* add values for supported content-formats */
+  coap_add_attr(resource, (unsigned char *)"ct", 2,
+                (unsigned char *)mediatypes,
+                sizeof(mediatypes) - 1,
+                0);
   coap_add_resource(coap_context, resource);
 }
 
