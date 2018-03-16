@@ -17,13 +17,13 @@ dcaf_set_prng(dcaf_rand_func_t rng) {
   rand_func = rng;
 }
 
-int
+bool
 dcaf_prng(uint8_t *out, size_t len) {
   if (!rand_func) {
-    return 0;
+    return false;
   }
 
   rand_func(out, len);
-  return 1;
+  return true;
 }
 
