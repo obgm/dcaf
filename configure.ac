@@ -17,6 +17,9 @@ AM_PROG_AR
 # C++
 AC_PROG_CXX
 
+# curl for retrieving unit test header
+AC_CHECK_PROG([curl],[curl],[yes])
+
 # Adding some default warning options for code QS
 # see https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
 # and http://www.gnu.org/software/automake/manual/html_node/Flag-Variables-Ordering.html
@@ -84,10 +87,27 @@ if test "x$have_libcoap" = "xyes"; then
    # FIXME: this works only with bash parameter substitution and pkg-config
    libcoap_L=`pkg-config --libs-only-L libcoap-1`
    libcoap_LIBS="-Wl,-rpath=${libcoap_L:2} $libcoap_LIBS"
+dnl   if `echo "x${libcoap_CFLAGS}" | grep -q OPENSSL` ; then
+      PKG_CHECK_MODULES([OpenSSL], [openssl])
+      libcoap_CFLAGS="$libcoap_CFLAGS $OpenSSL_CFLAGS -DCOAP_DTLS_OPENSSL"
+      libcoap_LIBS="$libcoap_LIBS $OpenSSL_LIBS"
+dnl   fi
 fi
 
-PKG_CHECK_MODULES([OpenSSL], [openssl],
-   [CPPFLAGS="${CPPFLAGS} -DBUILD_WITH_OPENSSL"])
+# __tests__
+AC_ARG_ENABLE([tests],
+              [AS_HELP_STRING([--enable-tests],
+                              [Enable building the binary testsuite [default=yes]])],
+              [build_tests="yes"],
+              [build_tests="$enableval"])
+
+if test "x$build_tests" = "xyes"; then
+   if test "x$CURL" != "xyes"; then
+      AC_MSG_ERROR([curl not found for retrieval of catch.hpp])
+   fi
+fi
+AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" != "xno"])
+
 
 AC_CONFIG_HEADERS([dcaf_config.h])
 
@@ -139,6 +159,7 @@ esac
 AC_SUBST(PLATFORM)
 
 AC_CONFIG_FILES([Makefile
+                 tests/Makefile
                  am/Makefile
                  examples/Makefile])
 AC_OUTPUT
