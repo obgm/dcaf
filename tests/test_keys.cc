@@ -21,21 +21,12 @@
  * pointers. */
 struct Deleter {
   void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
+  void operator()(dcaf_authz_t *p) { dcaf_delete_authz(p); }
 };
-
-/* Generate deterministic "random" values. This function sets out to
- * the sequence 0, 1, 2, ... len-1.
- */
-static void
-rand_func(uint8_t *out, size_t len) {
-  uint8_t n = 0;
-  while(len--) {
-    *out++ = n++;
-  }
-}
 
 SCENARIO( "DCAF key generator", "[keys]" ) {
   static std::unique_ptr<dcaf_key_t, Deleter> key;
+  static std::unique_ptr<dcaf_authz_t, Deleter> authz;
 
   GIVEN("A new DCAF AES-128 key") {
     dcaf_key_t *k = dcaf_new_key(DCAF_AES_128);
@@ -43,16 +34,35 @@ SCENARIO( "DCAF key generator", "[keys]" ) {
 
 
     WHEN("the PRNG sequence is 0, 1, 2, 3, ...") {
-      dcaf_set_prng(rand_func);
-
       THEN("dcaf_key_rnd(key) sets the key 000102030405060708090a0b0c0d0e0f") {
         uint8_t ref_key[] = {
           0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
         };
         REQUIRE(dcaf_key_rnd(key.get()));
-        REQUIRE(key.get()->length == 16);
-        REQUIRE(memcmp(key.get()->data, ref_key, key.get()->length) == 0);
+        REQUIRE(key.get()->length == sizeof(ref_key));
+        REQUIRE(memcmp(key.get()->data, ref_key, sizeof(ref_key)) == 0);
+      }
+    }
+  }
+
+  GIVEN("A new authz object") {
+    dcaf_authz_t *a = dcaf_new_authz();
+    authz.reset(a);
+
+    WHEN("the key component is NULL") {
+      REQUIRE(authz.get()->key == NULL);
+      
+      THEN("dcaf_create_verifier() creates a new random key") {
+        uint8_t ref_key[] = {
+          0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+          0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+        };
+
+        REQUIRE(dcaf_create_verifier(NULL, authz.get()) == DCAF_OK);
+        REQUIRE(authz.get()->key != NULL);
+        REQUIRE(authz.get()->key->length == sizeof(ref_key));
+        REQUIRE(memcmp(authz.get()->key->data, ref_key, sizeof(ref_key)) == 0);
       }
     }
   }
