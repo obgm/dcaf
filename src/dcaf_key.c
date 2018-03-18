@@ -22,10 +22,9 @@ dcaf_new_key(dcaf_key_type type) {
   dcaf_key_t *key = (dcaf_key_t *)dcaf_alloc_type(DCAF_KEY);
 
   if (key) {
-    memset(key, 0, sizeof(dcaf_key_t) + DCAF_MAX_KEY_SIZE);
+    memset(key, 0, sizeof(dcaf_key_t));
     /* let data point to the struct's end */
     key->type = type;
-    key->data = (uint8_t *)(key + offsetof(dcaf_key_t,data) + sizeof(key->data));
     switch(type) {
     case DCAF_NONE: break;
     case DCAF_AES_128: key->length = 16; break;
@@ -40,7 +39,7 @@ dcaf_new_key(dcaf_key_type type) {
 
 void
 dcaf_delete_key(dcaf_key_t *key) {
-  dcaf_free_type(DCAF_KEY, key); 
+  dcaf_free_type(DCAF_KEY, key);
 }
 
 bool
@@ -48,3 +47,15 @@ dcaf_key_rnd(dcaf_key_t *key) {
   return key && dcaf_prng(key->data, key->length);
 }
 
+bool
+dcaf_set_key(dcaf_key_t *key, const uint8_t *data, size_t data_len) {
+  if (key && (data_len <= DCAF_MAX_KEY_SIZE)) {
+    memset(key->data, 0, DCAF_MAX_KEY_SIZE);
+    key->length = data_len;
+    if (data_len > 0) {
+      memcpy(key->data, data, data_len);
+    }
+    return true;
+  }
+  return false;
+}
