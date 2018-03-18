@@ -16,87 +16,42 @@
 
 #include "dcaf/dcaf_int.h"
 #include "dcaf/cose.h"
+#include "dcaf/cose_int.h"
 
 #define COSE_DEBUG 1
 
-typedef struct cose_obj_t {
-  unsigned int type;
-  unsigned int flags;
-  const cn_cbor *buckets[4];
-
-  /**
-   * Scratch pad for intermediary structures. If not NULL, this
-   * buffer holds at least COSE_SCRATCHPAD_SIZE bytes.
-   */
-  uint8_t *scratch;
-} cose_obj_t;
-
-bool
-cose_encrypt0(const dcaf_crypto_param_t *params,
-              const uint8_t *message, size_t message_len,
-              const uint8_t *extaad, size_t extaad_len,
-              uint8_t *result, size_t *result_len) {
-  cn_cbor *cose = cn_cbor_array_create(NULL);
-  (void)params;
-  (void)message;
-  (void)message_len;
-  (void)extaad;
-  (void)extaad_len;
-  (void)result;
-  (void)result_len;
-  
-  if (!cose) {
-    return false;
-  }
-
-  cn_cbor_array_append(cose,
-                       cn_cbor_string_create("Encrypt0", NULL),
-                       NULL);
-
-  return true;
-}
-
-/**
- * Size of internal scratch pad structure for passing around
- * intermediary data.
- */
-#define COSE_SCRATCHPAD_LENGTH 64
-
-typedef enum cose_bucket_type {
-  COSE_PROTECTED,
-  COSE_UNPROTECTED,
-  COSE_DATA,
-  COSE_OTHER,
-} cose_bucket_type;
-
-#define COSE_OBJ_HAS_PROTECTED    (1 << COSE_PROTECTED)
-#define COSE_OBJ_HAS_UNPROTECTED  (1 << COSE_UNPROTECTED)
-#define COSE_OBJ_HAS_DATA         (1 << COSE_DATA)
-#define COSE_OBJ_HAS_OTHER        (1 << COSE_OTHER)
-
 typedef enum cose_mem_type {
   COSE_MEM_OBJ,
-  COSE_MEM_SCRATCHPAD
+  COSE_MEM_BUF,
 } cose_mem_type;
+
+static inline void *
+cose_alloc(size_t sz) {
+  return malloc(sz);
+}
+static inline void
+cose_free(void *p) {
+  free(p);
+}
 
 static void *
 cose_alloc_type(cose_mem_type type) {
   switch (type) {
-  case COSE_MEM_OBJ: return malloc(sizeof(cose_obj_t));
-  case COSE_MEM_SCRATCHPAD: return malloc(COSE_SCRATCHPAD_LENGTH);
+  case COSE_MEM_OBJ: return cose_alloc(sizeof(cose_obj_t));
+  case COSE_MEM_BUF: return NULL;
   default:
     ;
   }
   return NULL;
-}   
+}
 
 static void
 cose_free_type(cose_mem_type type, void *p) {
   (void)type;
-  free(p);
+  cose_free(p);
 }
 
-static cose_obj_t *
+cose_obj_t *
 cose_obj_new(void) {
   void *obj = cose_alloc_type(COSE_MEM_OBJ);
 
@@ -117,12 +72,13 @@ cn_cbor *get_cbor_root(const cn_cbor *p) {
 void
 cose_obj_delete(cose_obj_t *obj) {
   size_t n;
-  unsigned int flags;
 
   if (!obj) {
     return;
   }
 
+#if 0
+  unsigned int flags;
   /* Free all buckets that have the corresponding bit set in obj->flags. */
   flags = obj->flags & ((1 << sizeof(obj->buckets)/sizeof(*obj->buckets)) - 1);
   for (n = 0; flags; n++, flags >>= 1) {
@@ -130,8 +86,17 @@ cose_obj_delete(cose_obj_t *obj) {
       cn_cbor_free(get_cbor_root(obj->buckets[n]));
     }
   }
+#endif
+  /* Free all non-empty buckets. */
+  for (n = 0; n < max_buckets(obj); n++) {
+    cn_cbor_free(obj->buckets[n]);
+  }
 
-  cose_free_type(COSE_MEM_SCRATCHPAD, obj->scratch);
+  switch (obj->type) {
+  case COSE_ENCRYPT0: cose_free(obj->scratch.encrypt0.buf); break;
+  default:
+    ;
+  }
   cose_free_type(COSE_MEM_OBJ, obj);
 }
 
@@ -145,19 +110,23 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
   cose_result_t res = COSE_OK;
   cose_obj_t *obj = cose_obj_new();
   cn_cbor_errback errp;
-  const cn_cbor *cur;
-  const cn_cbor *tmp;
+  cn_cbor *cur;
+  cn_cbor *tmp;
 
   if (!obj) {
     return COSE_OUT_OF_MEMORY_ERROR;
   }
 
+  dcaf_log(DCAF_LOG_DEBUG, "input to cose_parse():\n");
+  dcaf_debug_hexdump(data, data_len);
   cur = cn_cbor_decode(data, data_len, &errp);
 
   if (!cur) {
+    dcaf_log(DCAF_LOG_DEBUG, "huh!\n");
     log_parse_error(errp);
     return COSE_PARSE_ERROR;
   }
+  dcaf_log(DCAF_LOG_DEBUG, "parse done\n");
 
   if (cur->type == CN_CBOR_TAG) {
     /* The element is tagged, therefore, we go down own step in the
@@ -214,7 +183,7 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
   obj->buckets[COSE_UNPROTECTED] = tmp;
 
   obj->buckets[COSE_DATA] = tmp->next;
-  
+
   tmp = tmp->next;
   if (tmp) {
     /* FIXME: need to check type? */
@@ -231,7 +200,7 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
 
     *result = obj;
     return COSE_OK;
-  }    
+  }
  error:
   cn_cbor_free(get_cbor_root(cur));
   cose_obj_delete(obj);
@@ -275,6 +244,211 @@ struct ccm_alg_map {
   { 0, 0, 0, 0 }                /* end marker */
 };
 
+static cose_result_t
+set_bucket(cose_obj_t *obj, unsigned int type, cn_cbor *cbor) {
+  assert(obj);
+
+  if (!cbor) {
+    return COSE_OUT_OF_MEMORY_ERROR;
+  }
+
+  obj->buckets[type] = cbor;
+  obj->flags |= type;
+  return COSE_OK;
+}
+
+static inline ssize_t
+write_type_value(unsigned int type, uint32_t value,
+                 uint8_t *buf, size_t max_len) {
+  ssize_t written = -1;
+  type <<= 5;
+  if (value < 24) {
+    if (max_len >= 1) {
+      buf[0] = type | value;
+      written = 1;
+    }
+  } else if (value < 256) {
+    if (max_len >= 2) {
+      buf[0] = type | 24;
+      buf[1] = value & 0xff;
+      written = 2;
+    }
+  } else if (value < 65536) {
+    if (max_len >= 3) {
+      buf[0] = type | 25;
+      buf[1] = (value >> 8) & 0xff;
+      buf[2] = value & 0xff;
+      written = 3;
+    }
+  }
+  return written;
+}
+
+static inline size_t
+reverse_write_type_length(unsigned int type, uint32_t length,
+                          uint8_t *buf, size_t max_len) {
+  size_t written = 0;
+
+  type <<= 5;
+  if (length < 24) {
+    if (max_len >= 1) {
+      buf[-1] = type | length;
+      written = 1;
+    }
+  } else if (length < 256) {
+    if (max_len >= 2) {
+      buf[-1] = length & 0xff;
+      buf[-2] = type | 24;
+      written = 2;
+    }
+  } else if (length < 65536) {
+    if (max_len >= 3) {
+      buf[-1] = length & 0xff;
+      buf[-2] = (length >> 8) & 0xff;
+      buf[-3] = type | 25;
+      written = 3;
+    }
+  }
+  return written;
+}
+
+cose_result_t
+cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
+              const uint8_t *external_aad, size_t external_aad_len,
+              const uint8_t *data, size_t *data_len,
+              cose_obj_t **result) {
+  cose_obj_t *obj;
+  cn_cbor *tmp;
+  cose_result_t res = COSE_OK;
+  struct ccm_alg_map *a;
+  cose_encrypt0_scratch_t *scratch = NULL;
+  assert(result);
+
+  *result = NULL;
+
+  for (a = alg_map; (a->alg > 0) && (a->alg != alg); alg++)
+    ;
+
+  if (a->alg == 0) {
+    return COSE_NOT_SUPPORTED_ERROR;
+  }
+
+  if ((obj = cose_obj_new()) == NULL) {
+    res = COSE_OUT_OF_MEMORY_ERROR;
+    goto finish;
+  }
+
+  obj->type = COSE_ENCRYPT0;
+  res = set_bucket(obj, COSE_PROTECTED, cn_cbor_map_create(NULL));
+  if (res != COSE_OK) {
+    goto finish;
+  }
+
+  tmp = cn_cbor_int_create(alg, NULL);
+  if (!tmp || !cn_cbor_mapput_int(obj->buckets[COSE_PROTECTED],
+                                  COSE_ALG, tmp, NULL)) {
+    if (tmp) cn_cbor_free(tmp);
+    res = COSE_OUT_OF_MEMORY_ERROR;
+    goto finish;
+  }
+
+  scratch = &obj->scratch.encrypt0;
+  dcaf_prng(scratch->iv, sizeof(scratch->iv));
+
+  res = set_bucket(obj, COSE_UNPROTECTED, cn_cbor_map_create(NULL));
+  if (res != COSE_OK) {
+    goto finish;
+  }
+
+  tmp = cn_cbor_data_create(scratch->iv, sizeof(scratch->iv), NULL);
+  if (!tmp || !cn_cbor_mapput_int(obj->buckets[COSE_UNPROTECTED],
+                                  COSE_IV, tmp, NULL)) {
+    if (tmp) cn_cbor_free(tmp);
+    res = COSE_OUT_OF_MEMORY_ERROR;
+    goto finish;
+  }
+
+  /* res = set_bucket(obj, COSE_DATA, cn_cbor_data_create(data, data_len, NULL)); */
+  /* if (res != COSE_OK) { */
+  /*   goto finish; */
+  /* } */
+
+  uint8_t enc_structure[64] = { /* \x83\x68Encrypt0 */
+    0x83, 0x68, 0x45, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x30
+  };
+  const size_t enc_ofs = 10;
+  ssize_t len = cn_cbor_encoder_write(enc_structure, enc_ofs,
+                                      sizeof(enc_structure),
+                                      obj->buckets[COSE_PROTECTED]);
+  if (len < 0) {
+    dcaf_log(DCAF_LOG_WARNING, "Cannot encode protected in Enc_structure\n");
+    res = COSE_OUT_OF_MEMORY_ERROR;
+    goto finish;
+  } else{
+    cn_cbor *bstr =
+      cn_cbor_data_create(enc_structure + enc_ofs, len, NULL);
+    if (!bstr) {
+      dcaf_log(DCAF_LOG_WARNING, "Cannot create bstr from protected\n");
+      res = COSE_OUT_OF_MEMORY_ERROR;
+      goto finish;
+    }
+    cn_cbor_free(bstr);
+  }
+
+  if (external_aad && (external_aad_len > 0)) {
+    len += cn_cbor_encoder_write(enc_structure, enc_ofs + len,
+                                 sizeof(enc_structure),
+                                 cn_cbor_data_create(external_aad,
+                                                     external_aad_len, NULL));
+  } else {
+    enc_structure[enc_ofs + len++] = 0x40; /* empty bstr */
+  }
+
+  dcaf_log(DCAF_LOG_DEBUG, "plaintext to encrypt is:\n");
+  dcaf_debug_hexdump(data, *data_len);
+
+  {
+    const dcaf_crypto_param_t params = {
+      a->k,
+      .params.aes = {
+        (dcaf_key_t *)key,
+        scratch->iv,
+        sizeof(scratch->iv),
+        a->m,
+        a->l
+      }
+    };
+    scratch->buflen = *data_len + params.params.aes.tag_len;
+    scratch->buf = cose_alloc(scratch->buflen);
+    if (!scratch->buf) {
+      res = COSE_OUT_OF_MEMORY_ERROR;
+      goto finish;
+    }
+
+    if (dcaf_encrypt(&params, data, *data_len,
+                     (uint8_t *)enc_structure, enc_ofs + len,
+                     scratch->buf, &scratch->buflen)) {
+      dcaf_log(DCAF_LOG_DEBUG, "encrypt successful!\n");
+      dcaf_log(DCAF_LOG_DEBUG, "result %zu bytes:\n", scratch->buflen);
+      dcaf_debug_hexdump(scratch->buf, scratch->buflen);
+
+      res = set_bucket(obj, COSE_DATA, cn_cbor_data_create(scratch->buf,
+                                                           scratch->buflen,
+                                                           NULL));
+      if (res == COSE_OK) {
+        *result = obj;
+        return COSE_OK;
+      }
+    } else {
+      res = COSE_ENCRYPT_ERROR;
+    }
+  }
+
+ finish:
+  cose_obj_delete(obj);
+  return res;
+}
+
 static bool
 setup_crypto_params(const cose_obj_t *obj,
                     dcaf_crypto_param_t *params,
@@ -288,7 +462,7 @@ setup_crypto_params(const cose_obj_t *obj,
   memset(params, 0, sizeof(dcaf_crypto_param_t));
 
   /* FIXME: check critical */
-  
+
   // AES_CCM_16_64_128
   /* Lookup alg from protected or unprotected bucket */
   cbor = from_general_headers(obj, COSE_ALG);
@@ -315,12 +489,12 @@ setup_crypto_params(const cose_obj_t *obj,
     if ((cbor->type == CN_CBOR_BYTES) || (cbor->type == CN_CBOR_TEXT)) {
       k = cb(cbor->v.str, cbor->length, COSE_MODE_DECRYPT);
     } else {
-      dcaf_log(DCAF_LOG_WARNING, "illegal type for kid parameter\n");    
+      dcaf_log(DCAF_LOG_WARNING, "illegal type for kid parameter\n");
       return false;
     }
   }
   if (!(k || (k = cb(NULL, 0, COSE_MODE_DECRYPT)))) {
-    dcaf_log(DCAF_LOG_ERR, "no key found\n");    
+    dcaf_log(DCAF_LOG_ERR, "no key found\n");
     return false;
   } else {
     params->params.aes.key = (dcaf_key_t *)k;
@@ -399,7 +573,7 @@ cose_decrypt(cose_obj_t *obj,
     *(--p) = 0x43;
     p -= 10;
     len += 11;
-    memcpy(p, "\x83\x68" "Encrypt0", 10);    
+    memcpy(p, "\x83\x68" "Encrypt0", 10);
   }
   if (external_aad && external_aad_len > 0) {
     len += cn_cbor_encoder_write(p, len, sizeof(enc_structure),
@@ -409,18 +583,18 @@ cose_decrypt(cose_obj_t *obj,
     p[len++] = 0x40; /* empty bstr */
   }
 
-  fprintf(stdout, "Enc_structure is:\n");
+  dcaf_log(DCAF_LOG_DEBUG, "Enc_structure is:\n");
   dcaf_debug_hexdump(p, len);
 
   dcaf_crypto_param_t params;
   if (!setup_crypto_params(obj, &params, cb)) {
-    fprintf(stderr, "cannot setup crypto params\n");
+    dcaf_log(DCAF_LOG_WARNING, "cannot setup crypto params\n");
     return COSE_TYPE_ERROR;
   }
 
-  fprintf(stdout, "plaintext to decrypt is:\n");
+  dcaf_log(DCAF_LOG_DEBUG, "plaintext to decrypt is:\n");
   dcaf_debug_hexdump(obj->buckets[COSE_DATA]->v.bytes, obj->buckets[COSE_DATA]->length);
-  
+
   assert(obj->buckets[COSE_DATA] != NULL);
   if (dcaf_decrypt(&params,
                    obj->buckets[COSE_DATA]->v.bytes,
@@ -438,11 +612,91 @@ cose_decrypt(cose_obj_t *obj,
   return COSE_DECRYPT_ERROR;
 }
 
+#define CBOR_MAJOR_TYPE_UINT   0
+#define CBOR_MAJOR_TYPE_INT    1
+#define CBOR_MAJOR_TYPE_BSTR   2
+#define CBOR_MAJOR_TYPE_TSTR   3
+#define CBOR_MAJOR_TYPE_ARRAY  4
+#define CBOR_MAJOR_TYPE_MAP    5
+#define CBOR_MAJOR_TYPE_TAG    6
+
+cose_result_t
+cose_serialize(const cose_obj_t *obj,
+               unsigned int flags,
+               uint8_t *out,
+               size_t *outlen) {
+  ssize_t written;
+  size_t buflen, n;
+  uint8_t *array_start;
+
+  assert(obj);
+
+  if (!obj || !out || !outlen || (*outlen == 0)) {
+    return COSE_SERIALIZE_ERROR;
+  }
+
+  /* check wr and update length of output buffer and advance begin pointer */
+#define CHECK_AND_UPDATE(wr)                                            \
+  if ((wr) < 0) {                                                       \
+    return COSE_SERIALIZE_ERROR;                                        \
+  } else {                                                              \
+    buflen -= (wr);                                                     \
+    out += (wr);                                                        \
+  }                                                                     \
+
+  buflen = *outlen;
+  if (flags & COSE_TAGGED) {
+    written = write_type_value(CBOR_MAJOR_TYPE_TAG,
+                               obj->type, out, buflen);
+    CHECK_AND_UPDATE(written);
+  }
+
+  /* Array start placeholder and update length later (we know that we
+   * have less than 24 items in our array. */
+  if (buflen <= 0)
+    return COSE_SERIALIZE_ERROR;
+
+  array_start = out;
+  out++;
+  buflen--;
+
+  /* Serialize all buckets that are not empty. The first empty bucket
+   * ends the serialization (i.e., all buckets to write must contain a
+   * cbor object). */
+  written = cn_cbor_encoder_write(out, 1, buflen, obj->buckets[COSE_PROTECTED]);
+  if (written < 0) {
+    return COSE_SERIALIZE_ERROR;
+  } else if (written >= 24) {   /* need more than one byte to encode */
+    /* FIXME: make sure that we have sufficient space left */
+    /* make space for length specification */
+    memmove(out + written, out + 1, written);
+  }
+  buflen -= written;
+  {
+    ssize_t also_written;
+    also_written = write_type_value(CBOR_MAJOR_TYPE_BSTR, written, out, buflen - 1);
+    CHECK_AND_UPDATE(also_written);
+    out += written;
+  }
+
+  for (n = 1; (n < max_buckets(obj)) && obj->buckets[n]; n++) {
+    written = cn_cbor_encoder_write(out, 0, buflen, obj->buckets[n]);
+    CHECK_AND_UPDATE(written);
+  }
+
+  /* n is the number of array items that have been output. Patch into
+   * serialized value. */
+  *array_start = (CBOR_MAJOR_TYPE_ARRAY << 5) | n;
+
+  *outlen = *outlen - buflen;
+  return COSE_OK;
+}
+
 #ifdef COSE_DEBUG
 void cose_show_object(dcaf_log_t level, const cose_obj_t *obj) {
   assert(obj);
   (void)level;
-  
+
 }
 #else /* COSE_DEBUG */
 void

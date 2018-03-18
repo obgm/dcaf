@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <cn-cbor/cn-cbor.h>
+
 #include "dcaf/dcaf_debug.h"
 #include "dcaf/cose_types.h"
 #include "dcaf/dcaf_crypto.h"
@@ -30,6 +32,8 @@ typedef enum cose_result_t {
   COSE_TYPE_ERROR,              /**< input contained an unexpected CBOR item */
   COSE_DECRYPT_ERROR,           /**< object could not be decrypted */
   COSE_NOT_SUPPORTED_ERROR,     /**< requested feature is not implemented */
+  COSE_ENCRYPT_ERROR,           /**< object could not be encrypted */
+  COSE_SERIALIZE_ERROR,         /**< object could not be serialized */
 } cose_result_t;
 
 typedef enum cose_mode_t {
@@ -65,15 +69,48 @@ void cose_obj_delete(cose_obj_t *object);
  */ 
 typedef const dcaf_key_t *(*cose_key_callback_t)(const char *, size_t, cose_mode_t mode);
 
-bool cose_encrypt0(const dcaf_crypto_param_t *params,
-                   const uint8_t *message, size_t message_len,
-                   const uint8_t *extaad, size_t extaad_len,
-                   uint8_t *result, size_t *result_len);
+cose_result_t cose_encrypt0(cose_alg_t alg,
+                            const dcaf_key_t *key,
+                            const uint8_t *external_aad,
+                            size_t external_aad_len,
+                            const uint8_t *data,
+                            size_t *data_len,
+                            cose_obj_t **result);
 
 cose_result_t cose_decrypt(cose_obj_t *obj,
                            uint8_t *external_aad, size_t external_aad_len,
                            uint8_t *data, size_t *data_len,
                            cose_key_callback_t cb);
+
+/** Flags to control cose_serialize(). */
+typedef enum {
+  COSE_UNTAGGED = 0,            /**< untagged COSE object */
+  COSE_TAGGED,                  /**< output a tagged COSE object */
+} cose_serialize_flags;
+
+/**
+ * Serializes the COSE object @p obj into the buffer provided in @p
+ * out.  The argument @p outlen must be initialized with the maximum
+ * number of bytes available in @p out. On success, this function
+ * returns COSE_OK and sets @p *outlen to the actual number of bytes
+ * that have been output. On error, @p *outlen is not changed and an
+ * error result is returned.
+ *
+ * @param obj    The COSE object to serialize.
+ * @param flags  Flags to control serialization. This function handles
+ *               the flags of type cose_serialize_flags.
+ * @param out    The output buffer that must be large enough to hold the
+ *               COSE object.
+ * @param outlen Points to the actual size of @p out on input and
+ *               will be updated on success to hold the number of bytes
+ *               that have been written into @p out.
+ *
+ * @return COSE_OK on success, or an error code otherwise.
+ */
+cose_result_t cose_serialize(const cose_obj_t *obj,
+                             unsigned int flags,
+                             uint8_t *out,
+                             size_t *outlen);
 
 /**
  * Outputs a readable representation of the COSE object @p obj
