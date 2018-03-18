@@ -10,5 +10,7 @@
 #ifndef TEST_COSE_HH_
 #define TEST_COSE_HH_
 
+#include "dcaf/cose.h"
+#include "dcaf/cose_int.h"
 
 #endif /* TEST_COSE_HH_ */

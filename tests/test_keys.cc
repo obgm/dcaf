@@ -52,7 +52,7 @@ SCENARIO( "DCAF key generator", "[keys]" ) {
 
     WHEN("the key component is NULL") {
       REQUIRE(authz.get()->key == NULL);
-      
+
       THEN("dcaf_create_verifier() creates a new random key") {
         uint8_t ref_key[] = {
           0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
