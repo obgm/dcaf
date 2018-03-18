@@ -56,7 +56,7 @@ typedef struct dcaf_key_t {
   dcaf_key_type type;
   unsigned int flags;
   size_t length;
-  uint8_t *data;
+  uint8_t data[DCAF_MAX_KEY_SIZE];
 } dcaf_key_t;
 
 typedef unsigned long dcaf_time_t;
@@ -81,6 +81,9 @@ typedef struct dcaf_ticket_t {
 
   /* FIXME: dcaf_authz_t... */
 }  dcaf_ticket_t;
+
+dcaf_authz_t *dcaf_new_authz(void);
+void dcaf_delete_authz(dcaf_authz_t *authz);
 
 #ifdef __cplusplus
 }
