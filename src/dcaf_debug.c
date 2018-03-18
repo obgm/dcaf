@@ -72,6 +72,10 @@ void
 dcaf_debug_hexdump(const void *data, size_t len) {
   const uint8_t *p = (const uint8_t *)data;
   size_t n;
+
+  if (maxlog < DCAF_LOG_DEBUG)
+    return;
+
   for (n = 0; n < len; n++, p++) {
     fprintf(stdout, "%02x", *p);
     if ((n+1) % 8 == 0) {
