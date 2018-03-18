@@ -22,6 +22,9 @@ extern "C" {
 
 #define DCAF_TOKEN_DEFAULT "token"
 
+/** Default lifetime of a DCAF access ticket in seconds. */
+#define DCAF_DEFAULT_LIFETIME       3600
+
 typedef enum {
   DCAF_OK,
   DCAF_ERROR_BUFFER_TOO_SMALL,
@@ -170,31 +173,18 @@ void dcaf_set_ticket_grant(const coap_session_t *session,
                            coap_pdu_t *response);
 
 /**
- * Creates a ticket verifier from @p face of length @p face_length
- * using the key material from @p key and the algorithm @p alg. The
- * result is placed into @p output. @p out_length is a pointer to a
- * variable that is initialized with the maximum number of bytes
- * available in @p output. On success, the number of bytes actually
- * written is stored in @p *out_length. This function returns DCAF_OK
- * on success, an error value otherwise.
+ * Creates a ticket verifier from authorization information given in
+ * @p authz.  On success, this function will set authz->key to a
+ * proper verifier.
  *
- * @param params The key material and algorithm to use.
- * @param face   The ticket face for which the verifier should be
- *               generated.
- * @param face_length The length of @p face in bytes.
- * @param output A buffer for storing the result.
- * @param out_length A pointer to a size_t variable that specifies
- *               the number of bytes available in @p output. On success,
- *               the variable pointed to by @p out_length contains
- *               the number of bytes that have actually been written
- *               to @p output.
+ * @param ctx    The current DCAF context.
+ * @param authz  The authorization information object with which
+ *               the verifier should be used.
+ *
  * @return DCAF_OK on success, an error code otherwise.
  */
-dcaf_result_t dcaf_create_verifier(const dcaf_crypto_param_t *params,
-                                   const uint8_t *face,
-                                   size_t face_length,
-                                   uint8_t *output,
-                                   size_t *out_length);
+dcaf_result_t dcaf_create_verifier(dcaf_context_t *ctx,
+                                   dcaf_authz_t *authz);
 
 #ifdef __cplusplus
 }

@@ -55,7 +55,7 @@ handle_coap_response(struct coap_context_t *coap_context,
 #if 0
   switch (t->state) {
   case DCAF_STATE_IDLE: {
-    /* FIXME: check response code, handle DCAF SAM response 
+    /* FIXME: check response code, handle DCAF SAM response
               deliver message in any other case */
     deliver = 1;
     break;
@@ -415,7 +415,7 @@ dcaf_new_context(const dcaf_config_t *config) {
                             coaps_port(config), &addr) == DCAF_OK) {
     if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
       unsigned char buf[INET6_ADDRSTRLEN + 8];
-      
+
       if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
         dcaf_log(LOG_INFO, "listen on address %s (DTLS)\n", buf);
       }
@@ -501,7 +501,7 @@ dcaf_select_interface(dcaf_context_t *context,
                       const coap_address_t *dst UNUSED,
                       int secure) {
   coap_endpoint_t *ep;
- 
+
   LL_FOREACH(context->coap_context->endpoint, ep) {
     if (!secure || is_secure(ep)) {
       break;
@@ -630,6 +630,19 @@ log_parse_error(const cn_cbor_errback err) {
   dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
 }
 
+static inline const cn_cbor *
+get_cose_key(const cn_cbor *obj) {
+  assert(obj);
+
+  obj = cn_cbor_mapget_int(obj, CWT_CNF_COSE_KEY);
+
+  if (obj && (obj->type == CN_CBOR_TAG)) {
+    return (obj->v.uint == COSE_KEY) ? obj->first_child : NULL;
+  } else {
+    return obj;
+  }
+}
+
 /**
  * Parses @p data into @p result. This function returns true on
  * success, or false on error.
@@ -671,28 +684,29 @@ parse_token_request(const uint8_t *data,
     result->code = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
-    
+
   k = cn_cbor_mapget_int(cnf, CWT_CNF_KID);
   if (k) {
     /* TODO: check if kid is allowed for this session */
     result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
   } else {
-    /* k = cn_cbor_mapget_int(cnf, CWT_CNF_COSE_KEY); */
-    /* TODO: ECC key */
-    /* result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE; */
-    dcaf_key_t *key = dcaf_new_key(DCAF_AES_128);
-    if (!key || !dcaf_key_rnd(key)) {
-      key->length = 16;
-      dcaf_delete_key(key);
-      result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
-      goto finish;
+    if ((k = get_cose_key(cnf)) != NULL) {
+      /* TODO: check if kty is ECC */
+      cn_cbor *kty = cn_cbor_mapget_int(k, COSE_KEY_KTY);
+      if (kty && kty->v.sint == COSE_KEY_KTY_SYMMETRIC) {
+        /* token requests must not contain a symmetric key */
+        dcaf_log(LOG_DEBUG, "kty=symmetric not allowed in token request\n");
+        result->code = DCAF_ERROR_BAD_REQUEST;
+      } else {
+        /* TODO: ECC key */
+        result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+      }
     }
-    dcaf_log(LOG_DEBUG, "generated key:\n");
-    dcaf_debug_hexdump(key->data, key->length);
   }
 
   scope = cn_cbor_mapget_int(cnf, ACE_CLAIM_SCOPE);
   if (scope) {
+    /* TODO: parse AIF */
   }
 
  finish:
@@ -701,12 +715,30 @@ parse_token_request(const uint8_t *data,
 }
 
 dcaf_authz_t *
+dcaf_new_authz(void) {
+  dcaf_authz_t *result = dcaf_alloc_type(DCAF_AUTHZ);
+  if (result) {
+    memset(result, 0, sizeof(dcaf_authz_t));
+  }
+  return result;
+}
+
+void
+dcaf_delete_authz(dcaf_authz_t *authz) {
+  if (authz && authz->key) {
+    dcaf_delete_key(authz->key);
+  }
+
+  dcaf_free_type(DCAF_AUTHZ, authz);
+}
+
+dcaf_authz_t *
 dcaf_parse_authz_request(const coap_session_t *session,
                          const coap_pdu_t *request) {
   static dcaf_authz_t tmp;
   (void)session;
 
-  /* check if this is the correct SAM, 
+  /* check if this is the correct SAM,
        SAM: "coaps://sam.example.com/authorize",
         SAI: ["coaps://temp451.example.com/s/tempC", 5],
         TS: 168537
@@ -718,7 +750,7 @@ dcaf_parse_authz_request(const coap_session_t *session,
   coap_option_t accept;
   uint8_t *payload = NULL;
   size_t payload_len = 0;
-  
+
   tmp.mediatype = DCAF_MEDIATYPE_ACE_CBOR;
   if (option && coap_opt_parse(option, coap_opt_size(option), &accept) > 0) {
     tmp.mediatype = coap_decode_var_bytes(accept.value, accept.length);
@@ -738,15 +770,14 @@ dcaf_parse_authz_request(const coap_session_t *session,
   }
 
   if (!parse_token_request(payload, payload_len, &tmp)) {
+    /* use result code that was set by parse_token_request() */
     dcaf_log(DCAF_LOG_WARNING, "unknown content format\n");
-    tmp.code = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
-    /* TODO: check aud, scope, token_type */
-
+  /* TODO: check aud, scope, token_type */
 
   tmp.code = DCAF_OK;
-  tmp.lifetime = 86400;
+  tmp.lifetime = DCAF_DEFAULT_LIFETIME;
  finish:
   return &tmp;
 }
@@ -754,13 +785,26 @@ dcaf_parse_authz_request(const coap_session_t *session,
 #define MAJOR_TYPE_BYTE_STRING (2 << 5)
 
 dcaf_result_t
-dcaf_create_verifier(const dcaf_crypto_param_t *params,
-                     const uint8_t *face,
-                     size_t face_length,
-                     uint8_t *output,
-                     size_t *out_length) {
-  size_t len;
+dcaf_create_verifier(dcaf_context_t *ctx, dcaf_authz_t *authz) {
+  (void)ctx;
+  assert(authz);
 
+  /* FIXME:
+   *     - check if we need to generate a new key
+   *     - support key generation, e.g. HKDF-based
+   */
+  if (authz->key == NULL) {
+    authz->key = dcaf_new_key(DCAF_AES_128);
+    if (!authz->key || !dcaf_key_rnd(authz->key)) {
+      dcaf_delete_key(authz->key);
+      return DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+    }
+    dcaf_log(LOG_DEBUG, "generated key:\n");
+    dcaf_debug_hexdump(authz->key->data, authz->key->length);
+    return DCAF_OK;
+  }
+#if 0
+  size_t len;
   if (!(out_length && (*out_length > 2))) {
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
@@ -772,29 +816,45 @@ dcaf_create_verifier(const dcaf_crypto_param_t *params,
     *out_length = len + 2;
     return DCAF_OK;
   }
+#endif
 
+  dcaf_log(LOG_DEBUG, "dcaf_create_verifier: key should have been NULL\n");
   return DCAF_ERROR_INTERNAL_ERROR;
 }
 
 static cn_cbor *
 make_cose_key(const dcaf_key_t *key) {
-  cn_cbor *map = cn_cbor_map_create(NULL);
-  cn_cbor *cose_key = cn_cbor_map_create(NULL);
+  cn_cbor *map, *cose_key;
 
-  uint8_t iv[] = { 0x63, 0x68, 0x98, 0x99, 0x4F, 0xF0, 0xEC, 0x7B,
-                   0xFC, 0xF6, 0xD3, 0xF9, 0x5B };
-  dcaf_crypto_param_t param = {
-    .alg = DCAF_AES_128,
-    .params.aes = { key, iv, sizeof(iv), 8, 2 }
-  };
+  assert(key);
+
+  if ((map = cn_cbor_map_create(NULL)) == NULL) {
+    dcaf_log(DCAF_LOG_DEBUG, "cannot create COSE key: insufficient memory\n");
+    return NULL;
+  }
 
   cn_cbor_mapput_int(map, COSE_KEY_KTY,
                      cn_cbor_int_create(COSE_KEY_KTY_SYMMETRIC, NULL),
                      NULL);
-  cn_cbor_mapput_int(map, COSE_KEY_K,
-                     cn_cbor_data_create(key->data, key->length, NULL),
-                     NULL);
-  
+
+  /* set kid or k, depending on type (TODO: may want to set both) */
+  if (key->type == DCAF_KID) {
+    cn_cbor_mapput_int(map, COSE_KEY_KID,
+                       cn_cbor_data_create(key->data, key->length, NULL),
+                       NULL);
+  } else {
+    assert(key->data);
+    cn_cbor_mapput_int(map, COSE_KEY_K,
+                       cn_cbor_data_create(key->data, key->length, NULL),
+                       NULL);
+  }
+
+  if ((cose_key = cn_cbor_map_create(NULL)) == NULL) {
+    dcaf_log(DCAF_LOG_DEBUG, "cannot create COSE key wrapper: insufficient memory\n");
+    cn_cbor_free(map);
+    return NULL;
+  }
+
   cn_cbor_mapput_int(map, CWT_COSE_KEY, cose_key, NULL);
   return map;
 }
@@ -830,35 +890,29 @@ make_ticket_face(const dcaf_authz_t *authz) {
     cn_cbor_mapput_int(map, ACE_CLAIM_CNF, make_cose_key(authz->key), NULL);
   }
 
-  /* must encrypt ticket face if key derivation is not used */
-  if (authz->key->type == 122 /*FIXME: DCAF_KEY_DIRECT */) {
+  /* encrypt ticket face*/
+  {
     unsigned char buf[128], out[143];
     size_t outlen = sizeof(out);
     size_t buf_len;
     static dcaf_key_t rs_key = {
       .length = 11,
-      .data = (uint8_t *)"RS's secret",
     };
-    unsigned char nonce[13];
-    dcaf_crypto_param_t params = {
-      .alg = DCAF_AES_128,
-      .params.aes = {
-        .key = &rs_key,
-        .nonce = nonce,
-        .nonce_len = sizeof(nonce),
-        .l = 2
-      }
-    };
-
-    memset(params.params.aes.nonce, 0, params.params.aes.nonce_len);
+    memcpy(rs_key.data, "RS's secret",rs_key.length);
 
     /* write cbor face to buf, buf_len */
-    buf_len = cn_cbor_encoder_write(buf, 2, sizeof(buf), map);
-
-    cose_encrypt0(&params, buf, buf_len, NULL, 0, out, &outlen);
-
+    buf_len = cn_cbor_encoder_write(buf, 0, sizeof(buf), map);
     cn_cbor_free(map);
-    map = cn_cbor_data_create(out, outlen, NULL);
+    map = NULL;
+
+#if 0  /* FIXME: need to create a valid COSE_Encrypt0 object */
+    if (cose_encrypt0(COSE_AES_CCM_16_64_128, &rs_key,
+                      NULL, 0, buf, &buf_len, &map) != COSE_OK) {
+      /* encrypt failed! */
+      dcaf_log(DCAF_LOG_CRIT, "cose_encrypt0: failed\n");
+      return NULL;
+    }
+#endif
   }
   return map;
 }
@@ -867,9 +921,20 @@ void
 dcaf_set_ticket_grant(const coap_session_t *session,
                       const dcaf_authz_t *authz,
                       coap_pdu_t *response) {
+  dcaf_context_t *ctx;
   unsigned char buf[128];
   size_t length = 0;
-  (void)session;
+
+  ctx = (dcaf_context_t *)coap_get_app_data(session->context);
+  assert(ctx);
+
+  if (dcaf_create_verifier(ctx, (dcaf_authz_t *)authz) != DCAF_OK) {
+    dcaf_log(DCAF_LOG_CRIT, "cannot create verifier\n");
+    response->code = COAP_RESPONSE_CODE(500);
+    coap_add_data(response, 14, (unsigned char *)"internal error");
+    return;
+  }
+
   response->code = COAP_RESPONSE_CODE(201);
   coap_add_option(response,
                   COAP_OPTION_CONTENT_TYPE,
@@ -890,7 +955,6 @@ dcaf_set_ticket_grant(const coap_session_t *session,
 
     buf[length + 2] = DCAF_TYPE_V; /* unsigned int */
 
-    /* FIXME: */
 #if 0
     switch (authz->key->type) {
     case DCAF_KEY_HMAC_SHA256:
