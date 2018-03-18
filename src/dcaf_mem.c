@@ -20,6 +20,7 @@ dcaf_alloc_type(dcaf_object_type obj) {
   switch (obj) {
   default: return NULL;
   case DCAF_CONTEXT: return coap_malloc(sizeof(dcaf_context_t));
+  case DCAF_AUTHZ: return coap_malloc(sizeof(dcaf_authz_t));
   case DCAF_TICKET: return coap_malloc(sizeof(dcaf_ticket_t));
   case DCAF_KEY: return coap_malloc(sizeof(dcaf_key_t) + DCAF_MAX_KEY_SIZE);
   }
@@ -30,6 +31,7 @@ dcaf_free_type(dcaf_object_type obj, void *p) {
   /* FIXME: use static memory allocator on non-posix systems */
   switch (obj) {
   case DCAF_CONTEXT: coap_free(p); break;
+  case DCAF_AUTHZ: coap_free(p); break;
   case DCAF_TICKET: coap_free(p); break;
   case DCAF_KEY: coap_free(p); break;
   default:
