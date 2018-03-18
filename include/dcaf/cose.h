@@ -36,6 +36,10 @@ typedef enum cose_result_t {
   COSE_SERIALIZE_ERROR,         /**< object could not be serialized */
 } cose_result_t;
 
+/**
+ * Modes for the key callback function. The function is expected to
+ * return only keys that can be used for the respective operation.
+ */
 typedef enum cose_mode_t {
   COSE_MODE_ENCRYPT,
   COSE_MODE_DECRYPT,
@@ -43,9 +47,12 @@ typedef enum cose_mode_t {
 } cose_mode_t;
 
 /**
- * Parses the given @p data as COSE structure and stores the resulting data in
- * @p *result. This function returns COSE_OK on success, or an error value otherwise.
- * An object created by cose_parse() must be deleted with cose_obj_delete().
+ * Parses the given @p data as COSE structure and stores the resulting
+ * data in @p *result. This function returns COSE_OK on success, or an
+ * error value otherwise.  An object created by cose_parse() must be
+ * deleted with cose_obj_delete().  As the components of @p *result
+ * point into @p data, the returned object becomes invalid when
+ * @p data is released or modified.
  *
  * @param data     The serialized CBOR data to parse as COSE structure.
  * @param data_len The length of @p data in bytes.
@@ -66,7 +73,7 @@ void cose_obj_delete(cose_obj_t *object);
 /**
  * Callback function to retrieve keying material to be used for the
  * operation specified by the mode parameter.
- */ 
+ */
 typedef const dcaf_key_t *(*cose_key_callback_t)(const char *, size_t, cose_mode_t mode);
 
 cose_result_t cose_encrypt0(cose_alg_t alg,
@@ -81,6 +88,39 @@ cose_result_t cose_decrypt(cose_obj_t *obj,
                            uint8_t *external_aad, size_t external_aad_len,
                            uint8_t *data, size_t *data_len,
                            cose_key_callback_t cb);
+
+typedef enum cose_bucket_type {
+  COSE_PROTECTED,
+  COSE_UNPROTECTED,
+  COSE_DATA,
+  COSE_OTHER,
+} cose_bucket_type;
+
+/**
+ * Sets the bucket of given @p type to the specified @p cbor object.
+ * This function passes the ownership of the @p cbor data to @p obj
+ * hence it will be released automatically by cose_obj_delete().
+ * If the bucket already contained another object, that object will
+ * be released. Any data that is held by @p cbor must exist as long
+ * as @p obj exists (typically for data strings or text).
+ *
+ * @param obj   The COSE object to modify.
+ * @param type  The respective bucket in @p obj to set.
+ * @param cbor  The CBOR data to put into the bucket @p type. If
+ *              @p cbor is NULL, the bucket will be cleared.
+ */
+void cose_set_bucket(cose_obj_t *obj, cose_bucket_type type, cn_cbor *cbor);
+
+/**
+ * Returns the contents of the specified @p bucket from @p obj. The
+ * ownership of the bucket's contents remains at @p obj.
+ *
+ * @param obj    The COSE object to read from.
+ * @param bucket The requested bucket type.
+ *
+ * @param The bucket's contents or NULL if empty.
+ */
+const cn_cbor *cose_get_bucket(cose_obj_t *obj, cose_bucket_type bucket);
 
 /** Flags to control cose_serialize(). */
 typedef enum {

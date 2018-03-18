@@ -71,25 +71,19 @@ cn_cbor *get_cbor_root(const cn_cbor *p) {
 
 void
 cose_obj_delete(cose_obj_t *obj) {
+  unsigned int flags;
   size_t n;
 
   if (!obj) {
     return;
   }
 
-#if 0
-  unsigned int flags;
   /* Free all buckets that have the corresponding bit set in obj->flags. */
-  flags = obj->flags & ((1 << sizeof(obj->buckets)/sizeof(*obj->buckets)) - 1);
+  flags = obj->flags & ((1 << max_buckets(obj)) - 1);
   for (n = 0; flags; n++, flags >>= 1) {
     if (flags & 0x01) {
       cn_cbor_free(get_cbor_root(obj->buckets[n]));
     }
-  }
-#endif
-  /* Free all non-empty buckets. */
-  for (n = 0; n < max_buckets(obj); n++) {
-    cn_cbor_free(obj->buckets[n]);
   }
 
   switch (obj->type) {
@@ -105,6 +99,37 @@ log_parse_error(const cn_cbor_errback err) {
   dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
 }
 
+const cn_cbor *
+cose_get_bucket(cose_obj_t *obj, cose_bucket_type type) {
+  return obj->buckets[type];
+}
+
+void
+cose_set_bucket(cose_obj_t *obj, cose_bucket_type type, cn_cbor *cbor) {
+  unsigned int flag = 1 << type;
+  assert(obj);
+
+  if (obj->buckets[type] && (obj->flags & flag)) {
+    cn_cbor_free(get_cbor_root(obj->buckets[flag]));
+  }
+  obj->buckets[type] = cbor;
+  obj->flags |= flag;
+}
+
+/* Helper function to simplify handling of newly created cbor
+ * objects. This function returns an error code if cbor is NULL, and
+ * COSE_OK otherwise.
+ */
+static inline cose_result_t
+set_bucket(cose_obj_t *obj, cose_bucket_type type, cn_cbor *cbor) {
+  if (cbor) {
+    cose_set_bucket(obj, type, cbor);
+    return COSE_OK;
+  } else {
+    return COSE_OUT_OF_MEMORY_ERROR;
+  }
+}
+
 cose_result_t
 cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
   cose_result_t res = COSE_OK;
@@ -117,16 +142,12 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
     return COSE_OUT_OF_MEMORY_ERROR;
   }
 
-  dcaf_log(DCAF_LOG_DEBUG, "input to cose_parse():\n");
-  dcaf_debug_hexdump(data, data_len);
   cur = cn_cbor_decode(data, data_len, &errp);
 
   if (!cur) {
-    dcaf_log(DCAF_LOG_DEBUG, "huh!\n");
     log_parse_error(errp);
     return COSE_PARSE_ERROR;
   }
-  dcaf_log(DCAF_LOG_DEBUG, "parse done\n");
 
   if (cur->type == CN_CBOR_TAG) {
     /* The element is tagged, therefore, we go down own step in the
@@ -140,8 +161,6 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
     res = COSE_TYPE_ERROR;
     goto error;
   }
-
-  dcaf_log(DCAF_LOG_DEBUG, "Found array with %d elements.\n", cur->length);
 
   /* The array's first element is a bstr-encoded map. We also accept
    * and empty map or nil. */
@@ -166,8 +185,8 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
       goto error;
     }
 
-    obj->flags |= COSE_OBJ_HAS_PROTECTED;
-    obj->buckets[COSE_PROTECTED] = p;
+    set_bucket(obj, COSE_PROTECTED, p);
+    /* TODO: p becomes invalid when data does not exist anymore. Copy? */
   } else {
     dcaf_log(LOG_DEBUG, "encoding of protected is wrong\n");
     res = COSE_TYPE_ERROR;
@@ -244,19 +263,6 @@ struct ccm_alg_map {
   { 0, 0, 0, 0 }                /* end marker */
 };
 
-static cose_result_t
-set_bucket(cose_obj_t *obj, unsigned int type, cn_cbor *cbor) {
-  assert(obj);
-
-  if (!cbor) {
-    return COSE_OUT_OF_MEMORY_ERROR;
-  }
-
-  obj->buckets[type] = cbor;
-  obj->flags |= type;
-  return COSE_OK;
-}
-
 static inline ssize_t
 write_type_value(unsigned int type, uint32_t value,
                  uint8_t *buf, size_t max_len) {
@@ -321,6 +327,7 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
   cn_cbor *tmp;
   cose_result_t res = COSE_OK;
   struct ccm_alg_map *a;
+  dcaf_crypto_param_t params;
   cose_encrypt0_scratch_t *scratch = NULL;
   assert(result);
 
@@ -407,41 +414,36 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
   dcaf_log(DCAF_LOG_DEBUG, "plaintext to encrypt is:\n");
   dcaf_debug_hexdump(data, *data_len);
 
-  {
-    const dcaf_crypto_param_t params = {
-      a->k,
-      .params.aes = {
-        (dcaf_key_t *)key,
-        scratch->iv,
-        sizeof(scratch->iv),
-        a->m,
-        a->l
-      }
-    };
-    scratch->buflen = *data_len + params.params.aes.tag_len;
-    scratch->buf = cose_alloc(scratch->buflen);
-    if (!scratch->buf) {
-      res = COSE_OUT_OF_MEMORY_ERROR;
-      goto finish;
-    }
+  params.alg = a->k;
+  params.params.aes.key = (dcaf_key_t *)key;
+  params.params.aes.nonce = scratch->iv;
+  params.params.aes.nonce_len = sizeof(scratch->iv);
+  params.params.aes.tag_len = a->m;
+  params.params.aes.l = a->l;
 
-    if (dcaf_encrypt(&params, data, *data_len,
-                     (uint8_t *)enc_structure, enc_ofs + len,
-                     scratch->buf, &scratch->buflen)) {
-      dcaf_log(DCAF_LOG_DEBUG, "encrypt successful!\n");
-      dcaf_log(DCAF_LOG_DEBUG, "result %zu bytes:\n", scratch->buflen);
-      dcaf_debug_hexdump(scratch->buf, scratch->buflen);
+  scratch->buflen = *data_len + params.params.aes.tag_len;
+  scratch->buf = cose_alloc(scratch->buflen);
+  if (!scratch->buf) {
+    res = COSE_OUT_OF_MEMORY_ERROR;
+    goto finish;
+  }
 
-      res = set_bucket(obj, COSE_DATA, cn_cbor_data_create(scratch->buf,
-                                                           scratch->buflen,
-                                                           NULL));
-      if (res == COSE_OK) {
-        *result = obj;
-        return COSE_OK;
-      }
-    } else {
-      res = COSE_ENCRYPT_ERROR;
+  if (dcaf_encrypt(&params, data, *data_len,
+                   (uint8_t *)enc_structure, enc_ofs + len,
+                   scratch->buf, &scratch->buflen)) {
+    dcaf_log(DCAF_LOG_DEBUG, "encrypt successful!\n");
+    dcaf_log(DCAF_LOG_DEBUG, "result %zu bytes:\n", scratch->buflen);
+    dcaf_debug_hexdump(scratch->buf, scratch->buflen);
+
+    res = set_bucket(obj, COSE_DATA, cn_cbor_data_create(scratch->buf,
+                                                         scratch->buflen,
+                                                         NULL));
+    if (res == COSE_OK) {
+      *result = obj;
+      return COSE_OK;
     }
+  } else {
+    res = COSE_ENCRYPT_ERROR;
   }
 
  finish:
@@ -547,12 +549,12 @@ cose_decrypt(cose_obj_t *obj,
   }
 
   if ((type != COSE_ENCRYPT0) && (type != COSE_ENCRYPT)) {
-    fprintf(stderr, "Cannot decrypt COSE object (wrong type)\n");
+    dcaf_log(DCAF_LOG_ERR, "Cannot decrypt COSE object (wrong type)\n");
     return COSE_TYPE_ERROR;
   }
 
   if (type == COSE_ENCRYPT) {
-    fprintf(stderr, "COSE_Encrypt is not yet supported\n");
+    dcaf_log(DCAF_LOG_WARNING, "COSE_Encrypt is not yet supported\n");
     return COSE_NOT_SUPPORTED_ERROR;
   }
 
