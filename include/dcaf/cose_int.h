@@ -39,13 +39,6 @@ max_buckets(const cose_obj_t *obj) {
   return sizeof(obj->buckets)/sizeof(obj->buckets[0]);
 }
 
-typedef enum cose_bucket_type {
-  COSE_PROTECTED,
-  COSE_UNPROTECTED,
-  COSE_DATA,
-  COSE_OTHER,
-} cose_bucket_type;
-
 #define COSE_OBJ_HAS_PROTECTED    (1 << COSE_PROTECTED)
 #define COSE_OBJ_HAS_UNPROTECTED  (1 << COSE_UNPROTECTED)
 #define COSE_OBJ_HAS_DATA         (1 << COSE_DATA)
