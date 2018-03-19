@@ -659,7 +659,7 @@ parse_token_request(const uint8_t *data,
                     dcaf_authz_t *result) {
   cn_cbor_errback errp;
   const cn_cbor *token_request;
-  const cn_cbor *cnf, *k, *scope;
+  const cn_cbor *cnf, *k, *aud, *scope;
 
   assert(data);
   assert(result);
@@ -672,41 +672,51 @@ parse_token_request(const uint8_t *data,
     return false;
   }
 
+  /* check contents of cnf item, if present */
   cnf = cn_cbor_mapget_int(token_request, CWT_CLAIM_CNF);
-  if (!cnf) {
-    result->code = DCAF_ERROR_BAD_REQUEST;
-    goto finish;
-  }
+  if (cnf) {
+    if (cnf->type != CN_CBOR_MAP) {
+      dcaf_log(LOG_DEBUG, "invalid cnf value in token request\n");
+      result->code = DCAF_ERROR_BAD_REQUEST;
+      goto finish;
+    }
 
-  /* check contents of cnf item */
-  if (cnf->type != CN_CBOR_MAP) {
-    dcaf_log(LOG_DEBUG, "invalid cnf value in token request\n");
-    result->code = DCAF_ERROR_BAD_REQUEST;
-    goto finish;
-  }
-
-  k = cn_cbor_mapget_int(cnf, CWT_CNF_KID);
-  if (k) {
-    /* TODO: check if kid is allowed for this session */
-    result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
-  } else {
-    if ((k = get_cose_key(cnf)) != NULL) {
-      /* TODO: check if kty is ECC */
-      cn_cbor *kty = cn_cbor_mapget_int(k, COSE_KEY_KTY);
-      if (kty && kty->v.sint == COSE_KEY_KTY_SYMMETRIC) {
-        /* token requests must not contain a symmetric key */
-        dcaf_log(LOG_DEBUG, "kty=symmetric not allowed in token request\n");
-        result->code = DCAF_ERROR_BAD_REQUEST;
-      } else {
-        /* TODO: ECC key */
-        result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+    k = cn_cbor_mapget_int(cnf, CWT_CNF_KID);
+    if (k) {
+      /* TODO: check if kid is allowed for this session */
+      result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+    } else {
+      if ((k = get_cose_key(cnf)) != NULL) {
+        /* TODO: check if kty is ECC */
+        cn_cbor *kty = cn_cbor_mapget_int(k, COSE_KEY_KTY);
+        if (kty && kty->v.sint == COSE_KEY_KTY_SYMMETRIC) {
+          /* token requests must not contain a symmetric key */
+          dcaf_log(LOG_DEBUG, "kty=symmetric not allowed in token request\n");
+          result->code = DCAF_ERROR_BAD_REQUEST;
+        } else {
+          /* TODO: ECC key */
+          result->code = DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
+        }
       }
     }
   }
 
-  scope = cn_cbor_mapget_int(cnf, ACE_CLAIM_SCOPE);
+  /* We need an aud parameter, otherwise it is not clear
+   * which server is to be accessed. */
+  aud = cn_cbor_mapget_int(token_request, ACE_CLAIM_AUD);
+  if (aud) {
+    /* TODO: check if we know that server, and if the request
+     * contained a kid parameter, this server has an active session
+     * that uses a key that is represented by kid.
+     */
+  }
+
+  /* We need a scope, otherwise we would not know what is
+   * requested. */
+  scope = cn_cbor_mapget_int(token_request, ACE_CLAIM_SCOPE);
   if (scope) {
     /* TODO: parse AIF */
+    result->code = DCAF_OK;
   }
 
  finish:
@@ -758,6 +768,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   if (!authz) {
     return DCAF_ERROR_OUT_OF_MEMORY;
   }
+  memset(authz, 0, sizeof(dcaf_authz_t));
 
   authz->mediatype = DCAF_MEDIATYPE_ACE_CBOR;
   option =
@@ -787,7 +798,6 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   }
   /* TODO: check aud, scope, token_type */
 
-  authz->code = DCAF_OK;
   authz->lifetime = DCAF_DEFAULT_LIFETIME;
  finish:
   *result = authz;
