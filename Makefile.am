@@ -18,7 +18,7 @@ EXTRA_DIST = \
   LICENSE \
   $(pkgconfig_DATA).in \
   tests/catch.hpp \
-  tests/test_cose.hh
+  tests/test.hh
 
 AM_CPPFLAGS = @libcoap_CFLAGS@ @cn_cbor_CFLAGS@
 

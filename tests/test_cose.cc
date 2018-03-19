@@ -15,17 +15,9 @@
 
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
-#include "test_cose.hh"
 
+#include "test.hh"
 #include "catch.hpp"
-
-/* Helper structure to simplify deletion of COSE objects in smart
- * pointers. */
-struct Deleter {
-  void operator()(cose_obj_t *p) { cose_obj_delete(p); }
-  void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
-  void operator()(cn_cbor *p) { cn_cbor_free(p); }
-};
 
 SCENARIO( "CWT Example 3.3", "[cwt]" ) {
   static std::unique_ptr<cose_obj_t, Deleter> object;

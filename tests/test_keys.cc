@@ -15,14 +15,8 @@
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_prng.h"
 
+#include "test.hh"
 #include "catch.hpp"
-
-/* Helper structure to simplify deletion of COSE objects in smart
- * pointers. */
-struct Deleter {
-  void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
-  void operator()(dcaf_authz_t *p) { dcaf_delete_authz(p); }
-};
 
 SCENARIO( "DCAF key generator", "[keys]" ) {
   static std::unique_ptr<dcaf_key_t, Deleter> key;
