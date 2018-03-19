@@ -732,12 +732,10 @@ dcaf_delete_authz(dcaf_authz_t *authz) {
   dcaf_free_type(DCAF_AUTHZ, authz);
 }
 
-dcaf_authz_t *
-dcaf_parse_authz_request(const coap_session_t *session,
-                         const coap_pdu_t *request) {
-  static dcaf_authz_t tmp;
-  (void)session;
-
+dcaf_result_t
+dcaf_parse_ticket_request(const coap_session_t *session,
+                          const coap_pdu_t *request,
+                          dcaf_authz_t **result) {
   /* check if this is the correct SAM,
        SAM: "coaps://sam.example.com/authorize",
         SAI: ["coaps://temp451.example.com/s/tempC", 5],
@@ -745,41 +743,55 @@ dcaf_parse_authz_request(const coap_session_t *session,
       }
   */
   coap_opt_iterator_t oi;
-  coap_opt_t *option =
-    coap_check_option((coap_pdu_t *)request, COAP_OPTION_CONTENT_FORMAT, &oi);
+  coap_opt_t *option;
   coap_option_t accept;
   uint8_t *payload = NULL;
   size_t payload_len = 0;
+  dcaf_authz_t *authz;
 
-  tmp.mediatype = DCAF_MEDIATYPE_ACE_CBOR;
-  if (option && coap_opt_parse(option, coap_opt_size(option), &accept) > 0) {
-    tmp.mediatype = coap_decode_var_bytes(accept.value, accept.length);
+  assert(result);
+  assert(request);
+  (void)session;
+
+  *result = NULL;
+  authz = dcaf_alloc_type(DCAF_AUTHZ);
+  if (!authz) {
+    return DCAF_ERROR_OUT_OF_MEMORY;
   }
-  if ((tmp.mediatype != DCAF_MEDIATYPE_ACE_CBOR) &&
-      (tmp.mediatype != DCAF_MEDIATYPE_DCAF_CBOR)) {
+
+  authz->mediatype = DCAF_MEDIATYPE_ACE_CBOR;
+  option =
+    coap_check_option((coap_pdu_t *)request, COAP_OPTION_CONTENT_FORMAT, &oi);
+
+  if (option && coap_opt_parse(option, coap_opt_size(option), &accept) > 0) {
+    authz->mediatype = coap_decode_var_bytes(accept.value, accept.length);
+  }
+  if ((authz->mediatype != DCAF_MEDIATYPE_ACE_CBOR) &&
+      (authz->mediatype != DCAF_MEDIATYPE_DCAF_CBOR)) {
     dcaf_log(DCAF_LOG_WARNING, "unknown content format\n");
-    tmp.code = DCAF_ERROR_BAD_REQUEST;
+    authz->code = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
   /* retrieve payload */
   if (!coap_get_data((coap_pdu_t *)request, &payload_len, &payload)) {
     dcaf_log(DCAF_LOG_WARNING, "drop request with empty payload\n");
-    tmp.code = DCAF_ERROR_BAD_REQUEST;
+    authz->code = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
-  if (!parse_token_request(payload, payload_len, &tmp)) {
+  if (!parse_token_request(payload, payload_len, authz)) {
     /* use result code that was set by parse_token_request() */
     dcaf_log(DCAF_LOG_WARNING, "unknown content format\n");
     goto finish;
   }
   /* TODO: check aud, scope, token_type */
 
-  tmp.code = DCAF_OK;
-  tmp.lifetime = DCAF_DEFAULT_LIFETIME;
+  authz->code = DCAF_OK;
+  authz->lifetime = DCAF_DEFAULT_LIFETIME;
  finish:
-  return &tmp;
+  *result = authz;
+  return DCAF_OK;
 }
 
 #define MAJOR_TYPE_BYTE_STRING (2 << 5)

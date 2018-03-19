@@ -62,6 +62,7 @@ hnd_post_token(coap_context_t *ctx,
               str *query,
               coap_pdu_t *response) {
   dcaf_authz_t *authz;
+  dcaf_result_t res;
 
   (void)ctx;
   (void)resource;
@@ -76,13 +77,14 @@ hnd_post_token(coap_context_t *ctx,
     return;
   }
 
-  authz = dcaf_parse_authz_request(session, request);
-  if (!authz) {
-    (void)dcaf_set_error_response(session, DCAF_ERROR_BAD_REQUEST, response);
+  res = dcaf_parse_ticket_request(session, request, &authz);
+  if (res != DCAF_OK) {
+    (void)dcaf_set_error_response(session, res, response);
     return;
   }
 
   dcaf_set_ticket_grant(session, authz, response);
+  dcaf_delete_authz(authz);
 }
 
 static void

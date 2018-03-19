@@ -27,6 +27,7 @@ extern "C" {
 
 typedef enum {
   DCAF_OK,
+  DCAF_ERROR_OUT_OF_MEMORY,
   DCAF_ERROR_BUFFER_TOO_SMALL,
   DCAF_ERROR_INTERNAL_ERROR,
   DCAF_ERROR_BAD_REQUEST          = 0x10,
@@ -165,8 +166,36 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
                                       dcaf_result_t error,
                                       coap_pdu_t *response);
 
-dcaf_authz_t *dcaf_parse_authz_request(const coap_session_t *session,
-                                       const coap_pdu_t *request);
+/**
+ * Parses the @p request as ticket request message into @p result.
+ * This function returns DCAF_OK if the request was successfully
+ * parsed and @p result has been updated. Otherwise, an error
+ * code is returned.
+ *
+ * @param session  The session where the @p request was received.
+ * @param request  The ticket request message.
+ * @param result   A result parameter that will be filled in with a
+ *                 pointer to a newly created dcaf_authz_t  structure
+ *                 with the authorization results in case the request
+ *                 was successfully parsed. If and only if this
+ *                 function returns DCAF_OK, @p *result will point
+ *                 to a new dcaf_authz_t object that must be released
+ *                 by dcaf_delete_authz().
+ *
+ * @return DCAF_OK on success, or an error code otherwise. The error
+ *         code can be used to construct an error response by
+ *         dcaf_set_error_response().
+ */
+dcaf_result_t dcaf_parse_ticket_request(const coap_session_t *session,
+                                        const coap_pdu_t *request,
+                                        dcaf_authz_t **result);
+
+/**
+ * Releases the memory that was allocated for @p authz.
+ *
+ * @param authz The dcaf_authz_t object to delete.
+ */
+void dcaf_delete_authz(dcaf_authz_t *authz);
 
 void dcaf_set_ticket_grant(const coap_session_t *session,
                            const dcaf_authz_t *authz,

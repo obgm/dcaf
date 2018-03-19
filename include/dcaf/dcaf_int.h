@@ -83,7 +83,6 @@ typedef struct dcaf_ticket_t {
 }  dcaf_ticket_t;
 
 dcaf_authz_t *dcaf_new_authz(void);
-void dcaf_delete_authz(dcaf_authz_t *authz);
 
 #ifdef __cplusplus
 }
