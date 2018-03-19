@@ -27,4 +27,7 @@ struct Deleter {
   void operator()(coap_pdu_t *p) { coap_delete_pdu(p); }
 };
 
+void test_log_off(void);
+void test_log_on(void);
+
 #endif /* TEST_COSE_HH_ */

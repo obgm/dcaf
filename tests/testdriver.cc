@@ -9,6 +9,7 @@
 
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
+#include "test.hh"
 
 #include "dcaf/dcaf.h"
 
@@ -23,9 +24,17 @@ rand_func(uint8_t *out, size_t len) {
   }
 }
 
+void test_log_off(void) {
+  dcaf_set_log_level(DCAF_LOG_CRIT);
+}
+
+void test_log_on(void) {
+  dcaf_set_log_level(DCAF_LOG_DEBUG);
+}
+
 int main(int argc, char* argv[]) {
 
-  dcaf_set_log_level(DCAF_LOG_DEBUG);
+  test_log_on();
   dcaf_set_prng(rand_func);
   
   int result = Catch::Session().run( argc, argv );
