@@ -869,6 +869,9 @@ make_cose_key(const dcaf_key_t *key) {
     cn_cbor_mapput_int(map, COSE_KEY_K,
                        cn_cbor_data_create(key->data, key->length, NULL),
                        NULL);
+    cn_cbor_mapput_int(map, COSE_KEY_KTY,
+                       cn_cbor_int_create(COSE_KEY_KTY_SYMMETRIC, NULL),
+                       NULL);
   }
 
   if ((cose_key = cn_cbor_map_create(NULL)) == NULL) {
@@ -957,15 +960,6 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     return;
   }
 
-  response->code = COAP_RESPONSE_CODE(201);
-  coap_add_option(response,
-                  COAP_OPTION_CONTENT_TYPE,
-                  coap_encode_var_bytes(buf, authz->mediatype), buf);
-
-  coap_add_option(response,
-                  COAP_OPTION_MAXAGE,
-                  coap_encode_var_bytes(buf, 90), buf);
-
   /* generate ticket grant depending on media type */
   if (authz->mediatype == DCAF_MEDIATYPE_DCAF_CBOR) {
     buf[0] = 0xa2; /* map(2) */
@@ -1010,9 +1004,11 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     cn_cbor *map = cn_cbor_map_create(NULL);
     cn_cbor *face = make_ticket_face(authz);
     cn_cbor_mapput_int(map, ACE_CLAIM_ACCESS_TOKEN, face, NULL);
+#ifdef ALWAYS_SEND_TOKEN_TYPE
     cn_cbor_mapput_int(map, ACE_CLAIM_TOKEN_TYPE,
                        cn_cbor_int_create(ACE_TOKEN_POP, NULL),
                        NULL);
+#endif
     cn_cbor_mapput_int(map, ACE_CLAIM_EXPIRES_IN,
                        cn_cbor_int_create(authz->lifetime, NULL),
                        NULL);
@@ -1024,7 +1020,20 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     cn_cbor_free(map);
   }
 
-  if (length > 0) {
+  if (length > 0) {  /* we have a response */
+    response->code = COAP_RESPONSE_CODE(201);
+    coap_add_option(response,
+                    COAP_OPTION_CONTENT_TYPE,
+                    coap_encode_var_bytes(buf, authz->mediatype), buf);
+
+    coap_add_option(response,
+                    COAP_OPTION_MAXAGE,
+                    coap_encode_var_bytes(buf, 90), buf);
+
     coap_add_data(response, length, buf);
+  } else { /* something went wrong, prepare error response */
+    dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
+    response->code = COAP_RESPONSE_CODE(500);
+    coap_add_data(response, 14, (unsigned char *)"internal error");
   }
 }
