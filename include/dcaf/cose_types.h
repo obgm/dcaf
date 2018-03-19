@@ -11,21 +11,31 @@
 #define _COSE_TYPES_H_ 1
 
 /* Common header parameters (see RFC 8152, Section 3.1) */
-#define COSE_ALG                  1
-#define COSE_CRIT                 2
-#define COSE_CONTENT_TYPE         3
-#define COSE_KID                  4
-#define COSE_IV                   5
-#define COSE_PARTIAL_IV           6
-#define COSE_COUNTER_SIGNATURE    7
+typedef enum {
+  COSE_ALG               = 1,
+  COSE_CRIT              = 2,
+  COSE_CONTENT_TYPE      = 3,
+  COSE_KID               = 4,
+  COSE_IV                = 5,
+  COSE_PARTIAL_IV        = 6,
+  COSE_COUNTER_SIGNATURE = 7,
+} cose_header_param;
 
-/* Key map labels */
-#define COSE_KEY_KTY_SYMMETRIC    3
-#define COSE_KEY_KTY              1
-#define COSE_KEY_KID              2
-#define COSE_KEY_ALG              3
-#define COSE_KEY_OPS              4
-#define COSE_KEY_BASE_IV          5
+/** COSE key map labels */
+typedef enum {
+  COSE_KEY_KTY           = 1,
+  COSE_KEY_KID           = 2,
+  COSE_KEY_ALG           = 3,
+  COSE_KEY_OPS           = 4,
+  COSE_KEY_BASE_IV       = 5,
+} cose_key_map_label;
+
+/** COSE key type values */
+typedef enum {
+  COSE_KEY_KTY_OKP       = 1,
+  COSE_KEY_KTY_EC2       = 2,
+  COSE_KEY_KTY_SYMMETRIC = 4,
+} cose_key_type_value;
 
 /* see https://tools.ietf.org/html/draft-ietf-ace-cwt-proof-of-possession */
 #define CWT_COSE_KEY              1
