@@ -21,7 +21,10 @@
 SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<dcaf_authz_t, Deleter> authz;
   static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu;
-  
+  static std::unique_ptr<coap_pdu_t, Deleter> coap_response;
+
+  coap_response.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
+
   GIVEN("A ticket request") {
     coap_pdu_t request;
 
@@ -41,11 +44,12 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     WHEN("The request is parsed") {
       coap_session_t session;
       dcaf_authz_t *result;
+      session.context = dcaf_get_coap_context(dcaf_context());
 
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
                              coap_data, sizeof(coap_data),
                              coap_pdu.get()) > 0);
-    
+
       THEN("the dcaf_parse_ticket_request returns DCAF_OK") {
         dcaf_result_t res;
         res = dcaf_parse_ticket_request(&session, coap_pdu.get(), &result);
@@ -56,6 +60,19 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
       }
     }
 
+    WHEN("A validated dcaf_authz_t structure is available") {
+      coap_session_t session;
+      session.context = dcaf_get_coap_context(dcaf_context());
+
+      REQUIRE(authz.get() != nullptr);
+      REQUIRE(authz.get()->code == DCAF_OK);
+
+      THEN("a ticket grant can be created") {
+        dcaf_set_ticket_grant(&session, authz.get(), coap_response.get());
+        REQUIRE(coap_response.get()->code == COAP_RESPONSE_CODE(201));
+      }
+    }
+
     WHEN("The payload is comprised of invalid CBOR") {
       coap_session_t session;
       dcaf_authz_t *result;
@@ -63,7 +80,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
                              coap_data, sizeof(coap_data) - 1,
                              coap_pdu.get()) > 0);
-    
+
       THEN("the dcaf_parse_ticket_request returns DCAF_OK") {
         dcaf_result_t res;
 

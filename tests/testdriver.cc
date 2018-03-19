@@ -13,6 +13,22 @@
 
 #include "dcaf/dcaf.h"
 
+dcaf_context_t *
+dcaf_context(void) {
+  static std::unique_ptr<dcaf_context_t, Deleter> theContext;
+  static dcaf_config_t config{"::", 7743, 7744,
+      "coaps://[::1]:20000/"};
+
+  if (theContext.get() == nullptr) {
+    test_log_off();
+    theContext.reset(dcaf_new_context(&config));
+    test_log_on();
+    assert(theContext.get() != nullptr);
+  }
+
+  return theContext.get();
+}
+
 /* Generate deterministic "random" values. This function sets out to
  * the sequence 0, 1, 2, ... len-1.
  */
@@ -33,10 +49,9 @@ void test_log_on(void) {
 }
 
 int main(int argc, char* argv[]) {
-
   test_log_on();
   dcaf_set_prng(rand_func);
-  
+
   int result = Catch::Session().run( argc, argv );
 
   return result;
