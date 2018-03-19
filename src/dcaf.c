@@ -1021,14 +1021,18 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   }
 
   if (length > 0) {  /* we have a response */
+    unsigned char optionbuf[8];
+
     response->code = COAP_RESPONSE_CODE(201);
     coap_add_option(response,
                     COAP_OPTION_CONTENT_TYPE,
-                    coap_encode_var_bytes(buf, authz->mediatype), buf);
+                    coap_encode_var_bytes(optionbuf, authz->mediatype),
+                    optionbuf);
 
     coap_add_option(response,
                     COAP_OPTION_MAXAGE,
-                    coap_encode_var_bytes(buf, 90), buf);
+                    coap_encode_var_bytes(optionbuf, 90),
+                    optionbuf);
 
     coap_add_data(response, length, buf);
   } else { /* something went wrong, prepare error response */
