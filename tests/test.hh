@@ -21,7 +21,10 @@ struct Deleter {
   void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
   void operator()(dcaf_authz_t *p) { dcaf_delete_authz(p); }
   void operator()(cose_obj_t *p) { cose_obj_delete(p); }
+
+  /* objects from external libraries used for testing */
   void operator()(cn_cbor *p) { cn_cbor_free(p); }
+  void operator()(coap_pdu_t *p) { coap_delete_pdu(p); }
 };
 
 #endif /* TEST_COSE_HH_ */
