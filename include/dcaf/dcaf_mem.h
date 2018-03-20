@@ -15,6 +15,7 @@ typedef enum dcaf_object_type {
   DCAF_AUTHZ,
   DCAF_TICKET,
   DCAF_KEY,
+  DCAF_AIF,
 } dcaf_object_type;
 
 /**

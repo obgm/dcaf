@@ -12,8 +12,6 @@
 #define _DCAF_INT_H_ 1
 
 #include <coap/coap.h>
-#include "dcaf.h"
-#include "dcaf_mem.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +19,10 @@ extern "C" {
 }
 #endif
 #endif
+
+#include "aif.h"
+#include "dcaf.h"
+#include "dcaf_mem.h"
 
 #include <cn-cbor/cn-cbor.h>
 
@@ -45,8 +47,6 @@ struct dcaf_context_t {
   int flags;
   dcaf_transaction_t *transactions;
 };
-
-typedef void *dcaf_aif_t;
 
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002

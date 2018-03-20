@@ -23,6 +23,7 @@ dcaf_alloc_type(dcaf_object_type obj) {
   case DCAF_AUTHZ: return coap_malloc(sizeof(dcaf_authz_t));
   case DCAF_TICKET: return coap_malloc(sizeof(dcaf_ticket_t));
   case DCAF_KEY: return coap_malloc(sizeof(dcaf_key_t) + DCAF_MAX_KEY_SIZE);
+  case DCAF_AIF: return coap_malloc(sizeof(dcaf_aif_t));
   }
 }
 
@@ -34,6 +35,7 @@ dcaf_free_type(dcaf_object_type obj, void *p) {
   case DCAF_AUTHZ: coap_free(p); break;
   case DCAF_TICKET: coap_free(p); break;
   case DCAF_KEY: coap_free(p); break;
+  case DCAF_AIF: coap_free(p); break;
   default:
     ;
   }

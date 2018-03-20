@@ -30,6 +30,7 @@ libdcaf_a_CFLAGS = -I @top_builddir@/include $(WARNING_CFLAGS)
 
 ## Source files comprising libdcaf.
 libdcaf_a_SOURCES = \
+   src/aif.c \
    src/cose.c \
    src/dcaf.c \
    src/dcaf_crypto_openssl.c \
@@ -46,6 +47,7 @@ libdcaf_a_SOURCES = \
 libdcaf_includedir = $(includedir)/dcaf/
 libdcaf_include_HEADERS = \
    include/dcaf/ace.h \
+   include/dcaf/aif.h \
    include/dcaf/cose.h \
    include/dcaf/cose_types.h \
    include/dcaf/dcaf.h \
