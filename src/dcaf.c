@@ -716,7 +716,8 @@ parse_token_request(const uint8_t *data,
   scope = cn_cbor_mapget_int(token_request, ACE_CLAIM_SCOPE);
   if (scope) {
     /* TODO: parse AIF */
-    result->code = DCAF_OK;
+    if (dcaf_aif_parse(scope, &result->aif))    
+      result->code = DCAF_OK;
   }
 
  finish:
@@ -868,9 +869,6 @@ make_cose_key(const dcaf_key_t *key) {
     assert(key->data);
     cn_cbor_mapput_int(map, COSE_KEY_K,
                        cn_cbor_data_create(key->data, key->length, NULL),
-                       NULL);
-    cn_cbor_mapput_int(map, COSE_KEY_KTY,
-                       cn_cbor_int_create(COSE_KEY_KTY_SYMMETRIC, NULL),
                        NULL);
   }
 
