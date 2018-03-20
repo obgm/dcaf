@@ -10,6 +10,7 @@
 #ifndef TEST_HH_
 #define TEST_HH_
 
+#include "dcaf/aif.h"
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/cose.h"
@@ -22,6 +23,7 @@ dcaf_context_t *dcaf_context(void);
 struct Deleter {
   void operator()(dcaf_context_t *p) { dcaf_free_context(p); }
 
+  void operator()(dcaf_aif_t *p) { dcaf_delete_aif(p); }
   void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
   void operator()(dcaf_authz_t *p) { dcaf_delete_authz(p); }
   void operator()(cose_obj_t *p) { cose_obj_delete(p); }
