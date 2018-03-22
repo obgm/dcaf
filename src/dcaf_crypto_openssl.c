@@ -14,6 +14,7 @@
 #include "dcaf/dcaf_crypto.h"
 #include "dcaf/dcaf_int.h"
 
+#define C(Func) if (1 != (Func)) { fprintf(stderr, "oops\n"); }
 bool
 dcaf_encrypt(const dcaf_crypto_param_t *params,
              const uint8_t *data, size_t data_len,
@@ -30,30 +31,35 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
   }
 
   /* TODO: set evp_md depending on params->alg */
-  cipher = EVP_aes_128_ccm();
   ccm = &params->params.aes;
 
   EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  cipher = EVP_aes_128_ccm();
                  
-  EVP_CIPHER_CTX_init(ctx);
-  EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL);
-  EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, ccm->tag_len, NULL);
-  EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_L, ccm->l, NULL);
-  EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, ccm->nonce_len, NULL);
-  EVP_EncryptInit_ex(ctx, NULL, NULL, NULL, ccm->nonce);
-  EVP_CIPHER_CTX_set_padding(ctx, 0);
-  EVP_EncryptInit_ex(ctx, NULL, NULL, ccm->key->data, NULL);
+  /* EVP_CIPHER_CTX_init(ctx); */
+  C(EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_L, ccm->l, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, 15 - ccm->l, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, ccm->tag_len, NULL));
+  C(EVP_EncryptInit_ex(ctx, NULL, NULL, ccm->key->data, ccm->nonce));
+  /* C(EVP_CIPHER_CTX_set_padding(ctx, 0)); */
 
+  C(EVP_EncryptUpdate(ctx, NULL, &result_len, NULL, data_len));
+  int outl = 0;
   if (aad && (aad_len > 0)) {
-    EVP_EncryptUpdate(ctx, NULL, 0, aad, aad_len);
+  dcaf_log(DCAF_LOG_DEBUG, "aad\n");
+  dcaf_debug_hexdump(aad, aad_len);
+    C(EVP_EncryptUpdate(ctx, NULL, &result_len, aad, aad_len));
   }
-  EVP_EncryptUpdate(ctx, result, &result_len, data, data_len);
-  EVP_EncryptFinal_ex(ctx, result + result_len, &tmp);
+  C(EVP_EncryptUpdate(ctx, result, &result_len, data, data_len));
+  /* C(EVP_EncryptFinal_ex(ctx, result + result_len, &tmp)); */
+  C(EVP_EncryptFinal_ex(ctx, result + result_len, &tmp));
   result_len += tmp;
 
   /* retrieve the tag */
-  EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_GET_TAG, ccm->tag_len,
-                      result + result_len);
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_GET_TAG, ccm->tag_len,
+                        result + result_len));
+
   *max_result_len = result_len + ccm->tag_len;
   EVP_CIPHER_CTX_free(ctx);
   return true;
@@ -77,8 +83,6 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
     return false;
   }
 
-  /* TODO: set evp_md depending on params->alg */
-  cipher = EVP_aes_128_ccm();
   ccm = &params->params.aes;
 
   if (data_len < ccm->tag_len) {
@@ -89,15 +93,16 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
   }
   
   EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  /* TODO: set evp_md depending on params->alg */
+  cipher = EVP_aes_128_ccm();
 
-#define C(Func) if (1 != (Func)) { fprintf(stderr, "oops\n"); } 
-  EVP_CIPHER_CTX_init(ctx);
   C(EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL));
-  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, ccm->nonce_len, NULL));
+  C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, 15 - ccm->l, NULL));
+  dcaf_debug_hexdump(tag, ccm->tag_len);
   C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, ccm->tag_len, (void *)tag));
   C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_L, ccm->l, NULL));
+  /* C(EVP_CIPHER_CTX_set_padding(ctx, 0)); */
   C(EVP_DecryptInit_ex(ctx, NULL, NULL, ccm->key->data, ccm->nonce));
-  C(EVP_CIPHER_CTX_set_padding(ctx, 0));
 
   C(EVP_DecryptUpdate(ctx, NULL, &len, NULL, data_len));
   if (aad && (aad_len > 0)) {
@@ -105,7 +110,6 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
   }
   tmp = EVP_DecryptUpdate(ctx, result, &len, data, data_len);
   if (tmp > 0) {
-    fprintf(stderr, "decrypt works so far: %d\n", tmp);
     *max_result_len = len;
   } else {
     *max_result_len = 0;
