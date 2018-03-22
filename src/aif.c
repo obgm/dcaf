@@ -10,6 +10,7 @@
 #include <ctype.h>
 
 #include <coap/utlist.h>
+#include <cn-cbor/cn-cbor.h>
 
 #include "dcaf/dcaf_int.h"
 #include "dcaf/aif.h"
@@ -48,7 +49,7 @@ get_method(const char *s, size_t len) {
 }
 
 dcaf_result_t
-dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
+dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
   dcaf_aif_t *aif;
   assert(cbor);
   assert(result);
@@ -110,10 +111,92 @@ dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
     }
   }
 
-  if (cbor->type == CN_CBOR_ARRAY) {
-    /* FIXME: process AIF array */
+  return DCAF_OK;
+}
+
+static inline bool
+odd(long n) {
+  return (n & 1) != 0;
+}
+
+dcaf_result_t
+dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
+  dcaf_aif_t *aif;
+  const cn_cbor *cp;
+  assert(cbor);
+  assert(result);
+
+  *result = NULL;   /* initialize *result */
+
+  if (cbor->type != CN_CBOR_ARRAY) {
+    return DCAF_ERROR_INVALID_AIF;
+  }
+
+  /* the number of elements in the array must be even */
+  if (odd(cbor->length)) {
+    return DCAF_ERROR_INVALID_AIF;
+  }
+
+  /* process AIF array */
+  cp = cbor->first_child;
+
+  while (cp) {
+    assert(cp->next);
+
+    if (((cp->type != CN_CBOR_TEXT) && (cp->type != CN_CBOR_BYTES))
+        || (cp->next->type != CN_CBOR_UINT)) {
+      return DCAF_ERROR_INVALID_AIF;
+    }
+
+    aif = dcaf_new_aif();
+    if (!aif) {
+      return DCAF_ERROR_OUT_OF_MEMORY;
+    }
+
+    aif->perm.resource = (uint8_t *)cp->v.bytes;
+    aif->perm.resource_len = cp->length;
+    aif->perm.methods = cp->next->v.uint;
+
+    LL_PREPEND(*result, aif);
+    cp = cp->next->next;
   }
 
   return DCAF_OK;
+}
+
+cn_cbor *
+dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
+  cn_cbor *result;
+  const dcaf_aif_t *tmp;
+
+  if (!aif || !(result = cn_cbor_array_create(NULL))) {
+    return NULL;
+  }
+
+  LL_FOREACH(aif, tmp) {
+    cn_cbor *resource, *methods;
+
+    resource = cn_cbor_data_create(aif->perm.resource,
+                                   aif->perm.resource_len,
+                                   NULL);
+    methods =  cn_cbor_int_create(aif->perm.methods, NULL);
+
+    if (!resource || !methods) {
+      dcaf_log(DCAF_LOG_DEBUG, "out of memory when creating AIF\n");
+      cn_cbor_free(resource);
+      cn_cbor_free(methods);
+      break;
+    }
+    cn_cbor_array_append(result, resource, NULL);
+    cn_cbor_array_append(result, methods, NULL);
+  }
+
+  if (result->length == 0) {
+    /* we ran out of memory during AIF creation, so just give up */
+    cn_cbor_free(result);
+    return NULL;
+  } else {
+    return result;
+  }
 }
 

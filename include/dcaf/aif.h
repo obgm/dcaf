@@ -28,6 +28,25 @@ typedef struct dcaf_aif_t {
 } dcaf_aif_t;
 
 /**
+ * Parses @p cbor string into the AIF format and returns a newly
+ * created dcaf_aif_t list representing this information on
+ * success. This function returns DCAF_OK on success or an error code
+ * on error.
+ *
+ * @param cbor   The CBOR input to parse.
+ * @param result An output parameter that will be set to a new
+ *               list of AIF structures on success, or NULL otherwise.
+ *               The memory allocated for the created dcaf_aif_t
+ *               objects must be released by dcaf_delete_aif().
+ *               As the information represented by @p result points
+ *               to @p cbor it becomes invalid when @p cbor is
+ *               released.
+ *
+ * @return       DCAF_OK on success, an error code otherwise.
+ */
+dcaf_result_t dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result);
+
+/**
  * Parses @p cbor into the AIF format and returns a newly created
  * dcaf_aif_t list representing this information on success. This
  * function returns DCAF_OK on success or an error code on error.
@@ -35,7 +54,7 @@ typedef struct dcaf_aif_t {
  * @param cbor   The CBOR input to parse.
  * @param result An output parameter that will be set to a new
  *               list of AIF structures on success, or NULL otherwise.
- *               The memory allocated for the created dcaf_aif_t 
+ *               The memory allocated for the created dcaf_aif_t
  *               objects must be released by dcaf_delete_aif().
  *               As the information represented by @p result points
  *               to @p cbor it becomes invalid when @p cbor is
@@ -45,6 +64,23 @@ typedef struct dcaf_aif_t {
  */
 dcaf_result_t dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result);
 
+/**
+ * Creates a CBOR representation of @p aif. This function returns a
+ * newly created CBOR array if at least one AIF item was created.  In
+ * case of an error, NULL is returned. The CBOR array will point into
+ * the @p aif data and thus will get invalid when @p aif ceases to
+ * exist.
+ *
+ * @param aif   The AIF object to convert into CBOR.
+ *
+ * @return A newly created CBOR array on success, or NULL on error.
+ */
+cn_cbor *dcaf_aif_to_cbor(const dcaf_aif_t *aif);
+
+/**
+ * Releases the storage for @p aif and all following elements in the
+ * list.
+ */
 void dcaf_delete_aif(dcaf_aif_t *aif);
 
 #endif /* _AIF_H_ */
