@@ -15,6 +15,7 @@
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_prng.h"
+#include "dcaf/cose.h"
 
 #include "test.hh"
 #include "catch.hpp"
@@ -41,6 +42,8 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu;
   static std::unique_ptr<coap_pdu_t, Deleter> coap_response;
   static std::unique_ptr<cn_cbor, Deleter> claim;
+  static std::unique_ptr<cose_obj_t, Deleter> object;
+  static bool coap_dtls = false;
 
   coap_response.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
 
@@ -116,23 +119,29 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         REQUIRE(profile != nullptr);
         REQUIRE(profile->type == CN_CBOR_UINT);
         REQUIRE(profile->v.uint == ACE_PROFILE_DTLS);
+        coap_dtls = true;
       }
     }
 
-    WHEN("A ticket grant was created") {
+    WHEN("A ticket grant for coap_dtls is present") {
       REQUIRE(claim.get() != nullptr);
+      REQUIRE(coap_dtls);
 
       THEN("The grant must contain a cnf claim with a symmetric key") {
         cn_cbor *cnf = cn_cbor_mapget_int(claim.get(), ACE_CLAIM_CNF);
         REQUIRE(cnf != nullptr);
         REQUIRE(cnf->type == CN_CBOR_MAP);
 
-        cn_cbor *kty = cn_cbor_mapget_int(cnf, COSE_KEY_KTY);
+        cn_cbor *cwt_key = cn_cbor_mapget_int(cnf, CWT_COSE_KEY);
+        REQUIRE(cwt_key != nullptr);
+        REQUIRE(cwt_key->type == CN_CBOR_MAP);
+
+        cn_cbor *kty = cn_cbor_mapget_int(cwt_key, COSE_KEY_KTY);
         REQUIRE(kty != nullptr);
         REQUIRE(kty->type == CN_CBOR_UINT);
         REQUIRE(kty->v.uint == COSE_KEY_KTY_SYMMETRIC);
 
-        cn_cbor *k = cn_cbor_mapget_int(cnf, COSE_KEY_K);
+        cn_cbor *k = cn_cbor_mapget_int(cwt_key, COSE_KEY_K);
         REQUIRE(k != nullptr);
         REQUIRE(k->type == CN_CBOR_BYTES);
 
@@ -142,6 +151,45 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 
         REQUIRE(k->length == sizeof(key));
         REQUIRE(memcmp(k->v.bytes, key, k->length) == 0);
+      }
+    }
+
+    WHEN("The grant contains a bstr-encoded access ticket") {
+      REQUIRE(claim.get() != nullptr);
+
+      cn_cbor *bstr = cn_cbor_mapget_int(claim.get(), ACE_CLAIM_ACCESS_TOKEN);
+      REQUIRE(bstr != nullptr);
+      REQUIRE(bstr->type == CN_CBOR_BYTES);
+
+      THEN("It must contain an encrypted COSE_Key structure") {
+        cose_obj_t *result;
+        cose_result_t res =
+          cose_parse(bstr->v.bytes, bstr->length, &result);
+        REQUIRE(res == COSE_OK);
+        REQUIRE(result != nullptr);
+        object.reset(result);
+      }
+    }
+
+    WHEN("An encrypted COSE_Key structure is contained in grant") {
+      REQUIRE(object.get() != nullptr);
+
+      /* the decrypted key must be the same as the key in the ticket face */
+      THEN("It can be decrypted with RS's key") {
+        uint8_t buf[1024];
+        size_t buflen = sizeof(buf);
+        cose_result_t res =
+          cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
+                       [](const char *, size_t, cose_mode_t) {
+                         static const dcaf_key_t key = {
+                           (dcaf_key_type)COSE_AES_CCM_16_64_128, 0,
+                           16,
+                           { 0x52, 0x53, 0x27, 0x73, 0x20, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x32, 0x33, 0x34, 0x35, 0x36 }
+                         };
+                         return &key;
+                       });
+
+        REQUIRE(res == COSE_OK);
       }
     }
 
