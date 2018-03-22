@@ -50,6 +50,7 @@ get_method(const char *s, size_t len) {
 
 dcaf_result_t
 dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
+  dcaf_result_t res = DCAF_ERROR_INVALID_AIF;
   dcaf_aif_t *aif;
   assert(cbor);
   assert(result);
@@ -72,7 +73,7 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
         dcaf_log(DCAF_LOG_DEBUG, "invalid AIF\n");
         return DCAF_ERROR_INVALID_AIF;
       }
-    
+
       /* try to parse requested method */
       for (q = p; len && isalpha(*q); len--, q++)
         ;
@@ -80,7 +81,8 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
       method = get_method(p, q - p);
       if (!method) {
         dcaf_log(DCAF_LOG_DEBUG, "invalid method in AIF\n");
-        return DCAF_ERROR_INVALID_AIF;
+        res = DCAF_ERROR_INVALID_AIF;
+        break;
       }
 
       /* skip whitespace */
@@ -93,17 +95,24 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
 
       if ((q - p) == 0) {
         dcaf_log(DCAF_LOG_DEBUG, "no resource given in AIF\n");
-        return DCAF_ERROR_INVALID_AIF;
+        res = DCAF_ERROR_INVALID_AIF;
+        break;
       }
 
       /* create dcaf_aif_t */
       aif = dcaf_new_aif();
       if (!aif) {
         dcaf_log(DCAF_LOG_DEBUG, "cannot create AIF object\n");
-        return DCAF_ERROR_OUT_OF_MEMORY;
+        res = DCAF_ERROR_OUT_OF_MEMORY;
+        break;
       }
 
-      aif->perm.resource = (uint8_t *)p;
+      if (p - q > DCAF_MAX_RESOURCE_LEN) {
+        dcaf_delete_aif(aif);
+        res = DCAF_ERROR_OUT_OF_MEMORY;
+        break;
+      }
+      memcpy(aif->perm.resource, p, q - p);
       aif->perm.resource_len = q - p;
       aif->perm.methods = method;
 
@@ -111,7 +120,9 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
     }
   }
 
-  return DCAF_OK;
+  /* If there are items in *result, we must return DCAF_OK to instruct
+   * the caller to release the allocated memory. */
+  return (*result != NULL) ? DCAF_OK : res;
 }
 
 static inline bool
@@ -121,6 +132,7 @@ odd(long n) {
 
 dcaf_result_t
 dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
+  dcaf_result_t res = DCAF_ERROR_INVALID_AIF;
   dcaf_aif_t *aif;
   const cn_cbor *cp;
   assert(cbor);
@@ -145,15 +157,21 @@ dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
 
     if (((cp->type != CN_CBOR_TEXT) && (cp->type != CN_CBOR_BYTES))
         || (cp->next->type != CN_CBOR_UINT)) {
-      return DCAF_ERROR_INVALID_AIF;
+      break;
     }
 
     aif = dcaf_new_aif();
     if (!aif) {
-      return DCAF_ERROR_OUT_OF_MEMORY;
+      res = DCAF_ERROR_OUT_OF_MEMORY;
+      break;
     }
 
-    aif->perm.resource = (uint8_t *)cp->v.bytes;
+    if (cp->length > DCAF_MAX_RESOURCE_LEN) {
+      dcaf_delete_aif(aif);
+      res = DCAF_ERROR_OUT_OF_MEMORY;
+      break;
+    }
+    memcpy(aif->perm.resource, cp->v.bytes, cp->length);
     aif->perm.resource_len = cp->length;
     aif->perm.methods = cp->next->v.uint;
 
@@ -161,7 +179,9 @@ dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
     cp = cp->next->next;
   }
 
-  return DCAF_OK;
+  /* If there are items in *result, we must return DCAF_OK to instruct
+   * the caller to release the allocated memory. */
+  return (*result != NULL) ? DCAF_OK : res;
 }
 
 cn_cbor *
@@ -175,11 +195,10 @@ dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
 
   LL_FOREACH(aif, tmp) {
     cn_cbor *resource, *methods;
-
-    resource = cn_cbor_data_create(aif->perm.resource,
-                                   aif->perm.resource_len,
+    resource = cn_cbor_data_create(tmp->perm.resource,
+                                   tmp->perm.resource_len,
                                    NULL);
-    methods =  cn_cbor_int_create(aif->perm.methods, NULL);
+    methods =  cn_cbor_int_create(tmp->perm.methods, NULL);
 
     if (!resource || !methods) {
       dcaf_log(DCAF_LOG_DEBUG, "out of memory when creating AIF\n");
@@ -187,6 +206,7 @@ dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
       cn_cbor_free(methods);
       break;
     }
+
     cn_cbor_array_append(result, resource, NULL);
     cn_cbor_array_append(result, methods, NULL);
   }
