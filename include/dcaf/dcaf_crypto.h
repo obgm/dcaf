@@ -20,8 +20,7 @@ typedef dcaf_key_type dcaf_alg_t;
 
 typedef struct dcaf_aes_ccm_t {
   dcaf_key_t *key;
-  uint8_t *nonce;
-  size_t nonce_len;
+  uint8_t *nonce;               /**< must be exactly 15 - l bytes */
   uint8_t tag_len;
   uint8_t l;
 } dcaf_aes_ccm_t;
