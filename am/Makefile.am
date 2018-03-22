@@ -13,6 +13,8 @@ AM_LDFLAGS = -L@top_builddir@
 
 bin_PROGRAMS = dcaf-am
 
+dcaf_am_DEPENDENCIES = $(top_builddir)/libdcaf.a
+
 dcaf_am_SOURCES = am.cc
 dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@
 
