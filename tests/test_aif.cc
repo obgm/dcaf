@@ -89,7 +89,7 @@ SCENARIO( "Parse cbor AIF representation", "[aif]" ) {
       }
     }
 
-    WHEN("The parse AIF is converted to CBOR") {
+    WHEN("The parsed AIF is converted to CBOR") {
       cn_cbor *c;
 
       REQUIRE(aif.get() != nullptr);
