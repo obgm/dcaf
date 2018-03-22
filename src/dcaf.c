@@ -19,6 +19,7 @@
 #include "dcaf/state.h"
 
 #include "dcaf/ace.h"
+#include "dcaf/aif.h"
 #include "dcaf/cwt.h"
 #include "dcaf/cose.h"
 
@@ -359,6 +360,9 @@ dcaf_get_server_psk(const coap_session_t *session,
   (void)identity;
   (void)identity_len;
   const coap_context_t *ctx = session->context;
+  static uint8_t key[] = { 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b };
+  memcpy(psk, key, sizeof(key));
+  return sizeof(key);
   if (ctx) {
     dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
     if (!t) { /* FIXME: create new ticket if possible */
@@ -392,6 +396,9 @@ dcaf_new_context(const dcaf_config_t *config) {
     dcaf_log(LOG_EMERG, "Cannot create new CoAP context.\n");
     goto error;
   }
+  static uint8_t key[] = "secretPSK";
+  size_t key_len = sizeof( key ) - 1;
+  coap_context_set_psk(dcaf_context->coap_context, "CoAP", key, key_len);
 
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
@@ -716,7 +723,7 @@ parse_token_request(const uint8_t *data,
   scope = cn_cbor_mapget_int(token_request, ACE_CLAIM_SCOPE);
   if (scope) {
     /* TODO: parse AIF */
-    if (dcaf_aif_parse(scope, &result->aif))    
+    if (dcaf_aif_parse(scope, &result->aif))
       result->code = DCAF_OK;
   }
 
@@ -855,28 +862,27 @@ make_cose_key(const dcaf_key_t *key) {
     dcaf_log(DCAF_LOG_DEBUG, "cannot create COSE key: insufficient memory\n");
     return NULL;
   }
-
-  cn_cbor_mapput_int(map, COSE_KEY_KTY,
-                     cn_cbor_int_create(COSE_KEY_KTY_SYMMETRIC, NULL),
-                     NULL);
-
-  /* set kid or k, depending on type (TODO: may want to set both) */
-  if (key->type == DCAF_KID) {
-    cn_cbor_mapput_int(map, COSE_KEY_KID,
-                       cn_cbor_data_create(key->data, key->length, NULL),
-                       NULL);
-  } else {
-    assert(key->data);
-    cn_cbor_mapput_int(map, COSE_KEY_K,
-                       cn_cbor_data_create(key->data, key->length, NULL),
-                       NULL);
-  }
-
   if ((cose_key = cn_cbor_map_create(NULL)) == NULL) {
     dcaf_log(DCAF_LOG_DEBUG, "cannot create COSE key wrapper: insufficient memory\n");
     cn_cbor_free(map);
     return NULL;
   }
+
+  cn_cbor_mapput_int(cose_key, COSE_KEY_KTY,
+                     cn_cbor_int_create(COSE_KEY_KTY_SYMMETRIC, NULL),
+                     NULL);
+
+  /* set kid or k, depending on type (TODO: may want to set both) */
+  /* if (key->type == DCAF_KID) { */
+  /*   cn_cbor_mapput_int(map, COSE_KEY_KID, */
+  /*                      cn_cbor_data_create(key->data, key->length, NULL), */
+  /*                      NULL); */
+  /* } else { */
+    assert(key->data);
+    cn_cbor_mapput_int(cose_key, COSE_KEY_K,
+                       cn_cbor_data_create(key->data, key->length, NULL),
+                       NULL);
+  /* } */
 
   cn_cbor_mapput_int(map, CWT_COSE_KEY, cose_key, NULL);
   return map;
@@ -884,17 +890,19 @@ make_cose_key(const dcaf_key_t *key) {
 
 static cn_cbor *
 make_ticket_face(const dcaf_authz_t *authz) {
-  const char uri[] = "/s/tempC";
   cn_cbor *map = cn_cbor_map_create(NULL);
+  cn_cbor *aif;
 
   assert(authz != NULL);
 
+  aif = dcaf_aif_to_cbor(authz->aif);
+  if (!aif) {
+    return NULL;
+  }
+
   if (is_dcaf(authz->mediatype)) { /* DCAF_MEDIATYPE_DCAF_CBOR */
-    cn_cbor *sai = cn_cbor_array_create(NULL);
-    cn_cbor_array_append(sai, cn_cbor_string_create(uri, NULL), NULL);
-    cn_cbor_array_append(sai, cn_cbor_int_create(7, NULL), NULL);
     /* TODO: TS */
-    cn_cbor_mapput_int(map, DCAF_TYPE_SAI, sai, NULL);
+    cn_cbor_mapput_int(map, DCAF_TYPE_SAI, aif, NULL);
     cn_cbor_mapput_int(map, DCAF_TYPE_L,
                        cn_cbor_int_create(authz->lifetime, NULL),
                        NULL);
@@ -902,9 +910,7 @@ make_ticket_face(const dcaf_authz_t *authz) {
                        cn_cbor_int_create(authz->key->type, NULL),
                        NULL);
   } else {
-    cn_cbor_mapput_int(map, ACE_CLAIM_SCOPE,
-                       cn_cbor_string_create(uri, NULL),
-                       NULL);
+    cn_cbor_mapput_int(map, ACE_CLAIM_SCOPE, aif, NULL);
     if (authz->ts > 0) {
       cn_cbor_mapput_int(map, CWT_CLAIM_IAT,
                          cn_cbor_int_create(authz->ts, NULL),
@@ -915,27 +921,45 @@ make_ticket_face(const dcaf_authz_t *authz) {
 
   /* encrypt ticket face*/
   {
+    cose_obj_t *cose;
     unsigned char buf[128], out[143];
     size_t outlen = sizeof(out);
     size_t buf_len;
+    cn_cbor *encrypted, *cnf;
     static dcaf_key_t rs_key = {
       .length = 11,
     };
-    memcpy(rs_key.data, "RS's secret",rs_key.length);
+    memset(&rs_key, 0, sizeof(dcaf_key_t));
+    rs_key.length = 16;
+    memcpy(rs_key.data, "RS's secret23456",rs_key.length);
 
     /* write cbor face to buf, buf_len */
     buf_len = cn_cbor_encoder_write(buf, 0, sizeof(buf), map);
     cn_cbor_free(map);
     map = NULL;
 
-#if 0  /* FIXME: need to create a valid COSE_Encrypt0 object */
+    /* create a valid COSE_Encrypt0 object */
     if (cose_encrypt0(COSE_AES_CCM_16_64_128, &rs_key,
-                      NULL, 0, buf, &buf_len, &map) != COSE_OK) {
-      /* encrypt failed! */
+                      NULL, 0, buf, &buf_len, &cose) != COSE_OK) {
+    /* encrypt failed! */
       dcaf_log(DCAF_LOG_CRIT, "cose_encrypt0: failed\n");
       return NULL;
     }
-#endif
+
+    assert(cose != NULL);
+
+    /** FIXME: need to have a local copy of the serialized bytes */
+    static uint8_t data[256];
+    size_t length = sizeof(data);
+
+    if (cose_serialize(cose, COSE_UNTAGGED, data, &length) != COSE_OK) {
+      dcaf_log(DCAF_LOG_CRIT, "failed to serialize ticket face\n");
+      cose_obj_delete(cose);
+      return NULL;
+    }
+
+    cose_obj_delete(cose);
+    return cn_cbor_data_create(data, length, NULL);
   }
   return map;
 }
@@ -1013,7 +1037,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     cn_cbor_mapput_int(map, ACE_CLAIM_PROFILE,
                        cn_cbor_int_create(ACE_PROFILE_DTLS, NULL),
                        NULL);
-    cn_cbor_mapput_int(map, ACE_CLAIM_CNF, make_cose_key(authz->key), NULL);
+    cn_cbor_mapput_int(map, ACE_CLAIM_CNF,  make_cose_key(authz->key), NULL);
     length = cn_cbor_encoder_write(buf, 0, sizeof(buf), map);
     cn_cbor_free(map);
   }
@@ -1033,6 +1057,8 @@ dcaf_set_ticket_grant(const coap_session_t *session,
                     optionbuf);
 
     coap_add_data(response, length, buf);
+    dcaf_log(DCAF_LOG_INFO, "ticket grant is \n");
+    dcaf_debug_hexdump(buf, length);
   } else { /* something went wrong, prepare error response */
     dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
     response->code = COAP_RESPONSE_CODE(500);
