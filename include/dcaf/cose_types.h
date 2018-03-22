@@ -42,7 +42,7 @@ typedef enum {
 #define CWT_ENCRYPTED_COSE_KEY    2
 #define CWT_KID                   3
 
-#define COSE_KEY_K    3
+#define COSE_KEY_K    -1
 
 #define COSE_ALG_HS256  3
 
