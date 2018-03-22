@@ -21,6 +21,7 @@ noinst_PROGRAMS = \
 testdriver_SOURCES = \
  testdriver.cc \
  test_aif.cc  \
+ test_crypto.cc  \
  test_cose.cc  \
  test_keys.cc  \
  test_ticket.cc
