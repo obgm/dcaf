@@ -201,6 +201,13 @@ void dcaf_set_ticket_grant(const coap_session_t *session,
                            const dcaf_authz_t *authz,
                            coap_pdu_t *response);
 
+struct dcaf_ticket_t;
+typedef struct dcaf_ticket_t dcaf_ticket_t;
+
+dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
+                               const uint8_t *verifier, size_t verifier_length);
+void dcaf_add_ticket(dcaf_ticket_t *ticket);
+
 /**
  * Creates a ticket verifier from authorization information given in
  * @p authz.  On success, this function will set authz->key to a

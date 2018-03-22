@@ -358,12 +358,7 @@ static size_t
 dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
                     uint8_t *psk, size_t max_psk_len) {
-  (void)identity;
-  (void)identity_len;
   const coap_context_t *ctx = session->context;
-  static uint8_t key[] = { 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b };
-  memcpy(psk, key, sizeof(key));
-  return sizeof(key);
   if (ctx) {
     dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
     if (!t) { /* FIXME: create new ticket if possible */
@@ -397,8 +392,9 @@ dcaf_new_context(const dcaf_config_t *config) {
     dcaf_log(LOG_EMERG, "Cannot create new CoAP context.\n");
     goto error;
   }
+
   static uint8_t key[] = "secretPSK";
-  size_t key_len = sizeof( key ) - 1;
+  size_t key_len = sizeof(key) - 1;
   coap_context_set_psk(dcaf_context->coap_context, "CoAP", key, key_len);
 
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
