@@ -318,6 +318,20 @@ reverse_write_type_length(unsigned int type, uint32_t length,
   return written;
 }
 
+static inline int
+nonce_len(const dcaf_crypto_param_t *params) {
+  assert(params);
+  return 15 - params->params.aes.l;
+}
+
+#define CBOR_MAJOR_TYPE_UINT   0
+#define CBOR_MAJOR_TYPE_INT    1
+#define CBOR_MAJOR_TYPE_BSTR   2
+#define CBOR_MAJOR_TYPE_TSTR   3
+#define CBOR_MAJOR_TYPE_ARRAY  4
+#define CBOR_MAJOR_TYPE_MAP    5
+#define CBOR_MAJOR_TYPE_TAG    6
+
 cose_result_t
 cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
               const uint8_t *external_aad, size_t external_aad_len,
@@ -360,14 +374,20 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
   }
 
   scratch = &obj->scratch.encrypt0;
-  dcaf_prng(scratch->iv, sizeof(scratch->iv));
+  params.alg = a->k;
+  params.params.aes.key = (dcaf_key_t *)key;
+  params.params.aes.tag_len = a->m;
+  params.params.aes.l = a->l;
+  params.params.aes.nonce = scratch->iv;
+
+  dcaf_prng(params.params.aes.nonce, nonce_len(&params));
 
   res = set_bucket(obj, COSE_UNPROTECTED, cn_cbor_map_create(NULL));
   if (res != COSE_OK) {
     goto finish;
   }
 
-  tmp = cn_cbor_data_create(scratch->iv, sizeof(scratch->iv), NULL);
+  tmp = cn_cbor_data_create(scratch->iv, nonce_len(&params), NULL);
   if (!tmp || !cn_cbor_mapput_int(obj->buckets[COSE_UNPROTECTED],
                                   COSE_IV, tmp, NULL)) {
     if (tmp) cn_cbor_free(tmp);
@@ -384,22 +404,44 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
     0x83, 0x68, 0x45, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x30
   };
   const size_t enc_ofs = 10;
-  ssize_t len = cn_cbor_encoder_write(enc_structure, enc_ofs,
-                                      sizeof(enc_structure),
-                                      obj->buckets[COSE_PROTECTED]);
+  ssize_t len = cn_cbor_encoder_write(enc_structure, enc_ofs + 1,
+                              sizeof(enc_structure),
+                              obj->buckets[COSE_PROTECTED]);
   if (len < 0) {
     dcaf_log(DCAF_LOG_WARNING, "Cannot encode protected in Enc_structure\n");
     res = COSE_OUT_OF_MEMORY_ERROR;
     goto finish;
-  } else{
-    cn_cbor *bstr =
-      cn_cbor_data_create(enc_structure + enc_ofs, len, NULL);
-    if (!bstr) {
-      dcaf_log(DCAF_LOG_WARNING, "Cannot create bstr from protected\n");
-      res = COSE_OUT_OF_MEMORY_ERROR;
+  } /* else{ */
+    /* cn_cbor *bstr = */
+    /*   cn_cbor_data_create(enc_structure + enc_ofs, len, NULL); */
+    /* if (!bstr) { */
+    /*   dcaf_log(DCAF_LOG_WARNING, "Cannot create bstr from protected\n"); */
+    /*   res = COSE_OUT_OF_MEMORY_ERROR; */
+    /*   goto finish; */
+    /* } */
+    /* cn_cbor_free(bstr); */
+  /* } */
+  /* Serialize all buckets that are not empty. The first empty bucket
+   * ends the serialization (i.e., all buckets to write must contain a
+   * cbor object). */
+  else if (len >= 24) {   /* need more than one byte to encode */
+    /* FIXME: make sure that we have sufficient space left */
+    /* make space for length specification */
+    uint8_t buf[9];
+    ssize_t also_written;
+    also_written = write_type_value(CBOR_MAJOR_TYPE_BSTR, len,
+                                    buf, sizeof(buf));
+    if (also_written < 0) {
+      res = COSE_SERIALIZE_ERROR;
       goto finish;
     }
-    cn_cbor_free(bstr);
+    memmove(enc_structure + enc_ofs + also_written,
+            enc_structure + enc_ofs + 1, len);
+    memcpy(enc_structure + enc_ofs, buf, also_written);
+    len += also_written;
+  } else {
+    enc_structure[enc_ofs] = (CBOR_MAJOR_TYPE_BSTR << 5) | len;
+    len++;
   }
 
   if (external_aad && (external_aad_len > 0)) {
@@ -411,15 +453,11 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
     enc_structure[enc_ofs + len++] = 0x40; /* empty bstr */
   }
 
-  dcaf_log(DCAF_LOG_DEBUG, "plaintext to encrypt is:\n");
-  dcaf_debug_hexdump(data, *data_len);
+  dcaf_log(DCAF_LOG_DEBUG, "cose_encrypt0: Enc_structure is:\n");
+  dcaf_debug_hexdump(enc_structure, enc_ofs + len);
 
-  params.alg = a->k;
-  params.params.aes.key = (dcaf_key_t *)key;
-  params.params.aes.nonce = scratch->iv;
-  params.params.aes.nonce_len = sizeof(scratch->iv);
-  params.params.aes.tag_len = a->m;
-  params.params.aes.l = a->l;
+  dcaf_log(DCAF_LOG_DEBUG, "cose_encrypt0: plaintext to encrypt is:\n");
+  dcaf_debug_hexdump(data, *data_len);
 
   scratch->buflen = *data_len + params.params.aes.tag_len;
   scratch->buf = cose_alloc(scratch->buflen);
@@ -427,6 +465,16 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
     res = COSE_OUT_OF_MEMORY_ERROR;
     goto finish;
   }
+
+  dcaf_log(DCAF_LOG_DEBUG, "cose_encrypt0: alg: %u\n", params.alg);
+  dcaf_log(DCAF_LOG_DEBUG, "cose_encrypt0: CEK is:\n");
+  dcaf_debug_hexdump(params.params.aes.key->data, 16);
+  dcaf_log(DCAF_LOG_DEBUG, "cose_encrypt0: IV is:\n");
+  dcaf_debug_hexdump(params.params.aes.nonce, nonce_len(&params));
+
+  dcaf_log(DCAF_LOG_DEBUG, "cose_encrypt0: M: %u, L: %u\n",
+           params.params.aes.tag_len,
+           params.params.aes.l);
 
   if (dcaf_encrypt(&params, data, *data_len,
                    (uint8_t *)enc_structure, enc_ofs + len,
@@ -505,11 +553,11 @@ setup_crypto_params(const cose_obj_t *obj,
   /* Lookup iv parameter from protected or unprotected bucket */
   cbor = from_general_headers(obj, COSE_IV);
   if (cbor) {
-    if (cbor->type == CN_CBOR_BYTES) {
-      params->params.aes.nonce_len = cbor->length;
+    if ((cbor->type == CN_CBOR_BYTES) &&
+        (cbor->length == nonce_len(params))) {
       params->params.aes.nonce = (uint8_t *)cbor->v.bytes;
-    } else if (cbor->type == CN_CBOR_TEXT) {
-      params->params.aes.nonce_len = cbor->length;
+    } else if ((cbor->type == CN_CBOR_TEXT) &&
+               (cbor->length == nonce_len(params))) {
       params->params.aes.nonce = (uint8_t *)cbor->v.str;
     } else {                    /* all other types */
       return false;
@@ -517,11 +565,16 @@ setup_crypto_params(const cose_obj_t *obj,
   }
 
   if (DCAF_LOG_DEBUG <= dcaf_get_log_level()) {
-    dcaf_log(DCAF_LOG_DEBUG, "CEK is:\n");
-    dcaf_debug_hexdump(k->data, k->length);
+    dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: alg: %u\n", params->alg);
+    dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: CEK is:\n");
+    dcaf_debug_hexdump(params->params.aes.key->data, 16);
 
-    dcaf_log(DCAF_LOG_DEBUG, "IV is:\n");
-    dcaf_debug_hexdump(params->params.aes.nonce, params->params.aes.nonce_len);
+    dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: IV is:\n");
+    dcaf_debug_hexdump(params->params.aes.nonce, nonce_len(params));
+
+    dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: M: %u, L: %u\n",
+           params->params.aes.tag_len,
+           params->params.aes.l);
   }
 
   return true;
@@ -585,16 +638,16 @@ cose_decrypt(cose_obj_t *obj,
     p[len++] = 0x40; /* empty bstr */
   }
 
-  dcaf_log(DCAF_LOG_DEBUG, "Enc_structure is:\n");
+  dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: Enc_structure is:\n");
   dcaf_debug_hexdump(p, len);
 
   dcaf_crypto_param_t params;
   if (!setup_crypto_params(obj, &params, cb)) {
-    dcaf_log(DCAF_LOG_WARNING, "cannot setup crypto params\n");
+    dcaf_log(DCAF_LOG_WARNING, "cose_decrypt: cannot setup crypto params\n");
     return COSE_TYPE_ERROR;
   }
 
-  dcaf_log(DCAF_LOG_DEBUG, "plaintext to decrypt is:\n");
+  dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: plaintext to decrypt is:\n");
   dcaf_debug_hexdump(obj->buckets[COSE_DATA]->v.bytes, obj->buckets[COSE_DATA]->length);
 
   assert(obj->buckets[COSE_DATA] != NULL);
@@ -613,14 +666,6 @@ cose_decrypt(cose_obj_t *obj,
   fprintf(stderr, "decrypt failed\n");
   return COSE_DECRYPT_ERROR;
 }
-
-#define CBOR_MAJOR_TYPE_UINT   0
-#define CBOR_MAJOR_TYPE_INT    1
-#define CBOR_MAJOR_TYPE_BSTR   2
-#define CBOR_MAJOR_TYPE_TSTR   3
-#define CBOR_MAJOR_TYPE_ARRAY  4
-#define CBOR_MAJOR_TYPE_MAP    5
-#define CBOR_MAJOR_TYPE_TAG    6
 
 cose_result_t
 cose_serialize(const cose_obj_t *obj,
