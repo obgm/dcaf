@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include <cn-cbor/cn-cbor.h>
 
@@ -743,8 +744,9 @@ dcaf_new_authz(void) {
 
 void
 dcaf_delete_authz(dcaf_authz_t *authz) {
-  if (authz && authz->key) {
+  if (authz) {
     dcaf_delete_key(authz->key);
+    dcaf_delete_aif(authz->aif);
   }
 
   dcaf_free_type(DCAF_AUTHZ, authz);
@@ -827,6 +829,7 @@ dcaf_create_verifier(dcaf_context_t *ctx, dcaf_authz_t *authz) {
     authz->key = dcaf_new_key(DCAF_AES_128);
     if (!authz->key || !dcaf_key_rnd(authz->key)) {
       dcaf_delete_key(authz->key);
+      authz->key = NULL;
       return DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
     }
     dcaf_log(LOG_DEBUG, "generated key:\n");
@@ -896,7 +899,9 @@ make_ticket_face(const dcaf_authz_t *authz) {
   assert(authz != NULL);
 
   aif = dcaf_aif_to_cbor(authz->aif);
-  if (!aif) {
+  if (!aif || !map) {
+    cn_cbor_free(map);
+    cn_cbor_free(aif);
     return NULL;
   }
 
@@ -922,10 +927,8 @@ make_ticket_face(const dcaf_authz_t *authz) {
   /* encrypt ticket face*/
   {
     cose_obj_t *cose;
-    unsigned char buf[128], out[143];
-    size_t outlen = sizeof(out);
+    unsigned char buf[1280];
     size_t buf_len;
-    cn_cbor *encrypted, *cnf;
     static dcaf_key_t rs_key = {
       .length = 11,
     };
@@ -971,6 +974,8 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   dcaf_context_t *ctx;
   unsigned char buf[128];
   size_t length = 0;
+  assert(authz);
+  assert(response);
 
   ctx = (dcaf_context_t *)coap_get_app_data(session->context);
   assert(ctx);
