@@ -14,6 +14,28 @@
 #include "dcaf/dcaf_crypto.h"
 #include "dcaf/dcaf_int.h"
 
+/* The struct algs and the function get_alg() are used to determine
+ * which EVP function to use for creating the required cipher suite
+ * object.
+ */
+static struct algs {
+  dcaf_key_type alg;
+  const EVP_CIPHER *(*get_cipher)(void);
+} ciphers[] = {
+  { DCAF_AES_128, EVP_aes_128_ccm },
+  { DCAF_AES_256, EVP_aes_256_ccm }
+};
+static inline int
+get_alg(dcaf_key_type alg) {
+  int idx;
+  for (idx = 0; (size_t)idx < sizeof(ciphers)/sizeof(struct algs); idx++) {
+    if (ciphers[idx].alg == alg)
+      return idx;
+  }
+  dcaf_log(DCAF_LOG_DEBUG, "cipher not found\n");
+  return -1;
+}
+
 #define C(Func) if (1 != (Func)) { fprintf(stderr, "oops\n"); }
 bool
 dcaf_encrypt(const dcaf_crypto_param_t *params,
@@ -24,9 +46,10 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
   const dcaf_aes_ccm_t *ccm;
   int tmp;
   int result_len = (int)(*max_result_len & INT_MAX);
+  int alg;
   assert(params != NULL);
 
-  if (!params || (params->alg != DCAF_AES_128)) {
+  if (!params || ((alg = get_alg(params->alg)) < 0)) {
     return false;
   }
 
@@ -34,7 +57,7 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
   ccm = &params->params.aes;
 
   EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-  cipher = EVP_aes_128_ccm();
+  cipher = ciphers[alg].get_cipher();
                  
   /* EVP_CIPHER_CTX_init(ctx); */
   C(EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL));
@@ -45,10 +68,7 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
   /* C(EVP_CIPHER_CTX_set_padding(ctx, 0)); */
 
   C(EVP_EncryptUpdate(ctx, NULL, &result_len, NULL, data_len));
-  int outl = 0;
   if (aad && (aad_len > 0)) {
-  dcaf_log(DCAF_LOG_DEBUG, "aad\n");
-  dcaf_debug_hexdump(aad, aad_len);
     C(EVP_EncryptUpdate(ctx, NULL, &result_len, aad, aad_len));
   }
   C(EVP_EncryptUpdate(ctx, result, &result_len, data, data_len));
