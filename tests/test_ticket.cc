@@ -48,9 +48,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
   coap_response.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
 
   GIVEN("A ticket request") {
-    coap_pdu_t request;
-
-    uint8_t coap_data[] = {
+    static uint8_t coap_data[] = {
       (COAP_DEFAULT_VERSION << 6) | (COAP_MESSAGE_NON << 4), /* TKL == 0 */
       COAP_REQUEST_POST, 0x12, 0x34, /* arbitray mid */
       (COAP_OPTION_CONTENT_FORMAT << 4) | 1, COAP_MEDIATYPE_APPLICATION_CBOR,
@@ -62,7 +60,6 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     };
     coap_pdu.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
     REQUIRE(coap_pdu.get() != nullptr);
-
     WHEN("The request is parsed") {
       coap_session_t session;
       dcaf_authz_t *result;
