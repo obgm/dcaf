@@ -15,8 +15,9 @@ AM_CPPFLAGS = @libcoap_CFLAGS@
 AM_LDFLAGS = -L$(top_builddir)
 libs = -ldcaf  @libcoap_LIBS@ @cn_cbor_LIBS@
 
-noinst_PROGRAMS = \
- testdriver
+noinst_PROGRAMS = testdriver
+
+testdriver_DEPENDENCIES = $(top_builddir)/libdcaf.a
 
 testdriver_SOURCES = \
  testdriver.cc \
