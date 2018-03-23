@@ -354,6 +354,79 @@ dcaf_free_ticket(dcaf_ticket_t *ticket) {
   }
 }
 
+/* helper function to log cn-cbor parse errors */
+static inline void
+log_parse_error(const cn_cbor_errback err) {
+  dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
+}
+
+static inline const cn_cbor *
+get_cose_key(const cn_cbor *obj) {
+  assert(obj);
+
+  obj = cn_cbor_mapget_int(obj, CWT_CNF_COSE_KEY);
+
+  if (obj && (obj->type == CN_CBOR_TAG)) {
+    return (obj->v.uint == COSE_KEY) ? obj->first_child : NULL;
+  } else {
+    return obj;
+  }
+}
+
+static dcaf_result_t
+dcaf_parse_ticket(const coap_session_t *session,
+                  const uint8_t *data, size_t data_len,
+                  dcaf_ticket_t **result) {
+  dcaf_result_t res = DCAF_ERROR_BAD_REQUEST;
+  cn_cbor *bstr = NULL;
+  cn_cbor *ticket = NULL;
+  const cn_cbor *key, *cnf;
+  cn_cbor_errback errp;
+
+  (void)session;
+  assert(result);
+  *result = NULL;
+
+  /* data must contain a valid access token which is a map that was
+   * serialized as a CBOR byte string.
+   */
+  bstr = cn_cbor_decode(data, data_len, &errp);
+  if (!bstr || (bstr->type != CN_CBOR_BYTES)) {
+    dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
+    res  = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+
+  /* FIXME: decrypt data first */
+  ticket = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
+  if (!ticket || (ticket->type != CN_CBOR_MAP)) {
+    dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
+    res  = DCAF_ERROR_BAD_REQUEST;
+    goto finish;
+  }
+
+  /* We might want to check if this is the DTLS profile. On the other
+   * hand, we do not really care if it is anything else. */
+
+  /* retrieve cnf claim to get kid and verifier */
+  cnf = cn_cbor_mapget_int(ticket, ACE_CLAIM_CNF);
+  if (!cnf) {  /* no cnf object, no verifier */
+    dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
+    goto finish;
+  }
+
+  key = get_cose_key(cnf);
+
+  *result = dcaf_new_ticket((uint8_t *)"kid", 3,
+                            (uint8_t *)"v", 1);
+  /* TODO: add actual permissions to ticket */
+
+ finish:
+  cn_cbor_free(bstr);
+  cn_cbor_free(ticket);
+  return res;
+}
+
 static size_t
 dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
@@ -361,8 +434,12 @@ dcaf_get_server_psk(const coap_session_t *session,
   const coap_context_t *ctx = session->context;
   if (ctx) {
     dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
-    if (!t) { /* FIXME: create new ticket if possible */
-      dcaf_log(LOG_DEBUG, "no ticket found\n");
+    if (!t) { /* no ticket found, try to create new if possible */
+      dcaf_log(LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
+      if (dcaf_parse_ticket(session, identity, identity_len, &t) == DCAF_OK) {
+        /* got a new ticket; just store it and continue */
+        dcaf_add_ticket(t);
+      }
     }
 
     if (t && t->verifier && (t->verifier_length <= max_psk_len)) {
@@ -626,25 +703,6 @@ dcaf_set_error_response(const coap_session_t *session,
                   coap_encode_var_bytes(buf, COAP_MEDIATYPE_TEXT_PLAIN), buf);
   coap_add_data(response, 20, (unsigned char *)"error");
   return DCAF_OK;
-}
-
-/* helper function to log cn-cbor parse errors */
-static inline void
-log_parse_error(const cn_cbor_errback err) {
-  dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
-}
-
-static inline const cn_cbor *
-get_cose_key(const cn_cbor *obj) {
-  assert(obj);
-
-  obj = cn_cbor_mapget_int(obj, CWT_CNF_COSE_KEY);
-
-  if (obj && (obj->type == CN_CBOR_TAG)) {
-    return (obj->v.uint == COSE_KEY) ? obj->first_child : NULL;
-  } else {
-    return obj;
-  }
 }
 
 /**
