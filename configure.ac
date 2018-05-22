@@ -81,17 +81,27 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset getrandom])
 
 PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
-PKG_CHECK_MODULES([libcoap], [libcoap-1], [have_libcoap="yes"])
+PKG_CHECK_MODULES([libcoap], [libcoap-2-gnutls], [have_libcoap="libcoap-2-gnutls"],
+ [PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
+   [PKG_CHECK_MODULES([libcoap], [libcoap-2-tinydtls], [have_libcoap="libcoap-2-tinydtls"],
+     [PKG_CHECK_MODULES([libcoap], [libcoap-2], [have_libcoap="libcoap-2"])]
+   )]
+ )]
+)
 
-if test "x$have_libcoap" = "xyes"; then
+if test "x$have_libcoap" != "xno"; then
    # FIXME: this works only with bash parameter substitution and pkg-config
-   libcoap_L=`pkg-config --libs-only-L libcoap-1`
+   libcoap_L=`pkg-config --libs-only-L $have_libcoap`
    libcoap_LIBS="-Wl,-rpath=${libcoap_L:2} $libcoap_LIBS"
-dnl   if `echo "x${libcoap_CFLAGS}" | grep -q OPENSSL` ; then
+
+   # We want to use the same crypto libs as libcoap uses
+   case "$have_libcoap" in
+       *-openssl)
       PKG_CHECK_MODULES([OpenSSL], [openssl])
       libcoap_CFLAGS="$libcoap_CFLAGS $OpenSSL_CFLAGS -DCOAP_DTLS_OPENSSL"
       libcoap_LIBS="$libcoap_LIBS $OpenSSL_LIBS"
-dnl   fi
+      ;;
+   esac
 fi
 
 # __tests__
