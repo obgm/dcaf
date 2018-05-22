@@ -17,6 +17,7 @@ EXTRA_DIST = \
   TODO \
   LICENSE \
   $(pkgconfig_DATA).in \
+  include/dcaf/utlist.h \
   tests/catch.hpp \
   tests/test.hh
 
