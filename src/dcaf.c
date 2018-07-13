@@ -644,8 +644,9 @@ dcaf_set_sam_information(const coap_session_t *session,
     return DCAF_OK;
   }
 
-  if (!coap_add_option(response, COAP_OPTION_CONTENT_TYPE,
-                       coap_encode_var_bytes(buf, mediatype), buf)) {
+  if (!coap_add_option(response, COAP_OPTION_CONTENT_FORMAT,
+                       coap_encode_var_safe(buf, sizeof(buf), mediatype),
+                       buf)) {
     coap_log(LOG_DEBUG, "DCAF_ERROR_BUFFER_TOO_SMALL\n");
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
@@ -700,8 +701,10 @@ dcaf_set_error_response(const coap_session_t *session,
   /* TODO: describe error, provide correct result */
   response->code = COAP_RESPONSE_CODE(400);
   coap_add_option(response,
-                  COAP_OPTION_CONTENT_TYPE,
-                  coap_encode_var_bytes(buf, COAP_MEDIATYPE_TEXT_PLAIN), buf);
+                  COAP_OPTION_CONTENT_FORMAT,
+                  coap_encode_var_safe(buf, sizeof(buf),
+                                       COAP_MEDIATYPE_TEXT_PLAIN),
+                  buf);
   coap_add_data(response, 20, (unsigned char *)"error");
   return DCAF_OK;
 }
@@ -1107,13 +1110,14 @@ dcaf_set_ticket_grant(const coap_session_t *session,
 
     response->code = COAP_RESPONSE_CODE(201);
     coap_add_option(response,
-                    COAP_OPTION_CONTENT_TYPE,
-                    coap_encode_var_bytes(optionbuf, authz->mediatype),
+                    COAP_OPTION_CONTENT_FORMAT,
+                    coap_encode_var_safe(optionbuf, sizeof(optionbuf),
+                                         authz->mediatype),
                     optionbuf);
 
     coap_add_option(response,
                     COAP_OPTION_MAXAGE,
-                    coap_encode_var_bytes(optionbuf, 90),
+                    coap_encode_var_safe(optionbuf, sizeof(optionbuf), 90),
                     optionbuf);
 
     coap_add_data(response, length, buf);
