@@ -118,6 +118,28 @@ if test "x$build_tests" = "xyes"; then
 fi
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" != "xno"])
 
+# __am__
+AC_ARG_ENABLE([am],
+              [AS_HELP_STRING([--enable-am],
+                              [Enable building the authorization manager [default=yes]])],
+              [build_am="$enableval"],
+              [build_am="yes"])
+
+AS_IF([test "x$build_am" != "xno"], [
+   AC_CACHE_CHECK([for lug], [ac_cv_lug], [
+       AS_IF([test -d ext/lug/lug],
+                                    [ av_cv_lug=ext/lug/lug
+                                      AC_MSG_RESULT([yes])
+                                    ],
+                                    [AC_MSG_RESULT([no])])])
+    if test "x$av_cv_lug" = "x"; then
+       AC_MSG_ERROR([cannot find lug. Try `git submodule update --init` or configure with --disable-am.])
+    fi
+    am_DIR=am
+    lug_CXXFLAGS="-I\$(top_srcdir)/ext/lug"
+])
+AC_SUBST(am_DIR)
+AC_SUBST(lug_CXXFLAGS)
 
 AC_CONFIG_HEADERS([dcaf_config.h])
 

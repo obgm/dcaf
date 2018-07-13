@@ -23,7 +23,7 @@ EXTRA_DIST = \
 
 AM_CPPFLAGS = @libcoap_CFLAGS@ @cn_cbor_CFLAGS@
 
-SUBDIRS = $(subdirs) . tests am examples
+SUBDIRS = $(subdirs) . tests @am_DIR@ examples
 
 lib_LIBRARIES = libdcaf.a
 
