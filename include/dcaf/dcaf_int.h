@@ -51,12 +51,12 @@ struct dcaf_context_t {
 #define DCAF_KEY_HAS_DATA  0x0002
 
 #define DCAF_MAX_KEY_SIZE  32
-typedef struct dcaf_key_t {
+struct dcaf_key_t {
   dcaf_key_type type;
   unsigned int flags;
   size_t length;
   uint8_t data[DCAF_MAX_KEY_SIZE];
-} dcaf_key_t;
+};
 
 typedef unsigned long dcaf_time_t;
 
@@ -69,7 +69,7 @@ struct dcaf_authz_t {
   unsigned long lifetime;       /**< ticket lifetime */
 };
 
-typedef struct dcaf_ticket_t {
+struct dcaf_ticket_t {
   struct dcaf_ticket_t *next;
 
   uint8_t *kid;                 /**< The key id as known by our AM. */
@@ -79,7 +79,7 @@ typedef struct dcaf_ticket_t {
   size_t verifier_length;       /**< The key length in bytes. */
 
   /* FIXME: dcaf_authz_t... */
-}  dcaf_ticket_t;
+};
 
 dcaf_authz_t *dcaf_new_authz(void);
 
