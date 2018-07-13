@@ -11,8 +11,6 @@
 #ifndef _DCAF_ADDRESS_H_
 #define _DCAF_ADDRESS_H_ 1
 
-#include <coap/coap.h>
-
 #include "dcaf/dcaf.h"
 
 /**

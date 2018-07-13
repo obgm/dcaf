@@ -11,8 +11,6 @@
 #ifndef _DCAF_H_
 #define _DCAF_H_ 1
 
-#include <coap/coap.h>
-
 #ifdef __cplusplus
 extern "C" {
 #ifdef EMACS_NEEDS_A_CLOSING_BRACKET
@@ -36,6 +34,7 @@ typedef enum {
   DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16
 } dcaf_result_t;
 
+#include "dcaf_coap.h"
 #include "dcaf_address.h"
 #include "dcaf_debug.h"
 #include "dcaf_crypto.h"
