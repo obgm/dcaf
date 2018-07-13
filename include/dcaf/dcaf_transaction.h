@@ -11,11 +11,13 @@
 #ifndef _DCAF_TRANSACTION_H_
 #define _DCAF_TRANSACTION_H_ 1
 
-#include <coap/coap.h>
 #include "dcaf.h"
 
 struct dcaf_transaction_t;
 typedef struct dcaf_transaction_t dcaf_transaction_t;
+
+struct coap_address_t;
+struct coap_pdu_t;
 
 typedef enum {
   DCAF_TRANSACTION_OK,
