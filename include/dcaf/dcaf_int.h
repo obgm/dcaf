@@ -11,8 +11,6 @@
 #ifndef _DCAF_INT_H_
 #define _DCAF_INT_H_ 1
 
-#include <coap/coap.h>
-
 #ifdef __cplusplus
 extern "C" {
 #ifdef EMACS_NEEDS_A_CLOSING_BRACKET
@@ -23,6 +21,7 @@ extern "C" {
 #include "aif.h"
 #include "dcaf.h"
 #include "dcaf_mem.h"
+#include "dcaf_coap.h"
 
 #include <cn-cbor/cn-cbor.h>
 
