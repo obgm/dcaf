@@ -11,7 +11,6 @@
 #ifndef _DCAF_OPTLIST_H_
 #define _DCAF_OPTLIST_H_
 
-#include <coap/coap.h>
 
 /** Representation of CoAP options. */
 typedef struct dcaf_option_t {
@@ -89,6 +88,7 @@ dcaf_option_t *dcaf_optlist_find_first(dcaf_optlist_t queue, unsigned int key);
  */
 dcaf_option_t *dcaf_optlist_get_next(dcaf_option_t *node);
 
+struct coap_pdu_t;
 /**
  * Writes the options from @p queue into the specified @p pdu.  This
  * function returns the number of bytes that have been written into
@@ -99,6 +99,6 @@ dcaf_option_t *dcaf_optlist_get_next(dcaf_option_t *node);
  * @param pdu   The CoAP PDU where the options are written.
  * @return The number of bytes written on success, or -1 otherwise.
  */
-ssize_t dcaf_optlist_serialize(dcaf_optlist_t queue, coap_pdu_t *pdu);
+ssize_t dcaf_optlist_serialize(dcaf_optlist_t queue, struct coap_pdu_t *pdu);
 
 #endif /* _DCAF_OPTLIST_H_ */
