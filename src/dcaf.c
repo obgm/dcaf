@@ -18,6 +18,7 @@
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/state.h"
+#include "dcaf/utlist.h"
 
 #include "dcaf/ace.h"
 #include "dcaf/aif.h"

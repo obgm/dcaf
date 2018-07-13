@@ -9,10 +9,10 @@
 
 #include <ctype.h>
 
-#include <coap/utlist.h>
 #include <cn-cbor/cn-cbor.h>
 
 #include "dcaf/dcaf_int.h"
+#include "dcaf/utlist.h"
 #include "dcaf/aif.h"
 
 static dcaf_aif_t *
