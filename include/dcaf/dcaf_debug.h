@@ -45,12 +45,8 @@ void dcaf_log(dcaf_log_t level, const char *format, ...);
 void dcaf_debug_hexdump(const void *data, size_t len);
 
 struct dcaf_authz_t;
-typedef struct dcaf_authz_t dcaf_authz_t;
 
-struct cose_obj_t;
-typedef struct cose_obj_t cose_obj_t;
-
-void dcaf_show_ticket(dcaf_log_t level, const dcaf_authz_t *authz);
+void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz);
 
 #endif /* _DCAF_DEBUG_H_ */
 
