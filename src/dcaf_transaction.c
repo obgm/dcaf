@@ -10,6 +10,7 @@
 
 #include "dcaf/dcaf_transaction.h"
 #include "dcaf/dcaf_int.h"
+#include "dcaf/utlist.h"
 
 #define DCAF_MAX_TOKEN 8
 
@@ -41,7 +42,9 @@ set_uri_options(coap_uri_t *uri, dcaf_optlist_t *optlist) {
     dcaf_optlist_insert(optlist,
                 dcaf_option_create(COAP_OPTION_URI_PORT,
                                    portbuf,
-                                   coap_encode_var_bytes(portbuf, uri->port)));
+                                   coap_encode_var_safe(portbuf,
+                                                        sizeof(portbuf),
+                                                        uri->port)));
   }
 
   if (uri->path.length) {
