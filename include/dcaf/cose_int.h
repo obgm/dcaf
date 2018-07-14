@@ -23,7 +23,7 @@ typedef struct cose_encrypt0_scratch_t {
   uint8_t *buf;
 } cose_encrypt0_scratch_t;
 
-typedef struct cose_obj_t {
+struct cose_obj_t {
   unsigned int type;
   unsigned int flags;
   cn_cbor *buckets[4];
@@ -32,7 +32,7 @@ typedef struct cose_obj_t {
   union {
     cose_encrypt0_scratch_t encrypt0;
   } scratch;
-} cose_obj_t;
+};
 
 static inline size_t
 max_buckets(const cose_obj_t *obj) {
