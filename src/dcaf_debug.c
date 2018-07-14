@@ -87,7 +87,7 @@ dcaf_debug_hexdump(const void *data, size_t len) {
   fprintf(stdout, "\n");
 }
 
-void dcaf_show_ticket(dcaf_log_t level, const dcaf_authz_t *authz) {
+void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz) {
   (void)level;
   (void)authz;
 }
