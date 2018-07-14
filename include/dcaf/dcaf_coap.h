@@ -39,8 +39,20 @@ typedef enum {
 #include <coap/coap.h>
 #endif /* RIOT_VERSION */
 
+#ifndef COAP_MEDIATYPE_TEXT_PLAIN
+#define COAP_MEDIATYPE_TEXT_PLAIN (0)
+#endif
+
 #ifndef COAP_MEDIATYPE_APPLICATION_CBOR
 #define COAP_MEDIATYPE_APPLICATION_CBOR (60)
+#endif
+
+#ifndef COAP_OPTION_CONTENT_FORMAT
+#define COAP_OPTION_CONTENT_FORMAT (12)
+#endif
+
+#ifndef COAP_OPTION_MAXAGE
+#define COAP_OPTION_MAXAGE (14)
 #endif
 
 #ifndef COAP_DEFAULT_PORT
