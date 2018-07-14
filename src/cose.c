@@ -169,7 +169,7 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
 
   if ((tmp->type == CN_CBOR_NULL) ||
       (tmp->type == CN_CBOR_ARRAY && tmp->length == 0)) {
-    dcaf_log(LOG_DEBUG, "protected is empty, but encoding is wrong\n");
+    dcaf_log(DCAF_LOG_DEBUG, "protected is empty, but encoding is wrong\n");
     tmp++;
   } else if (tmp->type == CN_CBOR_BYTES) {
     cn_cbor *p = cn_cbor_decode(tmp->v.bytes, tmp->length, &errp);
@@ -188,7 +188,7 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
     set_bucket(obj, COSE_PROTECTED, p);
     /* TODO: p becomes invalid when data does not exist anymore. Copy? */
   } else {
-    dcaf_log(LOG_DEBUG, "encoding of protected is wrong\n");
+    dcaf_log(DCAF_LOG_DEBUG, "encoding of protected is wrong\n");
     res = COSE_TYPE_ERROR;
     goto error;
   }
@@ -743,7 +743,7 @@ cose_serialize(const cose_obj_t *obj,
 void cose_show_object(dcaf_log_t level, const cose_obj_t *obj) {
   assert(obj);
   (void)level;
-
+  (void)obj;
 }
 #else /* COSE_DEBUG */
 void
