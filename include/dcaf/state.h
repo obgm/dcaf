@@ -11,8 +11,6 @@
 #ifndef _DCAF_STATE_H_
 #define _DCAF_STATE_H_ 1
 
-#include <coap/coap.h>
-
 typedef enum {
   DCAF_STATE_IDLE,
   DCAF_STATE_UNAUTHORIZED, 
