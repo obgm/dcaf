@@ -30,6 +30,11 @@ struct coap_endpoint_t;
 typedef struct coap_endpoint_t coap_endpoint_t;
 struct coap_session_t;
 typedef struct coap_session_t coap_session_t;
+typedef enum {
+              COAP_PROTO_NONE=0,
+              COAP_PROTO_UDP=1,
+              COAP_PROTO_DTLS=2,
+} coap_proto_t;
 #else  /* include libcoap headers */
 #include <coap/coap.h>
 #endif /* RIOT_VERSION */
@@ -37,5 +42,17 @@ typedef struct coap_session_t coap_session_t;
 #ifndef COAP_MEDIATYPE_APPLICATION_CBOR
 #define COAP_MEDIATYPE_APPLICATION_CBOR (60)
 #endif
+
+#ifndef COAP_DEFAULT_PORT
+#ifdef COAP_PORT
+#define COAP_DEFAULT_PORT COAP_PORT
+#else
+#define COAP_DEFAULT_PORT (5683)
+#endif /* COAP_PORT */
+#endif /* COAP_DEFAULT_PORT */
+
+#ifndef COAPS_DEFAULT_PORT
+#define COAPS_DEFAULT_PORT ((COAP_DEFAULT_PORT) + 1)
+#endif /* COAPS_DEFAULT_PORT */
 
 #endif /* _DCAF_COAP_H_ */
