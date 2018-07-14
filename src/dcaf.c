@@ -51,7 +51,7 @@ handle_coap_response(struct coap_context_t *coap_context,
 
   t = dcaf_find_transaction(dcaf_context, &session->remote_addr, received);
   if (!t) {
-    coap_log(LOG_ERR, "dropped response for unknown transaction\n");
+    dcaf_log(DCAF_LOG_ERR, "dropped response for unknown transaction\n");
     return;
   }
 
@@ -74,7 +74,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   case DCAF_STATE_UNAUTHORIZED:
     /* fall through */
   default:
-    coap_log(LOG_ALERT, "unknown transaction state\n");
+    dcaf_log(DCAF_LOG_ALERT, "unknown transaction state\n");
     return;
   }
 #endif
@@ -93,7 +93,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   coap_tid_t tid;
 
 #ifndef NDEBUG
-  if (LOG_DEBUG <= coap_get_log_level()) {
+  if (DCAF_LOG_DEBUG <= coap_get_log_level()) {
     debug("** process incoming %d.%02d response:\n",
           (received->code >> 5), received->code & 0x1F);
     coap_show_pdu(received);
@@ -436,7 +436,7 @@ dcaf_get_server_psk(const coap_session_t *session,
   if (ctx) {
     dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
     if (!t) { /* no ticket found, try to create new if possible */
-      dcaf_log(LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
+      dcaf_log(DCAF_LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
       if (dcaf_parse_ticket(session, identity, identity_len, &t) == DCAF_OK) {
         /* got a new ticket; just store it and continue */
         dcaf_add_ticket(t);
@@ -459,7 +459,7 @@ dcaf_new_context(const dcaf_config_t *config) {
 
   dcaf_context = (dcaf_context_t *)dcaf_alloc_type(DCAF_CONTEXT);
   if (!dcaf_context) {
-    dcaf_log(LOG_EMERG, "cannot allocate context\n");
+    dcaf_log(DCAF_LOG_EMERG, "cannot allocate context\n");
     goto error;
   }
 
@@ -467,7 +467,7 @@ dcaf_new_context(const dcaf_config_t *config) {
 
   dcaf_context->coap_context = coap_new_context(NULL);
   if (dcaf_context->coap_context == NULL) {
-    dcaf_log(LOG_EMERG, "Cannot create new CoAP context.\n");
+    dcaf_log(DCAF_LOG_EMERG, "Cannot create new CoAP context.\n");
     goto error;
   }
 
@@ -488,7 +488,7 @@ dcaf_new_context(const dcaf_config_t *config) {
       unsigned char buf[INET6_ADDRSTRLEN + 8];
 
       if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
-        dcaf_log(LOG_INFO, "listen on address %s (UDP)\n", buf);
+        dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
       }
     }
   }
@@ -499,7 +499,7 @@ dcaf_new_context(const dcaf_config_t *config) {
       unsigned char buf[INET6_ADDRSTRLEN + 8];
 
       if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
-        dcaf_log(LOG_INFO, "listen on address %s (DTLS)\n", buf);
+        dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
       }
     }
   }
@@ -598,7 +598,7 @@ dcaf_is_authorized(const coap_session_t *session,
                    coap_pdu_t *pdu) {
   if (is_secure(session)) {
     /* FIXME: retrieve and check ticket */
-    coap_log(LOG_DEBUG, "PSK identity is '%.*s':\n",
+    dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);
     return pdu != NULL;
   }
@@ -621,7 +621,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   dcaf_context_t *dcaf_context;
   uint16_t sam_key = DCAF_TYPE_SAM, nonce_key = DCAF_TYPE_NONCE;
 
-  coap_log(LOG_DEBUG, "create SAM Information\n");
+  dcaf_log(DCAF_LOG_DEBUG, "create SAM Information\n");
   coap_ticks(&now);
   assert(session != NULL);
   assert(session->context != NULL);
@@ -632,14 +632,14 @@ dcaf_set_sam_information(const coap_session_t *session,
   }
   dcaf_context = dcaf_get_dcaf_context(session->context);
   if (!dcaf_context) {
-    coap_log(LOG_DEBUG, "DCAF_ERROR_INTERNAL_ERROR\n");
+    dcaf_log(DCAF_LOG_DEBUG, "DCAF_ERROR_INTERNAL_ERROR\n");
     return DCAF_ERROR_INTERNAL_ERROR;
   }
 
   /* The DCAF unauthorized response is constructed only when a proper
    * SAM URI is set. */
   if (!dcaf_context->am_uri) {
-    coap_log(LOG_DEBUG, "no SAM URI\n");
+    dcaf_log(DCAF_LOG_DEBUG, "no SAM URI\n");
     response->code = COAP_RESPONSE_CODE(401);
     return DCAF_OK;
   }
@@ -647,7 +647,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   if (!coap_add_option(response, COAP_OPTION_CONTENT_FORMAT,
                        coap_encode_var_safe(buf, sizeof(buf), mediatype),
                        buf)) {
-    coap_log(LOG_DEBUG, "DCAF_ERROR_BUFFER_TOO_SMALL\n");
+    dcaf_log(DCAF_LOG_DEBUG, "DCAF_ERROR_BUFFER_TOO_SMALL\n");
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
 
@@ -660,7 +660,7 @@ dcaf_set_sam_information(const coap_session_t *session,
     nonce_key = ACE_ASINFO_NONCE;
   }
 
-  coap_log(LOG_DEBUG, "CBOR...\n");
+  dcaf_log(DCAF_LOG_DEBUG, "CBOR...\n");
   cn_cbor_mapput_int(map, sam_key,
                      cn_cbor_string_create(uri, NULL),
                      NULL);
@@ -682,7 +682,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   cn_cbor_free(map);
 
   if (!coap_add_data(response, length, buf)) {
-    coap_log(LOG_DEBUG, "also too small\n");
+    dcaf_log(DCAF_LOG_DEBUG, "also too small\n");
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
 
@@ -742,7 +742,7 @@ parse_token_request(const uint8_t *data,
   cnf = cn_cbor_mapget_int(token_request, CWT_CLAIM_CNF);
   if (cnf) {
     if (cnf->type != CN_CBOR_MAP) {
-      dcaf_log(LOG_DEBUG, "invalid cnf value in token request\n");
+      dcaf_log(DCAF_LOG_DEBUG, "invalid cnf value in token request\n");
       result->code = DCAF_ERROR_BAD_REQUEST;
       goto finish;
     }
@@ -757,7 +757,7 @@ parse_token_request(const uint8_t *data,
         cn_cbor *kty = cn_cbor_mapget_int(k, COSE_KEY_KTY);
         if (kty && kty->v.sint == COSE_KEY_KTY_SYMMETRIC) {
           /* token requests must not contain a symmetric key */
-          dcaf_log(LOG_DEBUG, "kty=symmetric not allowed in token request\n");
+          dcaf_log(DCAF_LOG_DEBUG, "kty=symmetric not allowed in token request\n");
           result->code = DCAF_ERROR_BAD_REQUEST;
         } else {
           /* TODO: ECC key */
@@ -890,7 +890,7 @@ dcaf_create_verifier(dcaf_context_t *ctx, dcaf_authz_t *authz) {
       authz->key = NULL;
       return DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
     }
-    dcaf_log(LOG_DEBUG, "generated key:\n");
+    dcaf_log(DCAF_LOG_DEBUG, "generated key:\n");
     dcaf_debug_hexdump(authz->key->data, authz->key->length);
     return DCAF_OK;
   }
@@ -909,7 +909,7 @@ dcaf_create_verifier(dcaf_context_t *ctx, dcaf_authz_t *authz) {
   }
 #endif
 
-  dcaf_log(LOG_DEBUG, "dcaf_create_verifier: key should have been NULL\n");
+  dcaf_log(DCAF_LOG_DEBUG, "dcaf_create_verifier: key should have been NULL\n");
   return DCAF_ERROR_INTERNAL_ERROR;
 }
 
