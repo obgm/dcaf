@@ -25,11 +25,22 @@
 #include "dcaf/cwt.h"
 #include "dcaf/cose.h"
 
+#ifndef RIOT_VERSION
+static inline uint8_t
+coap_get_token_len(coap_pdu_t *p) {
+  return p->token_length;
+}
+#endif
+
 static inline int
 token_equals(coap_pdu_t *a, coap_pdu_t *b) {
-  return a && b && (a->token_length == b->token_length)
-    && (strncmp((char *)a->token, (char *)b->token,
-                a->token_length) == 0);
+  if (a && b) {
+    unsigned atkl = coap_get_token_len(a);
+    unsigned btkl = coap_get_token_len(b);
+    return (atkl == btkl)
+      && (strncmp((char *)a->token, (char *)b->token, atkl) == 0);
+  }
+  return 0;
 }
 
 static void
