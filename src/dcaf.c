@@ -316,7 +316,7 @@ set_endpoint(const dcaf_context_t *dcaf_context,
 
 dcaf_ticket_t *dcaf_tickets = NULL;
 
-dcaf_ticket_t *
+static dcaf_ticket_t *
 dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
   dcaf_ticket_t *ticket = NULL;
   LL_FOREACH(dcaf_tickets,ticket) {

@@ -16,6 +16,7 @@ typedef enum dcaf_object_type {
   DCAF_TICKET,
   DCAF_KEY,
   DCAF_AIF,
+  DCAF_OPTION,
 } dcaf_object_type;
 
 /**
@@ -28,6 +29,20 @@ typedef enum dcaf_object_type {
  * @return A pointer to a new object of type @p obj or NULL on error.
  */
 void *dcaf_alloc_type(dcaf_object_type obj);
+
+/**
+ * Allocates memory for the object type @p obj with @p len bytes
+ * additional data. Depending on the requested object type, there may
+ * be upper bounds defined when using static memory allocation.  This
+ * function returns a pointer to a new object of type @p obj that must
+ * be released with dcaf_free_type() or NULL on error.
+ *
+ * @param obj  The object type to allocate.
+ * @param len  The number of additional bytes to allocate.
+ *
+ * @return A pointer to a new object of type @p obj or NULL on error.
+ */
+void *dcaf_alloc_type_len(dcaf_object_type obj, size_t len);
 
 /**
  * Releases the memory that has previously been allocated for @p obj.

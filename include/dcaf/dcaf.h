@@ -211,6 +211,14 @@ dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
 void dcaf_add_ticket(dcaf_ticket_t *ticket);
 
 /**
+ * Releases the storage that has been allocated for @p ticket
+ * by dcaf_new_ticket().
+ *
+ * @param ticket The DCAF ticket to release.
+ */
+void dcaf_free_ticket(dcaf_ticket_t *ticket);
+
+/**
  * Creates a ticket verifier from authorization information given in
  * @p authz.  On success, this function will set authz->key to a
  * proper verifier.

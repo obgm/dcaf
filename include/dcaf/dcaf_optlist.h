@@ -11,6 +11,7 @@
 #ifndef _DCAF_OPTLIST_H_
 #define _DCAF_OPTLIST_H_
 
+#define DCAF_MAX_OPT_SIZE 64
 
 /** Representation of CoAP options. */
 typedef struct dcaf_option_t {

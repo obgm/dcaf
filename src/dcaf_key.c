@@ -27,6 +27,7 @@ dcaf_new_key(dcaf_key_type type) {
     key->type = type;
     switch(type) {
     case DCAF_NONE: break;
+    case DCAF_KID: key->length = 16; break;
     case DCAF_AES_128: key->length = 16; break;
     case DCAF_AES_256: key->length = 32; break;
     case DCAF_HS256: key->length = 32; break;

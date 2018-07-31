@@ -11,15 +11,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "dcaf/dcaf_coap.h"
 #include "dcaf/dcaf_optlist.h"
+#include "dcaf/dcaf_mem.h"
 #include "dcaf/utlist.h"
 
 dcaf_option_t *
 dcaf_option_create(unsigned int type, unsigned char *data, size_t datalen) {
   dcaf_option_t *opt;
 
-  /* FIXME */
-  opt = coap_malloc(sizeof(dcaf_option_t) + datalen);
+  opt = dcaf_alloc_type_len(DCAF_OPTION, datalen);
   if (opt) {
     opt->next = NULL;
     opt->key = type;
