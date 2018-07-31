@@ -34,9 +34,11 @@
 
 static void
 fill_keystore(coap_context_t *ctx) {
-  static uint8_t key[] = {'a', 'b', 'c', 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  //static uint8_t key[] = {'a', 'b', 'c', 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
   dcaf_ticket_t *ticket = dcaf_new_ticket((uint8_t *)"CoAP", 4, (uint8_t *)"secretPSK", 9);
+  (void)ctx;
+
   dcaf_add_ticket(ticket);
 }
 
@@ -63,8 +65,8 @@ hnd_post_token(coap_context_t *ctx,
               struct coap_resource_t *resource,
               coap_session_t *session,
               coap_pdu_t *request,
-              str *token,
-              str *query,
+              coap_binary_t *token,
+              coap_string_t *query,
               coap_pdu_t *response) {
   dcaf_authz_t *authz;
   dcaf_result_t res;
@@ -95,17 +97,13 @@ hnd_post_token(coap_context_t *ctx,
 static void
 init_resources(coap_context_t *coap_context) {
   coap_resource_t *resource;
-  const uint8_t *token = (const uint8_t *)DCAF_TOKEN_DEFAULT;
-  size_t token_len = sizeof(DCAF_TOKEN_DEFAULT) - 1;
   const char mediatypes[] = DCAF_MEDIATYPE_DCAF_CBOR_STRING " " DCAF_MEDIATYPE_ACE_CBOR_STRING;
 
-  resource = coap_resource_init(token, token_len, 0);
+  resource = coap_resource_init(coap_make_str_const(DCAF_TOKEN_DEFAULT), 0);
   coap_register_handler(resource, COAP_REQUEST_POST, hnd_post_token);
   /* add values for supported content-formats */
-  coap_add_attr(resource, (const uint8_t *)"ct", 2,
-                (const uint8_t *)mediatypes,
-                sizeof(mediatypes) - 1,
-                0);
+  coap_add_attr(resource, coap_make_str_const("ct"),
+                coap_make_str_const(mediatypes), 0);
   coap_add_resource(coap_context, resource);
 }
 

@@ -43,7 +43,6 @@
 static dcaf_context_t *dcaf_context;
 
 static const char r_restricted[] = "restricted";
-static const size_t r_restricted_len = 10;
 
 static char resource_buf[MAX_RESOURCE_BUF] =
   "This is a resource with restricted access.\n";
@@ -54,8 +53,8 @@ hnd_get(coap_context_t *ctx,
         struct coap_resource_t *resource,
         coap_session_t *session,
         coap_pdu_t *request,
-        str *token,
-        str *query,
+        coap_binary_t *token,
+        coap_string_t *query,
         coap_pdu_t *response) {
   unsigned char buf[3];
   (void)ctx;
@@ -79,20 +78,22 @@ hnd_get(coap_context_t *ctx,
 
   coap_add_option(response,
                   COAP_OPTION_CONTENT_TYPE,
-                  coap_encode_var_bytes(buf, COAP_MEDIATYPE_TEXT_PLAIN), buf);
+                  coap_encode_var_safe(buf, sizeof(buf),
+                                       COAP_MEDIATYPE_TEXT_PLAIN),
+                  buf);
 
-  coap_add_data(response, resource_len, (unsigned char *)resource_buf);
+  coap_add_data(response, resource_len, (const uint8_t *)resource_buf);
 }
 
 static void
 init_resources(coap_context_t *ctx) {
   coap_resource_t *r;
 
-  r = coap_resource_init((unsigned char *)r_restricted, r_restricted_len, 0);
+  r = coap_resource_init(coap_make_str_const(r_restricted), 0);
   coap_register_handler(r, COAP_REQUEST_GET, hnd_get);
 
-  coap_add_attr(r, (unsigned char *)"ct", 2, (unsigned char *)"0", 1, 0);
-  coap_add_attr(r, (unsigned char *)"title", 5, (unsigned char *)"\"restricted access\"", 19, 0);
+  coap_add_attr(r, coap_make_str_const("ct"), coap_make_str_const("0"), 0);
+  coap_add_attr(r, coap_make_str_const("title"), coap_make_str_const("\"restricted access\""), 0);
   coap_add_resource(ctx, r);
 }
 
