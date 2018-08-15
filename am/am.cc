@@ -14,6 +14,9 @@
 #include <random>
 #include <string>
 
+#include <fstream>
+#include <iostream>
+
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -25,6 +28,7 @@
 #include <coap/coap_dtls.h>
 
 #include "dcaf/dcaf.h"
+#include "config_parser.hh"
 
 #define COAP_RESOURCE_CHECK_TIME 2
 
@@ -132,11 +136,34 @@ main(int argc, char **argv) {
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
 
-  while ((opt = getopt(argc, argv, "A:g:p:v:l:")) != -1) {
+  while ((opt = getopt(argc, argv, "A:C:g:p:v:l:")) != -1) {
     switch (opt) {
     case 'A' :
       config.host = optarg;
       break;
+    case 'C' : {
+      am_config::parser parser;
+      std::fstream cf(optarg, std::ios_base::in);
+      if (!cf) {
+        std::cerr << "Cannot open config file '" << optarg << "'" << std::endl;
+        exit(2);
+      }
+      try {
+        if (!parser.parse(cf)) {
+          std::cerr << "Invalid configuration!" << std::endl;
+          exit(3);
+        }
+      } catch (lug::lug_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        exit(3);
+      }
+      std::cout << "configured keys: " << std::endl;
+      for (auto k : parser.keys) {
+        std::cout << "\"" << k.first << "\" => \"" << std::get<1>(k.second) << "\"" << std::endl;
+      }
+
+      break;
+    }
     case 'p' :
       config.coap_port = static_cast<uint16_t>(strtol(optarg, nullptr, 10));
       config.coaps_port = config.coap_port + 1;
@@ -145,8 +172,8 @@ main(int argc, char **argv) {
       log_level = static_cast<coap_log_t>(strtol(optarg, nullptr, 10));
       break;
     default:
-      usage( argv[0], LIBCOAP_PACKAGE_VERSION );
-      exit( 1 );
+      usage(argv[0], LIBCOAP_PACKAGE_VERSION);
+      exit(1);
     }
   }
 
