@@ -34,6 +34,7 @@ libdcaf_a_SOURCES = \
    src/aif.c \
    src/cose.c \
    src/dcaf.c \
+   src/dcaf_coap.c \
    src/dcaf_crypto_openssl.c \
    src/dcaf_crypto_tinydtls.c \
    src/dcaf_debug.c \
