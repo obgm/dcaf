@@ -43,6 +43,10 @@ token_equals(coap_pdu_t *a, coap_pdu_t *b) {
   return 0;
 }
 
+struct coap_session_t {
+  coap_address_t remote_addr;
+};
+
 static void
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
@@ -311,7 +315,14 @@ static int
 set_endpoint(const dcaf_context_t *dcaf_context,
              const coap_address_t *addr,
              coap_proto_t proto) {
+#ifdef RIOT_VERSION
+  (void)dcaf_context;
+  (void)addr;
+  (void)proto;
+  return 0;  /* FIXME: RIOT */
+#else
   return coap_new_endpoint(dcaf_context->coap_context, addr, proto) != NULL;
+#endif
 }
 
 dcaf_ticket_t *dcaf_tickets = NULL;
@@ -335,14 +346,14 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
   if (ticket) {
     memset(ticket, 0, sizeof(dcaf_ticket_t));
     if (kid && kid_length) {
-      ticket->kid = (uint8_t *)coap_malloc(kid_length);
+      ticket->kid = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY, kid_length);
       if (ticket->kid) {
         memcpy(ticket->kid, kid, kid_length);
         ticket->kid_length = kid_length;
       }
     }
     if (verifier && verifier_length) {
-      ticket->verifier = (uint8_t *)coap_malloc(verifier_length);
+      ticket->verifier = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY, verifier_length);
       if (ticket->verifier) {
         memcpy(ticket->verifier, verifier, verifier_length);
         ticket->verifier_length = verifier_length;
@@ -360,8 +371,8 @@ dcaf_add_ticket(dcaf_ticket_t *ticket) {
 void
 dcaf_free_ticket(dcaf_ticket_t *ticket) {
   if (ticket) {
-    coap_free(ticket->kid);
-    coap_free(ticket->verifier);
+    dcaf_free_type(DCAF_KEY, ticket->kid);
+    dcaf_free_type(DCAF_KEY, ticket->verifier);
     dcaf_free_type(DCAF_TICKET, ticket);
   }
 }
@@ -428,6 +439,7 @@ dcaf_parse_ticket(const coap_session_t *session,
   }
 
   key = get_cose_key(cnf);
+  (void)key; /* FIXME: RIOT */
 
   *result = dcaf_new_ticket((uint8_t *)"kid", 3,
                             (uint8_t *)"v", 1);
@@ -443,21 +455,18 @@ static size_t
 dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
                     uint8_t *psk, size_t max_psk_len) {
-  const coap_context_t *ctx = session->context;
-  if (ctx) {
-    dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
-    if (!t) { /* no ticket found, try to create new if possible */
-      dcaf_log(DCAF_LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
-      if (dcaf_parse_ticket(session, identity, identity_len, &t) == DCAF_OK) {
-        /* got a new ticket; just store it and continue */
-        dcaf_add_ticket(t);
-      }
+  dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
+  if (!t) { /* no ticket found, try to create new if possible */
+    dcaf_log(DCAF_LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
+    if (dcaf_parse_ticket(session, identity, identity_len, &t) == DCAF_OK) {
+      /* got a new ticket; just store it and continue */
+      dcaf_add_ticket(t);
     }
+  }
 
-    if (t && t->verifier && (t->verifier_length <= max_psk_len)) {
-      memcpy(psk, t->verifier, t->verifier_length);
-      return t->verifier_length;
-    }
+  if (t && t->verifier && (t->verifier_length <= max_psk_len)) {
+    memcpy(psk, t->verifier, t->verifier_length);
+    return t->verifier_length;
   }
   return 0;
 }
@@ -476,6 +485,7 @@ dcaf_new_context(const dcaf_config_t *config) {
 
   memset(dcaf_context, 0, sizeof(dcaf_context_t));
 
+#ifndef RIOT_VERSION
   dcaf_context->coap_context = coap_new_context(NULL);
   if (dcaf_context->coap_context == NULL) {
     dcaf_log(DCAF_LOG_EMERG, "Cannot create new CoAP context.\n");
@@ -488,6 +498,7 @@ dcaf_new_context(const dcaf_config_t *config) {
 
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
+#endif /* RIOT_VERSION */
 
   if (config && config->host) {
     addr_str = config->host;
@@ -496,22 +507,26 @@ dcaf_new_context(const dcaf_config_t *config) {
   if (dcaf_set_coap_address((const unsigned char *)addr_str, strlen(addr_str),
                             coap_port(config), &addr) == DCAF_OK) {
     if (set_endpoint(dcaf_context, &addr, COAP_PROTO_UDP)) {
+#ifndef RIOT_VERSION
       unsigned char buf[INET6_ADDRSTRLEN + 8];
 
       if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
         dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
       }
+#endif /* RIOT_VERSION */
     }
   }
 
   if (dcaf_set_coap_address((const unsigned char *)addr_str, strlen(addr_str),
                             coaps_port(config), &addr) == DCAF_OK) {
     if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
+#ifndef RIOT_VERSION
       unsigned char buf[INET6_ADDRSTRLEN + 8];
 
       if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
         dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
       }
+#endif /* RIOT_VERSION */
     }
   }
 
@@ -522,9 +537,11 @@ dcaf_new_context(const dcaf_config_t *config) {
                     strlen(config->am_uri));
   }
 
+#ifndef RIOT_VERSION
   coap_register_option(dcaf_context->coap_context, COAP_OPTION_BLOCK2);
   coap_register_response_handler(dcaf_context->coap_context,
                                  handle_coap_response);
+#endif /* RIOT_VERSION */
 
   return dcaf_context;
  error:
@@ -534,8 +551,10 @@ dcaf_new_context(const dcaf_config_t *config) {
 
 void dcaf_free_context(dcaf_context_t *context) {
   if (context) {
-    coap_free(context->am_uri);
+    dcaf_free_type(DCAF_STRING, context->am_uri);
+#ifndef RIOT_VERSION
     coap_free_context(context->coap_context);
+#endif /* RIOT_VERSION */
   }
   dcaf_free_type(DCAF_CONTEXT, context);
 }
@@ -554,7 +573,12 @@ dcaf_get_app_data(dcaf_context_t *dcaf_context) {
 
 dcaf_context_t *
 dcaf_get_dcaf_context(coap_context_t *coap_context) {
+#ifdef RIOT_VERSION
+  (void)coap_context;
+  return NULL; /* FIXME: RIOT */
+#else
   return (dcaf_context_t *)coap_get_app_data(coap_context);
+#endif /* RIOT_VERSION */
 }
 
 int
@@ -562,6 +586,16 @@ dcaf_set_am_uri(dcaf_context_t *context,
                 const unsigned char *uri,
                 size_t length) {
   assert(context);
+#ifdef RIOT_VERSION
+  (void)uri;
+  (void)length;
+  /* FIXME: RIOT */
+  const unsigned char host[] = "sam.example.com";
+  const size_t host_length = sizeof(host) - 1;
+  const uint16_t port = 7744;
+  return dcaf_set_coap_address(host, host_length, port,
+                               &context->am_address) == 0;
+#else
   coap_free(context->am_uri);
   context->am_uri = coap_new_uri(uri, length);
 
@@ -570,6 +604,7 @@ dcaf_set_am_uri(dcaf_context_t *context,
                            context->am_uri->host.length,
                            context->am_uri->port,
                            &context->am_address) == 0);
+#endif /* RIOT_VERSION */
 }
 
 const coap_address_t *
@@ -585,8 +620,13 @@ dcaf_get_coap_context(dcaf_context_t *context) {
 
 static int
 is_secure(const coap_session_t *session) {
+#ifdef RIOT_VERSION
+  /* FIXME: RIOT */
+  return (session != NULL);
+#else
   return (session != NULL) &&
     ((session->proto & COAP_PROTO_DTLS) != 0);
+#endif /* RIOT_VERSION */
 }
 #if 0
 coap_endpoint_t *
@@ -609,8 +649,10 @@ dcaf_is_authorized(const coap_session_t *session,
                    coap_pdu_t *pdu) {
   if (is_secure(session)) {
     /* FIXME: retrieve and check ticket */
+#ifndef RIOT_VERSION
     dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);
+#endif /* RIOT_VERSION */
     return pdu != NULL;
   }
   return 0;
