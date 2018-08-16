@@ -35,6 +35,9 @@ typedef enum {
               COAP_PROTO_UDP=1,
               COAP_PROTO_DTLS=2,
 } coap_proto_t;
+
+typedef uint64_t coap_tick_t;
+void coap_ticks(coap_tick_t *t);
 #else  /* include libcoap headers */
 #include <coap/coap.h>
 #endif /* RIOT_VERSION */
