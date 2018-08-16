@@ -17,6 +17,7 @@ typedef enum dcaf_object_type {
   DCAF_KEY,
   DCAF_AIF,
   DCAF_OPTION,
+  DCAF_STRING,
 } dcaf_object_type;
 
 /**

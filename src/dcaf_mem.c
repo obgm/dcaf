@@ -34,6 +34,7 @@ dcaf_alloc_type_len(dcaf_object_type obj, size_t len) {
   case DCAF_KEY: return CHECK_AND_ALLOC(dcaf_key_t, DCAF_MAX_KEY_SIZE, len);
   case DCAF_AIF: return CHECK_AND_ALLOC(dcaf_aif_t, 0, len);
   case DCAF_OPTION: return CHECK_AND_ALLOC(dcaf_option_t, DCAF_MAX_OPT_SIZE, len);
+  case DCAF_STRING: return CHECK_AND_ALLOC(char[DCAF_MAX_STRING], DCAF_MAX_STRING, len);
   }
 }
 #undef CHECK_AND_ALLOC
@@ -50,6 +51,7 @@ dcaf_alloc_type(dcaf_object_type obj) {
   case DCAF_KEY: len = DCAF_MAX_KEY_SIZE; break;
   case DCAF_AIF: break;
   case DCAF_OPTION: len = DCAF_MAX_OPT_SIZE; break;
+  case DCAF_STRING: len = DCAF_MAX_STRING; break;
   }
   return dcaf_alloc_type_len(obj, len);
 }
@@ -64,6 +66,7 @@ dcaf_free_type(dcaf_object_type obj, void *p) {
   case DCAF_KEY: FREE(obj, p); break;
   case DCAF_AIF: FREE(obj, p); break;
   case DCAF_OPTION: FREE(obj, p);
+  case DCAF_STRING: FREE(obj, p);
   default:
     ;
   }
