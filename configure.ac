@@ -108,8 +108,8 @@ fi
 AC_ARG_ENABLE([tests],
               [AS_HELP_STRING([--enable-tests],
                               [Enable building the binary testsuite [default=yes]])],
-              [build_tests="yes"],
-              [build_tests="$enableval"])
+              [build_tests="$enableval"],
+              [build_tests="yes"])
 
 if test "x$build_tests" = "xyes"; then
    if test "x$CURL" != "xyes"; then
