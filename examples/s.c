@@ -1,4 +1,4 @@
-/* rs -- CoAP resource server with authenticated authorization
+/* s -- CoAP resource server with authenticated authorization
  *
  * Copyright (c) 2016-2017 Olaf Bergmann <bergmann@tzi.org>
  *               2016-2017 Stefanie Gerdes <gerdes@tzi.org>
@@ -43,6 +43,7 @@
 static dcaf_context_t *dcaf_context;
 
 static const char r_restricted[] = "restricted";
+static const char r_ticket[] = "ticket";
 
 static char resource_buf[MAX_RESOURCE_BUF] =
   "This is a resource with restricted access.\n";
@@ -86,8 +87,46 @@ hnd_get(coap_context_t *ctx,
 }
 
 static void
+hnd_ticket_post(coap_context_t *ctx,
+        struct coap_resource_t *resource,
+        coap_session_t *session,
+        coap_pdu_t *request,
+        coap_binary_t *token,
+        coap_string_t *query,
+        coap_pdu_t *response) {
+  unsigned char buf[3];
+  size_t size;
+  dcaf_result_t res;
+  unsigned char *data;
+  dcaf_ticket_t *ticket;
+  (void)ctx;
+  (void)resource;
+  (void)token;
+  (void)query;
+
+  coap_get_data(request,&size, &data);
+  if (size == 0) {
+    response->code = COAP_RESPONSE_CODE(400);
+    return;
+  }
+  res = dcaf_parse_ticket(session, data, size, &ticket);
+  if (res == DCAF_ERROR_BAD_REQUEST) {
+    response->code = COAP_RESPONSE_CODE(400);
+    return;
+  }
+  dcaf_add_ticket(ticket);
+  response->code = COAP_RESPONSE_CODE(204);
+}
+
+static void
 init_resources(coap_context_t *ctx) {
   coap_resource_t *r;
+  r = coap_resource_init(coap_make_str_const(r_ticket), 0);
+  coap_register_handler(r, COAP_REQUEST_POST, hnd_ticket_post);
+  coap_add_attr(r, coap_make_str_const("ct"), coap_make_str_const("75"), 0);
+  coap_add_attr(r, coap_make_str_const("rt"), coap_make_str_const("dcaf-ticket"), 0);
+  coap_add_attr(r, coap_make_str_const("title"), coap_make_str_const("\"ticket resource\""), 0);
+  coap_add_resource(ctx, r);
 
   r = coap_resource_init(coap_make_str_const(r_restricted), 0);
   coap_register_handler(r, COAP_REQUEST_GET, hnd_get);

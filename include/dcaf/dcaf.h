@@ -206,6 +206,27 @@ void dcaf_set_ticket_grant(const coap_session_t *session,
 struct dcaf_ticket_t;
 typedef struct dcaf_ticket_t dcaf_ticket_t;
 
+/**
+ * Parses @p data of size @p data_len into the ticket @p result.
+ *
+ * @param session  The session where the @p request was received.
+ * @param data     The raw CBOR data to parse.
+ * @param data_len The lenght of @p data.
+ * @param result   A result parameter that will be filled in with a
+ *                 pointer to a newly created dcaf_ticket_t structure
+ *                 If and only if this
+ *                 function returns DCAF_OK, @p *result will point
+ *                 to a new dcaf_authz_t object that must be released
+ *                 by dcaf_free_ticket().
+ *
+ * @return DCAF_OK on success, or an error code otherwise. The error
+ *         code can be used to construct an error response by
+ *         dcaf_set_error_response().
+ */
+dcaf_result_t dcaf_parse_ticket(const coap_session_t *session,
+				const uint8_t *data, size_t data_len,
+				dcaf_ticket_t **result);
+
 dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
                                const uint8_t *verifier, size_t verifier_length);
 void dcaf_add_ticket(dcaf_ticket_t *ticket);

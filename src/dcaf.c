@@ -398,7 +398,7 @@ get_cose_key(const cn_cbor *obj) {
   }
 }
 
-static dcaf_result_t
+dcaf_result_t
 dcaf_parse_ticket(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
                   dcaf_ticket_t **result) {
