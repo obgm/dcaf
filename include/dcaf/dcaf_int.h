@@ -58,6 +58,8 @@ struct dcaf_key_t {
   uint8_t data[DCAF_MAX_KEY_SIZE];
 };
 
+#define DCAF_MAX_STRING    128
+
 typedef unsigned long dcaf_time_t;
 
 struct dcaf_authz_t {

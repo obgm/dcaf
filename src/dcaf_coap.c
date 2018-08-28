@@ -11,7 +11,9 @@
 #include <assert.h>
 #include <stdint.h>
 
+#ifdef RIOT_VERSION
 #include <timex.h>
+#endif /* RIOT_VERSION */
 
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"

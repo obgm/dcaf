@@ -43,9 +43,11 @@ token_equals(coap_pdu_t *a, coap_pdu_t *b) {
   return 0;
 }
 
+#ifdef RIOT_VERSION
 struct coap_session_t {
   coap_address_t remote_addr;
 };
+#endif
 
 static void
 handle_coap_response(struct coap_context_t *coap_context,
