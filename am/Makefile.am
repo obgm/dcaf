@@ -11,7 +11,7 @@ AM_CPPFLAGS = -I @top_builddir@/include @lug_CXXFLAGS@ $(WARNING_CXXFLAGS) @libc
 
 AM_LDFLAGS = -L@top_builddir@
 
-bin_PROGRAMS = dcaf-am am-config
+bin_PROGRAMS = dcaf-am
 
 dcaf_am_DEPENDENCIES = $(top_builddir)/libdcaf.a
 
@@ -19,9 +19,5 @@ dcaf_am_SOURCES = am.cc config_parser.cc
 dcaf_am_CXXFLAGS = $(AM_CXXFLAGS)
 dcaf_am_CPPFLAGS = $(filter-out -Wswitch-enum -fpermissive -Winline, $(AM_CPPFLAGS))
 dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@
-
-am_config_CXXFLAGS = $(AM_CXXFLAGS)
-am_config_CPPFLAGS = $(filter-out -Wswitch-enum -fpermissive -Winline, $(AM_CPPFLAGS))
-am_config_SOURCES = am-config.cc config_parser.cc
 
 #FIXME: extra dist files: config_parser.hh
