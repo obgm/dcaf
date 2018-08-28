@@ -58,6 +58,14 @@ typedef enum {
 #define DCAF_TYPE_D    11
 #define DCAF_TYPE_N    12
 
+enum dcaf_ticket_field {
+  DCAF_TICKET_SEQ             = 1,
+  DCAF_TICKET_SCOPE           = 12,
+  DCAF_TICKET_EXPIRES_IN      = 21,
+  DCAF_TICKET_CNF             = 25,
+  DCAF_TICKET_KDF             = 125,
+};
+
 typedef enum {
   DCAF_MEDIATYPE_DCAF_CBOR = 75,
   DCAF_MEDIATYPE_ACE_CBOR  = COAP_MEDIATYPE_APPLICATION_CBOR

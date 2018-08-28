@@ -73,6 +73,7 @@ struct dcaf_authz_t {
 
 struct dcaf_ticket_t {
   struct dcaf_ticket_t *next;
+  uint64_t seq;
 
   uint8_t *kid;                 /**< The key id as known by our AM. */
   size_t kid_length;            /**< The length of kid in bytes. */

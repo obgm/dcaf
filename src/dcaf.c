@@ -367,7 +367,9 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
 
 void
 dcaf_add_ticket(dcaf_ticket_t *ticket) {
-  LL_PREPEND(dcaf_tickets, ticket);
+  if (ticket) {
+    LL_PREPEND(dcaf_tickets, ticket);
+  }
 }
 
 void
@@ -404,9 +406,11 @@ dcaf_parse_ticket(const coap_session_t *session,
                   dcaf_ticket_t **result) {
   dcaf_result_t res = DCAF_ERROR_BAD_REQUEST;
   cn_cbor *bstr = NULL;
-  cn_cbor *ticket = NULL;
-  const cn_cbor *key, *cnf;
+  cn_cbor *ticket_face = NULL;
+  dcaf_ticket_t *ticket;
+  const cn_cbor *key, *cnf, *kdf;
   cn_cbor_errback errp;
+  const cn_cbor *seq;
 
   (void)session;
   assert(result);
@@ -423,33 +427,62 @@ dcaf_parse_ticket(const coap_session_t *session,
   }
 
   /* FIXME: decrypt data first */
-  ticket = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
-  if (!ticket || (ticket->type != CN_CBOR_MAP)) {
+  ticket_face = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
+  if (!ticket_face || (ticket_face->type != CN_CBOR_MAP)) {
     dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
     res  = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
-  /* We might want to check if this is the DTLS profile. On the other
-   * hand, we do not really care if it is anything else. */
-
-  /* retrieve cnf claim to get kid and verifier */
-  cnf = cn_cbor_mapget_int(ticket, ACE_CLAIM_CNF);
-  if (!cnf) {  /* no cnf object, no verifier */
-    dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
+  seq = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SEQ);
+  if (!seq) {
+    dcaf_log(DCAF_LOG_INFO, "no seqence number found\n");
+    goto finish;
+  }
+  if (seq->type != CN_CBOR_UINT) {
+    res = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
-  key = get_cose_key(cnf);
-  (void)key; /* FIXME: RIOT */
+  /* find ticket with sequence number and AM */
+  /* if we already have a ticket with this sequence number, */
+  /* the new ticket is discarded */
+  LL_FOREACH(dcaf_tickets,ticket) {
+    if (seq->v.uint == ticket->seq) {
+	res = DCAF_OK;
+	goto finish;
+    }
+  }
+
+  /* TODO: search revocation list for ticket */
+
+  
+  /* retrieve cnf claim to get kid and verifier */
+  cnf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_CNF);
+  kdf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_KDF);
+  if (!cnf && !kdf) {  /* no cnf object, no kdf, no verifier */
+    dcaf_log(DCAF_LOG_INFO, "no cnf and no kdf found\n");
+    goto finish;
+  }
+  if (cnf && !kdf) {
+    key = get_cose_key(cnf);
+    (void)key; /* FIXME: RIOT */
+  } else if (!cnf && kdf) {
+    /* FIXME: derive key */
+  } else {   /* only one of cnf and kdf must be provided */
+    dcaf_log(DCAF_LOG_INFO, "found cnf and kdf\n");
+    goto finish;
+  }
 
   *result = dcaf_new_ticket((uint8_t *)"kid", 3,
                             (uint8_t *)"v", 1);
   /* TODO: add actual permissions to ticket */
 
+  res = DCAF_OK;
+   
  finish:
   cn_cbor_free(bstr);
-  cn_cbor_free(ticket);
+  cn_cbor_free(ticket_face);
   return res;
 }
 
@@ -651,6 +684,13 @@ dcaf_is_authorized(const coap_session_t *session,
                    coap_pdu_t *pdu) {
   if (is_secure(session)) {
     /* FIXME: retrieve and check ticket */
+    dcaf_ticket_t *ticket;
+    ticket = dcaf_find_ticket(session->psk_identity, session->psk_identity_len);
+    if (ticket) {
+      /* check expiration time */
+      /* check scope type */
+      /* check method and uri */
+    }
 #ifndef RIOT_VERSION
     dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);
