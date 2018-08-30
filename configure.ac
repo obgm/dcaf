@@ -17,9 +17,6 @@ AM_PROG_AR
 # C++
 AC_PROG_CXX
 
-# curl for retrieving unit test header
-AC_CHECK_PROG([curl],[curl],[yes])
-
 # Adding some default warning options for code QS
 # see https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
 # and http://www.gnu.org/software/automake/manual/html_node/Flag-Variables-Ordering.html
@@ -108,14 +105,9 @@ fi
 AC_ARG_ENABLE([tests],
               [AS_HELP_STRING([--enable-tests],
                               [Enable building the binary testsuite [default=yes]])],
-              [build_tests="$enableval"],
-              [build_tests="yes"])
+              [build_tests="yes"],
+              [build_tests="$enableval"])
 
-if test "x$build_tests" = "xyes"; then
-   if test "x$CURL" != "xyes"; then
-      AC_MSG_ERROR([curl not found for retrieval of catch.hpp])
-   fi
-fi
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" != "xno"])
 
 # __am__
