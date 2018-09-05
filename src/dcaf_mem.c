@@ -65,8 +65,8 @@ dcaf_free_type(dcaf_object_type obj, void *p) {
   case DCAF_TICKET: FREE(obj, p); break;
   case DCAF_KEY: FREE(obj, p); break;
   case DCAF_AIF: FREE(obj, p); break;
-  case DCAF_OPTION: FREE(obj, p);
-  case DCAF_STRING: FREE(obj, p);
+  case DCAF_OPTION: FREE(obj, p); break;
+  case DCAF_STRING: FREE(obj, p); break;
   default:
     ;
   }
