@@ -52,9 +52,15 @@
 const char am_default_uri[] =
   "coaps://" AM_DEFAULT_HOST ":" AM_DEFAULT_PORT AM_DEFAULT_PATH;
 
-/* This variable points to the client's authorization manager (CAM).
- * It can be set with the command line option -A. */
-const char *am_uri = am_default_uri;
+dcaf_config_t config = {
+                        .host = "::",
+                        .coap_port = 0,
+                        .coaps_port = 0,
+                        .am_uri = am_default_uri
+};
+
+/* The log level (may be changed with option '-v' on the command line. */
+dcaf_log_t log_level = DCAF_LOG_WARNING;
 
 int flags = 0;
 
@@ -456,21 +462,21 @@ usage( const char *program, const char *version) {
   fprintf( stderr, "%s v%s -- DCAF example client\n"
      "Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>\n"
      "              2018 Stefanie Gerdes <gerdes@tzi.org>\n\n"
-     "Usage: %s [-a addr] [-k key] [-m method] [-p port] \n"
-     "\t\t [-A CAM-Uri] [-u user] [-v verbosity] URI\n\n"
-     "\tURI can be an absolute URI or a URI prefixed with scheme and host\n\n"
+     "Usage: %s [-A CAM-Uri] [-a addr] [-k key] [-p port] \n"
+     "\t\t [-u user] [-v verbosity] [method] URI\n\n"
+     "\tURI can be an absolute URI or a URI prefixed with scheme and host.\n\n"
+     "\tMethod can be any of GET|PUT|POST|DELETE|FETCH|PATCH|IPATCH. If no\n"
+     "\tmethod was specified the default is GET.\n\n"
      "\t-a addr\t\tThe local interface address to use\n"
      "\t-k key \t\tPre-shared key for the specified user. This argument\n"
      "\t       \t\trequires (D)TLS with PSK to be available\n"
-     "\t-m method\tRequest method (get|put|post|delete|fetch|patch|ipatch),\n"
-     "\t       \t\tdefault is 'get'\n"
      "\t-p port\t\tListen on specified port\n"
      "\t-u user\t\tUser identity for pre-shared key mode. This argument\n"
      "\t       \t\trequires (D)TLS with PSK to be available\n"
-     "\t-v num \t\tVerbosity level (default: 3)\n"
+     "\t-v num \t\tVerbosity level (default: %d)\n"
      "\t-A CAM\t\tURI of the client authorization manager\n"
      "\n"
-     ,program, version, program);
+           ,program, version, program, log_level);
 }
 
 typedef struct {
@@ -570,13 +576,14 @@ cmdline_uri(char *arg, int create_uri_opts) {
 static method_t
 cmdline_method(char *arg) {
   static const char *methods[] =
-    { 0, "get", "post", "put", "delete", "fetch", "patch", "ipatch", 0};
-  unsigned char i;
+    { "get", "post", "put", "delete", "fetch", "patch", "ipatch" };
+  size_t i;
 
-  for (i=1; methods[i] && strcasecmp(arg,methods[i]) != 0 ; ++i)
-    ;
-
-  return i;     /* note that we do not prevent illegal methods */
+  for (i = 1; i < sizeof(methods)/sizeof(methods[0]); i++) {
+    if (strcasecmp(arg,methods[i]) == 0)
+      return i + 1;
+  }
+  return 0; /* 0 means "not found" */
 }
 
 static ssize_t
@@ -656,9 +663,27 @@ get_session(
   return session;
 }
 
+static void
+rnd(uint8_t *out, size_t len) {
+#ifdef HAVE_GETRANDOM
+  if (getrandom(out, len, 0) < 0) {
+    dcaf_log(LOG_WARN, "getrandom failed: %s", strerror(errno));
+  }
+#else /* HAVE_GETRANDOM */
+  /* FIXME: need to set a useful seed with srandom() */
+  typedef long int rand_t;
+
+  for (; len; len -= sizeof(rand_t), out += sizeof(rand_t)) {
+    rand_t v = random();
+    memcpy(out, &v, min(len, sizeof(rand_t)));
+  }
+#endif /* HAVE_GETRANDOM */
+}
+
 int
 main(int argc, char **argv) {
-  coap_context_t  *ctx = NULL;
+  dcaf_context_t *dcaf = NULL;
+  coap_context_t *ctx;
   coap_session_t *session = NULL;
   coap_address_t dst;
   int result = -1;
@@ -668,12 +693,11 @@ main(int argc, char **argv) {
   char port_str[NI_MAXSERV] = "0";
   char node_str[NI_MAXHOST] = "";
   int opt, res;
-  coap_log_t log_level = LOG_WARNING;
   unsigned char user[MAX_USER + 1], key[MAX_KEY];
   ssize_t user_length = 0, key_length = 0;
   int create_uri_opts = 1;
 
-  while ((opt = getopt(argc, argv, "a:k:m:p:u:v:A:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:k:p:u:v:A:")) != -1) {
     switch (opt) {
     case 'a':
       strncpy(node_str, optarg, NI_MAXHOST - 1);
@@ -686,11 +710,8 @@ main(int argc, char **argv) {
       strncpy(port_str, optarg, NI_MAXSERV - 1);
       port_str[NI_MAXSERV - 1] = '\0';
       break;
-    case 'm':
-      method = cmdline_method(optarg);
-      break;
     case 'A':
-      am_uri = optarg;
+      config.am_uri = optarg;
       break;
     case 'u':
       user_length = cmdline_read_user(optarg, user, MAX_USER);
@@ -709,6 +730,13 @@ main(int argc, char **argv) {
   coap_startup();
   coap_dtls_set_log_level(log_level);
   coap_set_log_level(log_level);
+  dcaf_set_log_level(log_level);
+
+  if ((optind < argc) && ((method = cmdline_method(argv[optind])) > 0)) {
+    optind++;
+  } else {
+    method = COAP_REQUEST_GET; /* default method is GET */
+  }
 
   if (optind < argc) {
     if (cmdline_uri(argv[optind], create_uri_opts) < 0) {
@@ -735,11 +763,13 @@ main(int argc, char **argv) {
     exit(-1);
   }
 
-  ctx = coap_new_context( NULL );
-  if (!ctx) {
-    dcaf_log(DCAF_LOG_EMERG, "cannot create context\n");
-    goto finish;
-  }
+  /* set random number generator function for DCAF library */
+  dcaf_set_prng(rnd);
+
+  dcaf = dcaf_new_context(&config);
+
+  if (!dcaf || !(ctx = dcaf_get_coap_context(dcaf)))
+    return 2;
 
   dst.size = res;
   dst.addr.sin.sin_port = htons( port );
@@ -796,8 +826,8 @@ main(int argc, char **argv) {
  finish:
 
   coap_delete_optlist(optlist);
-  coap_session_release( session );
-  coap_free_context( ctx );
+  coap_session_release(session);
+  dcaf_free_context(dcaf);
   coap_cleanup();
   close_output();
 
