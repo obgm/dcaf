@@ -59,11 +59,14 @@ typedef enum {
 #define DCAF_TYPE_N    12
 
 enum dcaf_ticket_field {
-  DCAF_TICKET_SEQ             = 1,
-  DCAF_TICKET_SCOPE           = 12,
-  DCAF_TICKET_EXPIRES_IN      = 21,
-  DCAF_TICKET_CNF             = 25,
+  DCAF_TICKET_IAT             = 6,
+  DCAF_TICKET_CNF             = 8,
+  DCAF_TICKET_SCOPE           = 9,
+  DCAF_TICKET_EXPIRES_IN      = 32,
   DCAF_TICKET_KDF             = 125,
+  DCAF_TICKET_SNC             = 126,
+  DCAF_TICKET_SEQ             = 127,
+  /* use cti instead of seq? */
 };
 
 typedef enum {
@@ -88,7 +91,6 @@ typedef struct dcaf_config_t {
    * registered as a resource with coap_context. */
   const char *am_uri;
 } dcaf_config_t;
-
 
 struct dcaf_context_t;
 typedef struct dcaf_context_t dcaf_context_t;
@@ -211,6 +213,20 @@ void dcaf_set_ticket_grant(const coap_session_t *session,
                            const dcaf_authz_t *authz,
                            coap_pdu_t *response);
 
+struct dcaf_nonce_t;
+typedef struct dcaf_nonce_t dcaf_nonce_t;
+
+/**
+ * Searches the stored nonces for @p nonce with the size @p size and
+ * determines the offset from the information stored with the nonce.
+ * 
+ * @param nonce      The nonce for which the stored nonces are searched.
+ * @param nonce_size The size of the nonce.
+ *
+ * @return The offset on success or an error code.
+ */
+int dcaf_determine_offset_with_nonce(uint8_t *nonces,size_t nonce_size);
+
 struct dcaf_ticket_t;
 typedef struct dcaf_ticket_t dcaf_ticket_t;
 
@@ -234,6 +250,15 @@ typedef struct dcaf_ticket_t dcaf_ticket_t;
 dcaf_result_t dcaf_parse_ticket(const coap_session_t *session,
 				const uint8_t *data, size_t data_len,
 				dcaf_ticket_t **result);
+
+typedef unsigned long dcaf_time_t;
+
+/**
+ * Returns the current time.
+ *
+ * @return The current time.
+ */
+dcaf_time_t dcaf_gettime(void);
 
 dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
                                const uint8_t *verifier, size_t verifier_length);

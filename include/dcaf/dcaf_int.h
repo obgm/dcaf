@@ -47,6 +47,17 @@ struct dcaf_context_t {
   dcaf_transaction_t *transactions;
 };
 
+/**
+ * The validity option supported by the DCAF server. Allowed values
+ * are 1, 2, and 3, respectively. If option 1 is set, the ticket must
+ * contain an iat field, options 2 and 3 require snc to be set which
+ * must be copied from the SAM information message that was generated
+ * by this server.
+ */
+#ifndef DCAF_SERVER_VALIDITY_OPTION
+#define DCAF_SERVER_VALIDITY_OPTION (1U)
+#endif /* DCAF_SERVER_VALIDITY_OPTION */
+
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002
 
@@ -60,7 +71,7 @@ struct dcaf_key_t {
 
 #define DCAF_MAX_STRING    128
 
-typedef unsigned long dcaf_time_t;
+typedef unsigned long dcaf_time_t; 
 
 struct dcaf_authz_t {
   dcaf_mediatype_t mediatype;
@@ -82,6 +93,21 @@ struct dcaf_ticket_t {
   size_t verifier_length;       /**< The key length in bytes. */
 
   /* FIXME: dcaf_authz_t... */
+};
+
+struct dcaf_nonce_t {
+  uint8_t nonce[8];
+  size_t nonce_length;
+  struct dcaf_nonce_t *next;
+  /* timer or timestamp */
+  enum {
+    option_2=2,
+    option_3
+  }validity_type;
+  union {
+    dcaf_time_t dat; /* SAM info message sent at */
+    uint timer;
+  }validity_value;
 };
 
 dcaf_authz_t *dcaf_new_authz(void);

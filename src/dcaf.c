@@ -400,6 +400,47 @@ get_cose_key(const cn_cbor *obj) {
   }
 }
 
+dcaf_time_t dcaf_gettime(void) {
+  /* TODO: implement correct function */
+  return 0;
+}
+
+dcaf_nonce_t *dcaf_nonces = NULL;
+
+int dcaf_determine_offset_with_nonce(uint8_t *nonce, size_t nonce_size){
+  int offset = -1;
+  int res;
+  dcaf_nonce_t *stored_nonce=NULL;
+
+  /* search stored nonces for nonce */
+  /* if nonce is found, process corresponding data */
+  LL_FOREACH(dcaf_nonces,stored_nonce) {
+    if (nonce_size == stored_nonce->nonce_length) {
+      res = memcmp(nonce, stored_nonce->nonce, nonce_size);
+      if (res) {
+	/* nonce found */
+	if (stored_nonce->validity_type==2) {
+	  dcaf_time_t dat = stored_nonce->validity_value.dat;
+	  dcaf_time_t now;
+	  /* if timestamp is found,
+	     offset = current-time - timestamp */
+	  now = dcaf_gettime();
+	  offset = now - dat;
+	}
+	else if (stored_nonce->validity_type==3) {
+	  /* if a timer is found, offset = already passed time */
+	  offset = stored_nonce->validity_value.timer;
+	}
+      }
+    }
+  }
+  
+  if (offset == -1) {
+    dcaf_log(DCAF_LOG_INFO, "no such nonce found in stored nonces\n");
+  }
+  return offset;
+}
+
 dcaf_result_t
 dcaf_parse_ticket(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
@@ -408,10 +449,11 @@ dcaf_parse_ticket(const coap_session_t *session,
   cn_cbor *bstr = NULL;
   cn_cbor *ticket_face = NULL;
   dcaf_ticket_t *ticket;
-  const cn_cbor *key, *cnf, *kdf;
+  const cn_cbor *key, *cnf, *kdf, *snc, *iat, *ltm;
   cn_cbor_errback errp;
   const cn_cbor *seq;
-
+  dcaf_time_t now;
+  
   (void)session;
   assert(result);
   *result = NULL;
@@ -422,7 +464,6 @@ dcaf_parse_ticket(const coap_session_t *session,
   bstr = cn_cbor_decode(data, data_len, &errp);
   if (!bstr || (bstr->type != CN_CBOR_BYTES)) {
     dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
-    res  = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
@@ -430,7 +471,6 @@ dcaf_parse_ticket(const coap_session_t *session,
   ticket_face = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
   if (!ticket_face || (ticket_face->type != CN_CBOR_MAP)) {
     dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
-    res  = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
@@ -440,7 +480,6 @@ dcaf_parse_ticket(const coap_session_t *session,
     goto finish;
   }
   if (seq->type != CN_CBOR_UINT) {
-    res = DCAF_ERROR_BAD_REQUEST;
     goto finish;
   }
 
@@ -456,6 +495,54 @@ dcaf_parse_ticket(const coap_session_t *session,
 
   /* TODO: search revocation list for ticket */
 
+  /* retrieve lifetime */
+  ltm = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_EXPIRES_IN);
+  if (!ltm || !(ltm->type == CN_CBOR_UINT)) {    
+    dcaf_log(DCAF_LOG_INFO, "no valid lifetime found\n");
+    goto finish;
+  }
+
+  /* retrieve nonce/timestamp */
+  snc = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SNC);
+  iat = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_IAT);
+
+  if ((DCAF_SERVER_VALIDITY_OPTION == 1) && iat) {
+    /* validity option 1 */
+    if (iat->type!=CN_CBOR_UINT) {
+      dcaf_log(DCAF_LOG_INFO, "no valid iat found\n");
+      goto finish;
+    }
+    now = dcaf_gettime();
+    if ((ltm->v.uint - (now - iat->v.uint)) <= 0) {
+      /* lifetime already exceeded  */
+      dcaf_log(DCAF_LOG_INFO, "ticket lifetime exceeded\n");
+      /* FIXME: different DCAF error code? */
+      goto finish;
+    }
+  }
+  else if (snc && (snc->type == CN_CBOR_BYTES)) {
+    /* validity option 2 or 3 */
+    int offset;
+    offset = dcaf_determine_offset_with_nonce(snc->v.bytes, snc->length);
+    if (offset < 0) {
+      dcaf_log(DCAF_LOG_INFO, "ticket lifetime exceeded\n");
+    }
+    
+    //    dcaf_nonce_t *nonce;
+    // nonce = dcaf_find_nonce(snc->v.bytes,snc->length);
+
+    
+    //    if (!nonce) {
+    //      dcaf_log(DCAF_LOG_INFO, "nonce not found\n");
+    //      goto finish;
+    //    }
+    /* process timestamp or timeout */
+    
+  }
+  else {
+    dcaf_log(DCAF_LOG_INFO, "no validity information found\n");
+    goto finish;
+  }
   
   /* retrieve cnf claim to get kid and verifier */
   cnf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_CNF);
@@ -473,6 +560,8 @@ dcaf_parse_ticket(const coap_session_t *session,
     dcaf_log(DCAF_LOG_INFO, "found cnf and kdf\n");
     goto finish;
   }
+
+  /* store remaining lifetime with ticket */
 
   *result = dcaf_new_ticket((uint8_t *)"kid", 3,
                             (uint8_t *)"v", 1);
