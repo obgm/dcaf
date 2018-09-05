@@ -18,11 +18,14 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif /* min */
 
+#if 0
 static unsigned short
 get_default_port(const coap_uri_t *u) {
   return coap_uri_scheme_is_secure(u) ? COAPS_DEFAULT_PORT : COAP_DEFAULT_PORT;
 }
+#endif
 
+#if 0
 static int
 set_uri_options(coap_uri_t *uri, dcaf_optlist_t *optlist) {
 #define BUFSIZE 40
@@ -75,9 +78,9 @@ set_uri_options(coap_uri_t *uri, dcaf_optlist_t *optlist) {
       buf += coap_opt_size(buf);
     }
   }
-
   return 0;  
 }
+#endif
 
 dcaf_transaction_t *
 dcaf_create_transaction(dcaf_context_t *dcaf_context,
@@ -88,7 +91,16 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
                         void *data,
                         size_t data_len,
                         int flags) {
-#if 0
+#if 1
+  (void)dcaf_context;
+  (void)code;
+  (void)uri_str;
+  (void)uri_len;
+  (void)options;
+  (void)data;
+  (void)data_len;
+  (void)flags;
+#else
   dcaf_transaction_t *transaction;
   coap_uri_t uri;
   int result;
@@ -189,7 +201,11 @@ dcaf_transaction_t *
 dcaf_find_transaction(dcaf_context_t *dcaf_context,
                       const coap_address_t *peer,
                       const coap_pdu_t *pdu) {
-#if 0
+#if 1
+  (void)dcaf_context;
+  (void)peer;
+  (void)pdu;
+#else
   coap_tid_t id;
   dcaf_transaction_t *transaction;
 
@@ -210,8 +226,12 @@ dcaf_find_transaction(dcaf_context_t *dcaf_context,
 dcaf_transaction_result_t
 dcaf_transaction_start(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *transaction) {
+#if 1
+  (void)dcaf_context;
+  (void)transaction;
+  return DCAF_TRANSACTION_NOT_SENT;
+#else
   coap_context_t *coap_context = dcaf_context->coap_context;
-#if 0
   LL_PREPEND(dcaf_context->transactions, transaction);
 
   if (transaction->pdu == NULL) {
