@@ -19,6 +19,7 @@ typedef enum dcaf_object_type {
   DCAF_OPTION,
   DCAF_STRING,
   DCAF_DEP_TICKET,
+  DCAF_TRANSACTION,
 } dcaf_object_type;
 
 /**
