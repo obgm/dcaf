@@ -39,7 +39,6 @@ dcaf_set_coap_address(const unsigned char *host, size_t host_len,
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
   hints.ai_socktype = SOCK_DGRAM; /* Coap uses UDP */
-  hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
 
   s = getaddrinfo(addr_str, port_str, &hints, &result);
   if (s != 0) {
