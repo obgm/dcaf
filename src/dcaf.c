@@ -328,6 +328,7 @@ set_endpoint(const dcaf_context_t *dcaf_context,
 }
 
 dcaf_ticket_t *dcaf_tickets = NULL;
+dcaf_dep_ticket_t *deprecated_tickets = NULL;
 
 static dcaf_ticket_t *
 dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
@@ -343,10 +344,17 @@ dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
 
 dcaf_ticket_t *
 dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
-                const uint8_t *verifier, size_t verifier_length) {
+                const uint8_t *verifier, size_t verifier_length,
+		const unsigned long seq, const dcaf_time_t ts,
+		const uint remaining_time) {
+
+  /* timestamp, remaining lifetime, authz info */
   dcaf_ticket_t *ticket = (dcaf_ticket_t *)dcaf_alloc_type(DCAF_TICKET);
   if (ticket) {
     memset(ticket, 0, sizeof(dcaf_ticket_t));
+    ticket->seq = seq;
+    ticket->ts = ts;
+    ticket->remaining_time = remaining_time;
     if (kid && kid_length) {
       ticket->kid = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY, kid_length);
       if (ticket->kid) {
@@ -363,6 +371,28 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
     }
   }
   return ticket;
+}
+
+dcaf_dep_ticket_t *
+dcaf_new_dep_ticket(const unsigned long seq, const dcaf_time_t ts,
+		    const uint remaining_time) {
+  dcaf_dep_ticket_t *ticket = (dcaf_dep_ticket_t*)dcaf_alloc_type(DCAF_DEP_TICKET);
+  if (ticket) {
+    memset(ticket, 0, sizeof(dcaf_dep_ticket_t));
+    ticket->seq = seq;
+    ticket->ts = ts;
+    ticket->remaining_time = remaining_time;
+  }
+  return ticket;
+}
+
+
+void
+dcaf_remove_ticket(dcaf_ticket_t *ticket) {
+  if (ticket) {
+    LL_DELETE(dcaf_tickets,ticket);
+    dcaf_free_ticket(ticket);
+  }
 }
 
 void
@@ -402,18 +432,17 @@ get_cose_key(const cn_cbor *obj) {
 
 dcaf_time_t dcaf_gettime(void) {
   /* TODO: implement correct function */
-  return 0;
+  return time(0);
 }
 
 dcaf_nonce_t *dcaf_nonces = NULL;
 
-int dcaf_determine_offset_with_nonce(uint8_t *nonce, size_t nonce_size){
+int dcaf_determine_offset_with_nonce(const uint8_t *nonce, size_t nonce_size){
   int offset = -1;
   int res;
   dcaf_nonce_t *stored_nonce=NULL;
 
   /* search stored nonces for nonce */
-  /* if nonce is found, process corresponding data */
   LL_FOREACH(dcaf_nonces,stored_nonce) {
     if (nonce_size == stored_nonce->nonce_length) {
       res = memcmp(nonce, stored_nonce->nonce, nonce_size);
@@ -449,10 +478,11 @@ dcaf_parse_ticket(const coap_session_t *session,
   cn_cbor *bstr = NULL;
   cn_cbor *ticket_face = NULL;
   dcaf_ticket_t *ticket;
-  const cn_cbor *key, *cnf, *kdf, *snc, *iat, *ltm;
+  const cn_cbor *key, *cnf, *snc, *iat, *ltm;
+  const cn_cbor *seq, *dseq, *kid;
   cn_cbor_errback errp;
-  const cn_cbor *seq;
   dcaf_time_t now;
+  int remaining_ltm;
   
   (void)session;
   assert(result);
@@ -467,6 +497,8 @@ dcaf_parse_ticket(const coap_session_t *session,
     goto finish;
   }
 
+  /* TODO: find out if the ticket was meant for me */
+
   /* FIXME: decrypt data first */
   ticket_face = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
   if (!ticket_face || (ticket_face->type != CN_CBOR_MAP)) {
@@ -480,9 +512,9 @@ dcaf_parse_ticket(const coap_session_t *session,
     goto finish;
   }
   if (seq->type != CN_CBOR_UINT) {
+    dcaf_log(DCAF_LOG_INFO, "sequence number has invalid format\n");
     goto finish;
   }
-
   /* find ticket with sequence number and AM */
   /* if we already have a ticket with this sequence number, */
   /* the new ticket is discarded */
@@ -493,7 +525,33 @@ dcaf_parse_ticket(const coap_session_t *session,
     }
   }
 
-  /* TODO: search revocation list for ticket */
+  /* search list of deprecated tickets for ticket with sequence
+     number */
+  LL_FOREACH(deprecated_tickets,ticket) {
+    if (seq->v.uint == ticket->seq) {
+      res = DCAF_ERROR_INVALID_TICKET;
+      goto finish;
+    }
+  }
+  
+  /* TODO: search revocation list for ticket with sequence number */
+  
+  /* if deprecated sequence number is specified, remove old ticket */
+  dseq = cn_cbor_mapget_int(ticket_face,DCAF_TICKET_DSEQ);
+  if (dseq) {
+    LL_FOREACH(dcaf_tickets,ticket) {
+      if (dseq->v.uint == ticket->seq){
+	dcaf_dep_ticket_t *dep_ticket;
+	/* store ticket's seq and remaining lifetime in */
+	/* revocation list */
+	dep_ticket = dcaf_new_dep_ticket(ticket->seq,ticket->ts, ticket->remaining_time);
+	LL_PREPEND(deprecated_tickets,dep_ticket);
+	/* remove old ticket from ticket list */
+	dcaf_remove_ticket(ticket);
+	break;
+      }
+    }
+  }
 
   /* retrieve lifetime */
   ltm = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_EXPIRES_IN);
@@ -505,15 +563,15 @@ dcaf_parse_ticket(const coap_session_t *session,
   /* retrieve nonce/timestamp */
   snc = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SNC);
   iat = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_IAT);
-
+  now = dcaf_gettime();
   if ((DCAF_SERVER_VALIDITY_OPTION == 1) && iat) {
     /* validity option 1 */
     if (iat->type!=CN_CBOR_UINT) {
       dcaf_log(DCAF_LOG_INFO, "no valid iat found\n");
       goto finish;
     }
-    now = dcaf_gettime();
-    if ((ltm->v.uint - (now - iat->v.uint)) <= 0) {
+    remaining_ltm = (ltm->v.uint - (now - iat->v.uint));
+    if (remaining_ltm <= 0) {
       /* lifetime already exceeded  */
       dcaf_log(DCAF_LOG_INFO, "ticket lifetime exceeded\n");
       /* FIXME: different DCAF error code? */
@@ -524,20 +582,19 @@ dcaf_parse_ticket(const coap_session_t *session,
     /* validity option 2 or 3 */
     int offset;
     offset = dcaf_determine_offset_with_nonce(snc->v.bytes, snc->length);
+    /* TODO: do something with offset */
     if (offset < 0) {
-      dcaf_log(DCAF_LOG_INFO, "ticket lifetime exceeded\n");
+      dcaf_log(DCAF_LOG_INFO, "error calculating the offset\n");
+      goto finish;
     }
-    
-    //    dcaf_nonce_t *nonce;
-    // nonce = dcaf_find_nonce(snc->v.bytes,snc->length);
-
-    
-    //    if (!nonce) {
-    //      dcaf_log(DCAF_LOG_INFO, "nonce not found\n");
-    //      goto finish;
-    //    }
-    /* process timestamp or timeout */
-    
+    else {
+      /* calculate the remaining lifetime */
+      remaining_ltm = ltm->v.uint - offset;
+      if (remaining_ltm<=0) {
+	dcaf_log(DCAF_LOG_INFO, "ticket lifetime already exceeded\n");
+	goto finish;
+      }    
+    }
   }
   else {
     dcaf_log(DCAF_LOG_INFO, "no validity information found\n");
@@ -546,26 +603,34 @@ dcaf_parse_ticket(const coap_session_t *session,
   
   /* retrieve cnf claim to get kid and verifier */
   cnf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_CNF);
-  kdf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_KDF);
-  if (!cnf && !kdf) {  /* no cnf object, no kdf, no verifier */
-    dcaf_log(DCAF_LOG_INFO, "no cnf and no kdf found\n");
+  if (!cnf) {
+    dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
     goto finish;
   }
-  if (cnf && !kdf) {
-    key = get_cose_key(cnf);
-    (void)key; /* FIXME: RIOT */
-  } else if (!cnf && kdf) {
-    /* FIXME: derive key */
-  } else {   /* only one of cnf and kdf must be provided */
-    dcaf_log(DCAF_LOG_INFO, "found cnf and kdf\n");
-    goto finish;
-  }
+  
+  /* kdf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_KDF); */
+  /* if (!cnf && !kdf) {  /\* no cnf object, no kdf, no verifier *\/ */
+  /*   dcaf_log(DCAF_LOG_INFO, "no cnf and no kdf found\n"); */
+  /*   goto finish; */
+  /* } */
+  /* if (cnf && !kdf) { */
+  /*   key = get_cose_key(cnf); */
+  /*   (void)key; /\* FIXME: RIOT *\/ */
+  /* } else if (!cnf && kdf) { */
+  /*   /\* FIXME: derive key *\/ */
+  /* } else {   /\* only one of cnf and kdf must be provided *\/ */
+  /*   dcaf_log(DCAF_LOG_INFO, "found cnf and kdf\n"); */
+  /*   goto finish; */
+  /* } */
 
-  /* store remaining lifetime with ticket */
+  /* TODO: store remaining lifetime with ticket */
 
   *result = dcaf_new_ticket((uint8_t *)"kid", 3,
-                            (uint8_t *)"v", 1);
+                            (uint8_t *)"v", 1, seq->v.uint,
+			    now, remaining_ltm);
+
   /* TODO: add actual permissions to ticket */
+  /* TODO: add ticket to ticket list */
 
   res = DCAF_OK;
    
@@ -1050,7 +1115,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   }
   /* TODO: check aud, scope, token_type */
 
-  authz->lifetime = DCAF_DEFAULT_LIFETIME;
+  //  authz->lifetime = DCAF_DEFAULT_LIFETIME;
  finish:
   *result = authz;
   return DCAF_OK;
@@ -1150,19 +1215,20 @@ make_ticket_face(const dcaf_authz_t *authz) {
   if (is_dcaf(authz->mediatype)) { /* DCAF_MEDIATYPE_DCAF_CBOR */
     /* TODO: TS */
     cn_cbor_mapput_int(map, DCAF_TYPE_SAI, aif, NULL);
-    cn_cbor_mapput_int(map, DCAF_TYPE_L,
+    /*    cn_cbor_mapput_int(map, DCAF_TYPE_L,
                        cn_cbor_int_create(authz->lifetime, NULL),
-                       NULL);
+                       NULL); */
     cn_cbor_mapput_int(map, DCAF_TYPE_G,
                        cn_cbor_int_create(authz->key->type, NULL),
                        NULL);
   } else {
     cn_cbor_mapput_int(map, ACE_CLAIM_SCOPE, aif, NULL);
-    if (authz->ts > 0) {
+    /*    if (authz->ts > 0) {
       cn_cbor_mapput_int(map, CWT_CLAIM_IAT,
                          cn_cbor_int_create(authz->ts, NULL),
                          NULL);
     }
+    */
     cn_cbor_mapput_int(map, ACE_CLAIM_CNF, make_cose_key(authz->key), NULL);
   }
 
@@ -1278,9 +1344,9 @@ dcaf_set_ticket_grant(const coap_session_t *session,
                        cn_cbor_int_create(ACE_TOKEN_POP, NULL),
                        NULL);
 #endif
-    cn_cbor_mapput_int(map, ACE_CLAIM_EXPIRES_IN,
+    /*    cn_cbor_mapput_int(map, ACE_CLAIM_EXPIRES_IN,
                        cn_cbor_int_create(authz->lifetime, NULL),
-                       NULL);
+                       NULL); */
     cn_cbor_mapput_int(map, ACE_CLAIM_PROFILE,
                        cn_cbor_int_create(ACE_PROFILE_DTLS, NULL),
                        NULL);

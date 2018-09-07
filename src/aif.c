@@ -50,7 +50,7 @@ get_method(const char *s, size_t len) {
 
 dcaf_result_t
 dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
-  dcaf_result_t res = DCAF_ERROR_INVALID_AIF;
+  dcaf_result_t res = DCAF_ERROR_INVALID_TICKET;
   dcaf_aif_t *aif;
   assert(cbor);
   assert(result);
@@ -71,7 +71,7 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
       /* p now points either to the end or the first non-LWS character */
       if (!len) {
         dcaf_log(DCAF_LOG_DEBUG, "invalid AIF\n");
-        return DCAF_ERROR_INVALID_AIF;
+        return DCAF_ERROR_INVALID_TICKET;
       }
 
       /* try to parse requested method */
@@ -81,7 +81,7 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
       method = get_method(p, q - p);
       if (!method) {
         dcaf_log(DCAF_LOG_DEBUG, "invalid method in AIF\n");
-        res = DCAF_ERROR_INVALID_AIF;
+        res = DCAF_ERROR_INVALID_TICKET;
         break;
       }
 
@@ -95,7 +95,7 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
 
       if ((q - p) == 0) {
         dcaf_log(DCAF_LOG_DEBUG, "no resource given in AIF\n");
-        res = DCAF_ERROR_INVALID_AIF;
+        res = DCAF_ERROR_INVALID_TICKET;
         break;
       }
 
@@ -132,7 +132,7 @@ odd(long n) {
 
 dcaf_result_t
 dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
-  dcaf_result_t res = DCAF_ERROR_INVALID_AIF;
+  dcaf_result_t res = DCAF_ERROR_INVALID_TICKET;
   dcaf_aif_t *aif;
   const cn_cbor *cp;
   assert(cbor);
@@ -141,12 +141,12 @@ dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
   *result = NULL;   /* initialize *result */
 
   if (cbor->type != CN_CBOR_ARRAY) {
-    return DCAF_ERROR_INVALID_AIF;
+    return DCAF_ERROR_INVALID_TICKET;
   }
 
   /* the number of elements in the array must be even */
   if (odd(cbor->length)) {
-    return DCAF_ERROR_INVALID_AIF;
+    return DCAF_ERROR_INVALID_TICKET;
   }
 
   /* process AIF array */

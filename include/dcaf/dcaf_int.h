@@ -71,20 +71,18 @@ struct dcaf_key_t {
 
 #define DCAF_MAX_STRING    128
 
-typedef unsigned long dcaf_time_t; 
-
 struct dcaf_authz_t {
   dcaf_mediatype_t mediatype;
   dcaf_result_t code;           /**< encoded response */
-  dcaf_aif_t *aif;
+  dcaf_aif_t *aif;              /**< authorization information */
   dcaf_key_t *key;              /**< key structure */
-  dcaf_time_t ts;               /**< time stamp */
-  unsigned long lifetime;       /**< ticket lifetime */
 };
 
 struct dcaf_ticket_t {
   struct dcaf_ticket_t *next;
-  uint64_t seq;
+  unsigned long seq;
+  dcaf_time_t ts;               /**< time stamp */
+  uint remaining_time;          /**< remaining ticket lifetime */
 
   uint8_t *kid;                 /**< The key id as known by our AM. */
   size_t kid_length;            /**< The length of kid in bytes. */
@@ -92,7 +90,18 @@ struct dcaf_ticket_t {
   uint8_t *verifier;            /**< The actual key data. */
   size_t verifier_length;       /**< The key length in bytes. */
 
+  dcaf_authz_t *authz;
   /* FIXME: dcaf_authz_t... */
+};
+
+/* deprecated tickets */
+struct dcaf_dep_ticket_t {
+  struct dcaf_dep_ticket_t *next;
+  unsigned long seq;           /**< The sequence number of the ticket. */
+  dcaf_time_t ts;              /**< The timestamp to which the
+				  remaining time refers */
+  uint remaining_time;         /**< The time in seconds until the
+				  ticket becomes invalid */
 };
 
 struct dcaf_nonce_t {
@@ -105,8 +114,10 @@ struct dcaf_nonce_t {
     option_3
   }validity_type;
   union {
-    dcaf_time_t dat; /* SAM info message sent at */
-    uint timer;
+    dcaf_time_t dat; /* System time when SAM info message was sent. */
+    uint timer; /* Time in seconds. Must be incremented over time
+		   until a certain value is reached where the
+		   nonce+timer are removed. */
   }validity_value;
 };
 

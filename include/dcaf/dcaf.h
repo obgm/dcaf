@@ -30,7 +30,7 @@ typedef enum {
   DCAF_ERROR_INTERNAL_ERROR,
   DCAF_ERROR_BAD_REQUEST          = 0x10,
   DCAF_ERROR_UNAUTHORIZED         = 0x13,
-  DCAF_ERROR_INVALID_AIF          = 0x15,
+  DCAF_ERROR_INVALID_TICKET       = 0x15,
   DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16
 } dcaf_result_t;
 
@@ -63,9 +63,9 @@ enum dcaf_ticket_field {
   DCAF_TICKET_CNF             = 8,
   DCAF_TICKET_SCOPE           = 9,
   DCAF_TICKET_EXPIRES_IN      = 32,
-  DCAF_TICKET_KDF             = 125,
-  DCAF_TICKET_SNC             = 126,
-  DCAF_TICKET_SEQ             = 127,
+  DCAF_TICKET_SNC             = 125,
+  DCAF_TICKET_SEQ             = 126,
+  DCAF_TICKET_DSEQ            = 127,
   /* use cti instead of seq? */
 };
 
@@ -225,7 +225,7 @@ typedef struct dcaf_nonce_t dcaf_nonce_t;
  *
  * @return The offset on success or an error code.
  */
-int dcaf_determine_offset_with_nonce(uint8_t *nonces,size_t nonce_size);
+int dcaf_determine_offset_with_nonce(const uint8_t *nonces,size_t nonce_size);
 
 struct dcaf_ticket_t;
 typedef struct dcaf_ticket_t dcaf_ticket_t;
@@ -260,8 +260,20 @@ typedef unsigned long dcaf_time_t;
  */
 dcaf_time_t dcaf_gettime(void);
 
+struct dcaf_dep_ticket_t;
+typedef struct dcaf_dep_ticket_t dcaf_dep_ticket_t;
+
+
+dcaf_dep_ticket_t *dcaf_new_dep_ticket(const unsigned long seq,
+				       const dcaf_time_t ts,
+				       const uint remaining_time);
+
 dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
-                               const uint8_t *verifier, size_t verifier_length);
+                               const uint8_t *verifier, size_t verifier_length,
+			       const unsigned long seq, const dcaf_time_t ts,
+			       const uint remaining_time);
+
+
 void dcaf_add_ticket(dcaf_ticket_t *ticket);
 
 /**
@@ -271,6 +283,13 @@ void dcaf_add_ticket(dcaf_ticket_t *ticket);
  * @param ticket The DCAF ticket to release.
  */
 void dcaf_free_ticket(dcaf_ticket_t *ticket);
+
+/**
+ *  Removes @p ticket from the list of tickets.
+ * 
+ * @param ticket The DCAF ticket to remove.
+ */
+void dcaf_remove_ticket(dcaf_ticket_t *ticket);
 
 /**
  * Creates a ticket verifier from authorization information given in

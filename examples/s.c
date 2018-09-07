@@ -235,6 +235,8 @@ main(int argc, char **argv) {
 
   while (true) {
     coap_run_once(ctx, 0);
+    /* TODO: regularly check tickets and deprecated tickets for
+       expired tickets */
   }
 
   dcaf_free_context(dcaf);
