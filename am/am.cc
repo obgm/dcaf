@@ -1,5 +1,5 @@
 /*
- * as.cc -- DCAF authorization manager
+ * am.cc -- DCAF authorization manager
  *
  * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
  *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
@@ -60,6 +60,9 @@ usage( const char *program, const char *version) {
     program, version, program );
 }
 
+
+/* TODO: store issued tickets until they become invalid */
+
 static void
 hnd_post_token(coap_context_t *ctx,
               struct coap_resource_t *resource,
@@ -68,7 +71,7 @@ hnd_post_token(coap_context_t *ctx,
               coap_binary_t *token,
               coap_string_t *query,
               coap_pdu_t *response) {
-  dcaf_authz_t *authz;
+  dcaf_ticket_t *ticket;
   dcaf_result_t res;
 
   (void)ctx;
@@ -84,14 +87,13 @@ hnd_post_token(coap_context_t *ctx,
     return;
   }
 
-  res = dcaf_parse_ticket_request(session, request, &authz);
+  res = dcaf_parse_ticket_request(session, request, &ticket);
   if (res != DCAF_OK) {
     (void)dcaf_set_error_response(session, res, response);
     return;
   }
 
-  dcaf_set_ticket_grant(session, authz, response);
-  dcaf_delete_authz(authz);
+  dcaf_set_ticket_grant(session, ticket, response);
 }
 
 static void

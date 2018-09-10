@@ -99,9 +99,6 @@ typedef struct dcaf_context_t dcaf_context_t;
 
 #define DCAF_CONTEXT_RELEASE_AM_URI     0x02
 
-struct dcaf_authz_t;
-typedef struct dcaf_authz_t dcaf_authz_t;
-
 /**
  * Creates a new DCAF context with the configuration given in @p
  * config. If @p config is NULL or config options are set to NULL
@@ -178,6 +175,9 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
                                       dcaf_result_t error,
                                       coap_pdu_t *response);
 
+struct dcaf_ticket_t;
+typedef struct dcaf_ticket_t dcaf_ticket_t;
+
 /**
  * Parses the @p request as ticket request message into @p result.
  * This function returns DCAF_OK if the request was successfully
@@ -187,12 +187,12 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
  * @param session  The session where the @p request was received.
  * @param request  The ticket request message.
  * @param result   A result parameter that will be filled in with a
- *                 pointer to a newly created dcaf_authz_t  structure
+ *                 pointer to a newly created dcaf_ticket_t  structure
  *                 with the authorization results in case the request
  *                 was successfully parsed. If and only if this
  *                 function returns DCAF_OK, @p *result will point
- *                 to a new dcaf_authz_t object that must be released
- *                 by dcaf_delete_authz().
+ *                 to a new dcaf_ticket_t object that must be released
+ *                 by dcaf_delete_ticket().
  *
  * @return DCAF_OK on success, or an error code otherwise. The error
  *         code can be used to construct an error response by
@@ -200,17 +200,11 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
  */
 dcaf_result_t dcaf_parse_ticket_request(const coap_session_t *session,
                                         const coap_pdu_t *request,
-                                        dcaf_authz_t **result);
+                                        dcaf_ticket_t **result);
 
-/**
- * Releases the memory that was allocated for @p authz.
- *
- * @param authz The dcaf_authz_t object to delete.
- */
-void dcaf_delete_authz(dcaf_authz_t *authz);
 
 void dcaf_set_ticket_grant(const coap_session_t *session,
-                           const dcaf_authz_t *authz,
+                           const dcaf_ticket_t *ticket,
                            coap_pdu_t *response);
 
 struct dcaf_nonce_t;
@@ -227,9 +221,6 @@ typedef struct dcaf_nonce_t dcaf_nonce_t;
  */
 int dcaf_determine_offset_with_nonce(const uint8_t *nonces,size_t nonce_size);
 
-struct dcaf_ticket_t;
-typedef struct dcaf_ticket_t dcaf_ticket_t;
-
 /**
  * Parses @p data of size @p data_len into the ticket @p result.
  *
@@ -240,7 +231,7 @@ typedef struct dcaf_ticket_t dcaf_ticket_t;
  *                 pointer to a newly created dcaf_ticket_t structure
  *                 If and only if this
  *                 function returns DCAF_OK, @p *result will point
- *                 to a new dcaf_authz_t object that must be released
+ *                 to a new dcaf_ticket_t object that must be released
  *                 by dcaf_free_ticket().
  *
  * @return DCAF_OK on success, or an error code otherwise. The error
@@ -294,17 +285,17 @@ void dcaf_remove_ticket(dcaf_ticket_t *ticket);
 
 /**
  * Creates a ticket verifier from authorization information given in
- * @p authz.  On success, this function will set authz->key to a
+ * @p ticket.  On success, this function will set ticket->key to a
  * proper verifier.
  *
  * @param ctx    The current DCAF context.
- * @param authz  The authorization information object with which
+ * @param ticket  The authorization information object with which
  *               the verifier should be used.
  *
  * @return DCAF_OK on success, an error code otherwise.
  */
 dcaf_result_t dcaf_create_verifier(dcaf_context_t *ctx,
-                                   dcaf_authz_t *authz);
+                                   dcaf_ticket_t *ticket);
 
 #ifdef __cplusplus
 }

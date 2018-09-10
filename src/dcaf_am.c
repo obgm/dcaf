@@ -1,5 +1,5 @@
 /*
- * dcaf-am.c -- libdcaf core
+ * dcaf_am.c -- libdcaf core
  *
  * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
  *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
@@ -63,38 +63,27 @@ make_cose_key(const dcaf_key_t *key) {
 }
 
 static cn_cbor *
-make_ticket_face(const dcaf_authz_t *authz) {
+make_ticket_face(const dcaf_ticket_t *ticket) {
   cn_cbor *map = cn_cbor_map_create(NULL);
   cn_cbor *aif;
 
-  assert(authz != NULL);
+  assert(ticket != NULL);
 
-  aif = dcaf_aif_to_cbor(authz->aif);
+  aif = dcaf_aif_to_cbor(ticket->aif);
   if (!aif || !map) {
     cn_cbor_free(map);
     cn_cbor_free(aif);
     return NULL;
   }
 
-  if (is_dcaf(authz->mediatype)) { /* DCAF_MEDIATYPE_DCAF_CBOR */
-    /* TODO: TS */
-    cn_cbor_mapput_int(map, DCAF_TYPE_SAI, aif, NULL);
-    /*    cn_cbor_mapput_int(map, DCAF_TYPE_L,
-                       cn_cbor_int_create(authz->lifetime, NULL),
-                       NULL); */
-    cn_cbor_mapput_int(map, DCAF_TYPE_G,
-                       cn_cbor_int_create(authz->key->type, NULL),
-                       NULL);
-  } else {
-    //    cn_cbor_mapput_int(map, ACE_CLAIM_SCOPE, aif, NULL);
-    /*    if (authz->ts > 0) {
-      cn_cbor_mapput_int(map, CWT_CLAIM_IAT,
-                         cn_cbor_int_create(authz->ts, NULL),
-                         NULL);
-    }
-    */
-    //    cn_cbor_mapput_int(map, ACE_CLAIM_CNF, make_cose_key(authz->key), NULL);
-  }
+  /* TODO: TS */
+  cn_cbor_mapput_int(map, DCAF_TYPE_SAI, aif, NULL);
+  /*    cn_cbor_mapput_int(map, DCAF_TYPE_L,
+	cn_cbor_int_create(ticket->lifetime, NULL),
+	NULL); */
+  cn_cbor_mapput_int(map, DCAF_TYPE_G,
+		     cn_cbor_int_create(ticket->key->type, NULL),
+		     NULL);
 
   /* encrypt ticket face*/
   {
@@ -143,7 +132,7 @@ make_ticket_face(const dcaf_authz_t *authz) {
 dcaf_result_t
 dcaf_parse_ticket_request(const coap_session_t *session,
                           const coap_pdu_t *request,
-                          dcaf_authz_t **result) {
+                          dcaf_ticket_t **result) {
   /* check if this is the correct SAM,
        SAM: "coaps://sam.example.com/authorize",
         SAI: ["coaps://temp451.example.com/s/tempC", 5],
@@ -155,37 +144,21 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   coap_option_t accept;
   uint8_t *payload = NULL;
   size_t payload_len = 0;
-  dcaf_authz_t *authz;
+  dcaf_ticket_t *ticket;
 
   assert(result);
   assert(request);
   (void)session;
 
   *result = NULL;
-  authz = dcaf_alloc_type(DCAF_AUTHZ);
-  if (!authz) {
-    return DCAF_ERROR_OUT_OF_MEMORY;
-  }
-  memset(authz, 0, sizeof(dcaf_authz_t));
 
-  //  authz->mediatype = DCAF_MEDIATYPE_ACE_CBOR;
   option =
     coap_check_option((coap_pdu_t *)request, COAP_OPTION_CONTENT_FORMAT, &oi);
-
-  if (option && coap_opt_parse(option, coap_opt_size(option), &accept) > 0) {
-    authz->mediatype = coap_decode_var_bytes(accept.value, accept.length);
-  }
-  /*  if ((authz->mediatype != DCAF_MEDIATYPE_ACE_CBOR) &&
-      (authz->mediatype != DCAF_MEDIATYPE_DCAF_CBOR)) {
-    dcaf_log(DCAF_LOG_WARNING, "unknown content format\n");
-    authz->code = DCAF_ERROR_BAD_REQUEST;
-    goto finish;
-    }*/
 
   /* retrieve payload */
   if (!coap_get_data((coap_pdu_t *)request, &payload_len, &payload)) {
     dcaf_log(DCAF_LOG_WARNING, "drop request with empty payload\n");
-    authz->code = DCAF_ERROR_BAD_REQUEST;
+    /*authz->code = DCAF_ERROR_BAD_REQUEST; */
     goto finish;
   }
 
@@ -200,7 +173,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 
   //  authz->lifetime = DCAF_DEFAULT_LIFETIME;
  finish:
-  *result = authz;
+  *result = ticket;
   return DCAF_OK;
 }
 
@@ -210,18 +183,18 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 
 void
 dcaf_set_ticket_grant(const coap_session_t *session,
-                      const dcaf_authz_t *authz,
+                      const dcaf_ticket_t *ticket,
                       coap_pdu_t *response) {
   dcaf_context_t *ctx;
   unsigned char buf[128];
   size_t length = 0;
-  assert(authz);
+  assert(ticket);
   assert(response);
 
   ctx = (dcaf_context_t *)coap_get_app_data(session->context);
   assert(ctx);
 
-  if (dcaf_create_verifier(ctx, (dcaf_authz_t *)authz) != DCAF_OK) {
+  if (dcaf_create_verifier(ctx, (dcaf_ticket_t *)ticket) != DCAF_OK) {
     dcaf_log(DCAF_LOG_CRIT, "cannot create verifier\n");
     response->code = COAP_RESPONSE_CODE(500);
     coap_add_data(response, 14, (unsigned char *)"internal error");
@@ -229,65 +202,45 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   }
 
   /* generate ticket grant depending on media type */
-  if (authz->mediatype == DCAF_MEDIATYPE_DCAF_CBOR) {
-    buf[0] = 0xa2; /* map(2) */
-    buf[1] = DCAF_TYPE_F; /* unsigned int */
-    cn_cbor *face = make_ticket_face(authz);
+  buf[0] = 0xa2; /* map(2) */
+  buf[1] = DCAF_TYPE_F; /* unsigned int */
+  cn_cbor *face = make_ticket_face(ticket);
 
-    length = cn_cbor_encoder_write(buf, 2, sizeof(buf), face);
-    /* TODO: create verifier over buf and append to map */
-
-    buf[length + 2] = DCAF_TYPE_V; /* unsigned int */
-
+  length = cn_cbor_encoder_write(buf, 2, sizeof(buf), face);
+  /* TODO: create verifier over buf and append to map */
+  
+  buf[length + 2] = DCAF_TYPE_V; /* unsigned int */
+  
 #if 0
-    switch (authz->key->type) {
-    case DCAF_KEY_HMAC_SHA256:
-      /* fall through */
-    case DCAF_KEY_HMAC_SHA384:
-      /* fall through */
-    case DCAF_KEY_HMAC_SHA512: {
-      const size_t face_length = length;
-      size_t len = sizeof(buf) - length;
-      dcaf_crypto_param_t params = {
-        .alg = DCAF_HS256,    /* TODO: support for additional types */
-        .params.key = authz->key
-      };
-      length += 3;
-      if (dcaf_create_verifier(&params, buf + 3, face_length,
-                               buf + length, &len) == DCAF_OK) {
-        length += len;
-      }
-      break;
+  switch (ticket->key->type) {
+  case DCAF_KEY_HMAC_SHA256:
+    /* fall through */
+  case DCAF_KEY_HMAC_SHA384:
+    /* fall through */
+  case DCAF_KEY_HMAC_SHA512: {
+    const size_t face_length = length;
+    size_t len = sizeof(buf) - length;
+    dcaf_crypto_param_t params = {
+      .alg = DCAF_HS256,    /* TODO: support for additional types */
+      .params.key = ticket->key
+    };
+    length += 3;
+    if (dcaf_create_verifier(&params, buf + 3, face_length,
+			     buf + length, &len) == DCAF_OK) {
+      length += len;
     }
-    case DCAF_AES_CCM_16_64_128: {
-      /* TODO */
-      break;
-    }
-    default:
-      ;
-    }
+    break;
+  }
+  case DCAF_AES_CCM_16_64_128: {
+    /* TODO */
+    break;
+  }
+  default:
+    ;
+  }
 #endif
-    cn_cbor_free(face);
-  } /* else if (authz->mediatype == DCAF_MEDIATYPE_ACE_CBOR) { */
-/*     cn_cbor *map = cn_cbor_map_create(NULL); */
-/*     cn_cbor *face = make_ticket_face(authz); */
-/*     cn_cbor_mapput_int(map, ACE_CLAIM_ACCESS_TOKEN, face, NULL); */
-/* #ifdef ALWAYS_SEND_TOKEN_TYPE */
-/*     cn_cbor_mapput_int(map, ACE_CLAIM_TOKEN_TYPE, */
-/*                        cn_cbor_int_create(ACE_TOKEN_POP, NULL), */
-/*                        NULL); */
-/* #endif */
-/*     /\*    cn_cbor_mapput_int(map, ACE_CLAIM_EXPIRES_IN, */
-/*                        cn_cbor_int_create(authz->lifetime, NULL), */
-/*                        NULL); *\/ */
-/*     cn_cbor_mapput_int(map, ACE_CLAIM_PROFILE, */
-/*                        cn_cbor_int_create(ACE_PROFILE_DTLS, NULL), */
-/*                        NULL); */
-/*     cn_cbor_mapput_int(map, ACE_CLAIM_CNF,  make_cose_key(authz->key), NULL); */
-/*     length = cn_cbor_encoder_write(buf, 0, sizeof(buf), map); */
-/*     cn_cbor_free(map); */
-/*   } */
-
+  cn_cbor_free(face);
+  
   if (length > 0) {  /* we have a response */
     unsigned char optionbuf[8];
 
@@ -295,7 +248,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     coap_add_option(response,
                     COAP_OPTION_CONTENT_FORMAT,
                     coap_encode_var_safe(optionbuf, sizeof(optionbuf),
-                                         authz->mediatype),
+                                         DCAF_MEDIATYPE_DCAF_CBOR),
                     optionbuf);
 
     coap_add_option(response,
@@ -314,23 +267,23 @@ dcaf_set_ticket_grant(const coap_session_t *session,
 }
 
 dcaf_result_t
-dcaf_create_verifier(dcaf_context_t *ctx, dcaf_authz_t *authz) {
+dcaf_create_verifier(dcaf_context_t *ctx, dcaf_ticket_t *ticket) {
   (void)ctx;
-  assert(authz);
+  assert(ticket);
 
   /* FIXME:
    *     - check if we need to generate a new key
    *     - support key generation, e.g. HKDF-based
    */
-  if (authz->key == NULL) {
-    authz->key = dcaf_new_key(DCAF_AES_128);
-    if (!authz->key || !dcaf_key_rnd(authz->key)) {
-      dcaf_delete_key(authz->key);
-      authz->key = NULL;
+  if (ticket->key == NULL) {
+    ticket->key = dcaf_new_key(DCAF_AES_128);
+    if (!ticket->key || !dcaf_key_rnd(ticket->key)) {
+      dcaf_delete_key(ticket->key);
+      ticket->key = NULL;
       return DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
     }
     dcaf_log(DCAF_LOG_DEBUG, "generated key:\n");
-    dcaf_debug_hexdump(authz->key->data, authz->key->length);
+    dcaf_debug_hexdump(ticket->key->data, ticket->key->length);
     return DCAF_OK;
   }
 #if 0

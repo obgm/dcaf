@@ -64,35 +64,22 @@ struct dcaf_context_t {
 #define DCAF_MAX_KEY_SIZE  32
 struct dcaf_key_t {
   dcaf_key_type type;
-  uint8_t *kid;
-  size_t kid_length;
+  uint8_t *kid;              /**< The key id as known by our AM. */
+  size_t kid_length;         /**< The length of kid in bytes. */
   unsigned int flags;
-  size_t length;
-  uint8_t data[DCAF_MAX_KEY_SIZE];
+  size_t length;             /**< The key length in bytes. */
+  uint8_t data[DCAF_MAX_KEY_SIZE];  /**< The actual key data. */
 };
 
 #define DCAF_MAX_STRING    128
-
-struct dcaf_authz_t {
-  dcaf_mediatype_t mediatype;
-  dcaf_result_t code;           /**< encoded response */
-  dcaf_aif_t *aif;              /**< authorization information */
-  dcaf_key_t *key;              /**< key structure */
-};
 
 struct dcaf_ticket_t {
   struct dcaf_ticket_t *next;
   unsigned long seq;
   dcaf_time_t ts;               /**< time stamp */
   uint remaining_time;          /**< remaining ticket lifetime */
-
-  // uint8_t *kid;                 /**< The key id as known by our AM. */
-  // size_t kid_length;            /**< The length of kid in bytes. */
-
-  //  uint8_t *verifier;            /**< The actual key data. */
-  //  size_t verifier_length;       /**< The key length in bytes. */
-
-  dcaf_authz_t *authz;
+  dcaf_aif_t *aif;              /**< authorization information */
+  dcaf_key_t *key;              /**< key structure */
 };
 
 /* deprecated tickets */
@@ -121,8 +108,6 @@ struct dcaf_nonce_t {
 		   nonce+timer are removed. */
   }validity_value;
 };
-
-dcaf_authz_t *dcaf_new_authz(void);
 
 #ifdef __cplusplus
 }

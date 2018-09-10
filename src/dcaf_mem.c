@@ -29,7 +29,6 @@ dcaf_alloc_type_len(dcaf_object_type obj, size_t len) {
   switch (obj) {
   default: return NULL;
   case DCAF_CONTEXT: return CHECK_AND_ALLOC(dcaf_context_t, 0, len);
-  case DCAF_AUTHZ: return CHECK_AND_ALLOC(dcaf_authz_t, 0, len);
   case DCAF_TICKET: return CHECK_AND_ALLOC(dcaf_ticket_t, 0, len);
   case DCAF_KEY: return CHECK_AND_ALLOC(dcaf_key_t, DCAF_MAX_KEY_SIZE, len);
   case DCAF_AIF: return CHECK_AND_ALLOC(dcaf_aif_t, 0, len);
@@ -48,7 +47,6 @@ dcaf_alloc_type(dcaf_object_type obj) {
   switch (obj) {
   default: return NULL;
   case DCAF_CONTEXT: break;
-  case DCAF_AUTHZ: break;
   case DCAF_TICKET: break;
   case DCAF_KEY: len = DCAF_MAX_KEY_SIZE; break;
   case DCAF_AIF: break;
@@ -65,7 +63,6 @@ dcaf_free_type(dcaf_object_type obj, void *p) {
   /* FIXME: use static memory allocator on non-posix systems */
   switch (obj) {
   case DCAF_CONTEXT: FREE(obj, p); break;
-  case DCAF_AUTHZ: FREE(obj, p); break;
   case DCAF_TICKET: FREE(obj, p); break;
   case DCAF_KEY: FREE(obj, p); break;
   case DCAF_AIF: FREE(obj, p); break;
