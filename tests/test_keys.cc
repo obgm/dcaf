@@ -20,7 +20,7 @@
 
 SCENARIO( "DCAF key generator", "[keys]" ) {
   static std::unique_ptr<dcaf_key_t, Deleter> key;
-  static std::unique_ptr<dcaf_authz_t, Deleter> authz;
+  static std::unique_ptr<dcaf_ticket_t, Deleter> ticket;
 
   GIVEN("A new DCAF AES-128 key") {
     dcaf_key_t *k = dcaf_new_key(DCAF_AES_128);
@@ -40,12 +40,13 @@ SCENARIO( "DCAF key generator", "[keys]" ) {
     }
   }
 
-  GIVEN("A new authz object") {
-    dcaf_authz_t *a = dcaf_new_authz();
-    authz.reset(a);
+  GIVEN("A new ticket object") {
+    dcaf_ticket_t *a = dcaf_new_ticket(nullptr, 0, DCAF_AES_128,
+                                       nullptr, 0, 42, 1200, 600);
+    ticket.reset(a);
 
     WHEN("the key component is NULL") {
-      REQUIRE(authz.get()->key == NULL);
+      REQUIRE(ticket.get()->key == NULL);
 
       THEN("dcaf_create_verifier() creates a new random key") {
         uint8_t ref_key[] = {
@@ -53,10 +54,10 @@ SCENARIO( "DCAF key generator", "[keys]" ) {
           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
         };
 
-        REQUIRE(dcaf_create_verifier(NULL, authz.get()) == DCAF_OK);
-        REQUIRE(authz.get()->key != NULL);
-        REQUIRE(authz.get()->key->length == sizeof(ref_key));
-        REQUIRE(memcmp(authz.get()->key->data, ref_key, sizeof(ref_key)) == 0);
+        REQUIRE(dcaf_create_verifier(NULL, ticket.get()) == DCAF_OK);
+        REQUIRE(ticket.get()->key != NULL);
+        REQUIRE(ticket.get()->key->length == sizeof(ref_key));
+        REQUIRE(memcmp(ticket.get()->key->data, ref_key, sizeof(ref_key)) == 0);
       }
     }
   }

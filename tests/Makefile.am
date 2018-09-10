@@ -23,9 +23,9 @@ testdriver_SOURCES = \
  testdriver.cc \
  test_aif.cc  \
  test_crypto.cc  \
- test_cose.cc  
-# test_keys.cc  \
-# test_ticket.cc
+ test_cose.cc \
+ test_keys.cc \
+ test_ticket.cc
 
 testdriver_LDADD = $(libs)
 

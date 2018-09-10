@@ -38,7 +38,7 @@ test_option_eq(const coap_pdu_t *pdu, unsigned int option, long value) {
 }
 
 SCENARIO( "DCAF ticket request", "[ticket]" ) {
-  static std::unique_ptr<dcaf_authz_t, Deleter> authz;
+  static std::unique_ptr<dcaf_ticket_t, Deleter> ticket;
   static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu;
   static std::unique_ptr<coap_pdu_t, Deleter> coap_response;
   static std::unique_ptr<cn_cbor, Deleter> claim;
@@ -62,7 +62,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     REQUIRE(coap_pdu.get() != nullptr);
     WHEN("The request is parsed") {
       coap_session_t session;
-      dcaf_authz_t *result;
+      dcaf_ticket_t *result;
       session.context = dcaf_get_coap_context(dcaf_context());
 
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
@@ -74,26 +74,24 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         res = dcaf_parse_ticket_request(&session, coap_pdu.get(), &result);
         REQUIRE(res == DCAF_OK);
         REQUIRE(result != nullptr);
-        authz.reset(result);
-        REQUIRE(authz.get()->code == DCAF_OK);
+        ticket.reset(result);
       }
     }
 
-    WHEN("A validated dcaf_authz_t structure is available") {
+    WHEN("A validated dcaf_ticket_t structure is available") {
       coap_session_t session;
       session.context = dcaf_get_coap_context(dcaf_context());
 
-      REQUIRE(authz.get() != nullptr);
-      REQUIRE(authz.get()->code == DCAF_OK);
+      REQUIRE(ticket.get() != nullptr);
 
       THEN("a ticket grant can be created") {
-        dcaf_set_ticket_grant(&session, authz.get(), coap_response.get());
+        dcaf_set_ticket_grant(&session, ticket.get(), coap_response.get());
         REQUIRE(coap_response.get()->code == COAP_RESPONSE_CODE(201));
 
         /* check Content-Format */
         REQUIRE(test_option_eq(coap_response.get(),
                                COAP_OPTION_CONTENT_FORMAT,
-                               authz.get()->mediatype));
+                               DCAF_MEDIATYPE_DCAF_CBOR));
 
         /* check CBOR payload */
         size_t databuf_len;
@@ -194,7 +192,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 
     WHEN("The payload is comprised of invalid CBOR") {
       coap_session_t session;
-      dcaf_authz_t *result;
+      dcaf_ticket_t *result;
 
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
                              coap_data, sizeof(coap_data) - 1,
@@ -211,8 +209,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 
         REQUIRE(res == DCAF_OK);
         REQUIRE(result != nullptr);
-        authz.reset(result);
-        REQUIRE(authz.get()->code == DCAF_ERROR_BAD_REQUEST);
+        ticket.reset(result);
       }
     }
   }

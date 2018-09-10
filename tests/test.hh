@@ -25,7 +25,7 @@ struct Deleter {
 
   void operator()(dcaf_aif_t *p) { dcaf_delete_aif(p); }
   void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
-  //  void operator()(dcaf_ticket_t *p) { dcaf_delete_ticket(p); }
+  void operator()(dcaf_ticket_t *p) { dcaf_free_ticket(p); }
   void operator()(cose_obj_t *p) { cose_obj_delete(p); }
 
   /* objects from external libraries used for testing */
