@@ -64,6 +64,8 @@ struct dcaf_context_t {
 #define DCAF_MAX_KEY_SIZE  32
 struct dcaf_key_t {
   dcaf_key_type type;
+  uint8_t *kid;
+  size_t kid_length;
   unsigned int flags;
   size_t length;
   uint8_t data[DCAF_MAX_KEY_SIZE];
@@ -84,14 +86,13 @@ struct dcaf_ticket_t {
   dcaf_time_t ts;               /**< time stamp */
   uint remaining_time;          /**< remaining ticket lifetime */
 
-  uint8_t *kid;                 /**< The key id as known by our AM. */
-  size_t kid_length;            /**< The length of kid in bytes. */
+  // uint8_t *kid;                 /**< The key id as known by our AM. */
+  // size_t kid_length;            /**< The length of kid in bytes. */
 
-  uint8_t *verifier;            /**< The actual key data. */
-  size_t verifier_length;       /**< The key length in bytes. */
+  //  uint8_t *verifier;            /**< The actual key data. */
+  //  size_t verifier_length;       /**< The key length in bytes. */
 
   dcaf_authz_t *authz;
-  /* FIXME: dcaf_authz_t... */
 };
 
 /* deprecated tickets */

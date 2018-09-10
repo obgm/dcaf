@@ -61,7 +61,9 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
                          [](const char *, size_t, cose_mode_t) {
                            static const dcaf_key_t key = {
-                             (dcaf_key_type)COSE_AES_CCM_16_64_128, 0,
+                             (dcaf_key_type)COSE_AES_CCM_16_64_128,
+			     nullptr, 0,
+			     0, /* flags */
                              16,
                              { 0x61, 0x62, 0x63, 0x04, 0x05, 0x06, 0x07, 0x08,
                                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10 }
@@ -96,7 +98,9 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
                          [](const char *, size_t, cose_mode_t) {
                            static const dcaf_key_t key = {
-                             (dcaf_key_type)COSE_AES_CCM_16_64_128, 0,
+                             (dcaf_key_type)COSE_AES_CCM_16_64_128,
+			     nullptr, 0,
+			     0, /* flags */
                              2,
                              { 0xff, 0xff }
                            };
@@ -146,7 +150,9 @@ SCENARIO( "RFC 8152 Example C.4.1", "[C.4.1]" ) {
         res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
                            [](const char *, size_t, cose_mode_t) {
                              static const dcaf_key_t key = {
-                               (dcaf_key_type)COSE_AES_CCM_16_64_128, 0,
+                               (dcaf_key_type)COSE_AES_CCM_16_64_128,
+			       nullptr, 0,
+			       0, /* flags */
                                16,
                                { 0x84, 0x9B, 0x57, 0x86, 0x45, 0x7C, 0x14, 0x91,
                                  0xBE, 0x3A, 0x76, 0xDC, 0xEA, 0x6C, 0x42, 0x71
@@ -233,7 +239,9 @@ SCENARIO( "ACE-java CWT test", "[ace-java]" ) {
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
                          [](const char *, size_t, cose_mode_t mode) {
                            static const dcaf_key_t key = {
-                             (dcaf_key_type)COSE_AES_CCM_16_64_128, 0,
+                             (dcaf_key_type)COSE_AES_CCM_16_64_128,
+			     nullptr, 0,
+			     0, /* flags */
                              16,
                              { 0x61, 0x62, 0x63, 0x04, 0x05, 0x06, 0x07, 0x08,
                                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10 }

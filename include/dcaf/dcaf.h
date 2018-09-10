@@ -269,6 +269,7 @@ dcaf_dep_ticket_t *dcaf_new_dep_ticket(const unsigned long seq,
 				       const uint remaining_time);
 
 dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
+			       const dcaf_key_type key_type,
                                const uint8_t *verifier, size_t verifier_length,
 			       const unsigned long seq, const dcaf_time_t ts,
 			       const uint remaining_time);
