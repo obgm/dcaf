@@ -129,11 +129,6 @@ make_ticket_face(const dcaf_ticket_t *ticket) {
   return map;
 }
 
-/* helper function to log cn-cbor parse errors */
-static inline void
-log_parse_error(const cn_cbor_errback err) {
-}
-
 static cn_cbor *
 parse_cbor(const coap_pdu_t *pdu) {
   uint8_t *payload = NULL;
@@ -156,14 +151,11 @@ dcaf_result_t
 dcaf_parse_ticket_request(const coap_session_t *session,
                           const coap_pdu_t *request,
                           dcaf_ticket_t **result) {
-  /* check if this is the correct SAM,
-       SAM: "coaps://sam.example.com/authorize",
-        SAI: ["coaps://temp451.example.com/s/tempC", 5],
-        TS: 168537
-      }
-  */
+  dcaf_result_t result_code = DCAF_ERROR_BAD_REQUEST;
   dcaf_ticket_t *ticket = NULL;
+  dcaf_aif_t *aif = NULL;
   cn_cbor *body = NULL;
+  cn_cbor *obj;                 /* holds temporary cbor objects */
 
   assert(result);
   assert(request);
@@ -180,18 +172,85 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   }
 
   /* TODO: replace parse_token_request */
-  
-  /* if (!parse_token_request(payload, payload_len, authz)) { */
-  /*   /\* use result code that was set by parse_token_request() *\/ */
-  /*   dcaf_log(DCAF_LOG_WARNING, "unknown content format\n"); */
-  /*   goto finish; */
-  /* } */
-  /* TODO: check aud, scope, token_type */
+  /* TODO: check if we are addressed AM (iss). If not and we are
+   * acting as CAM, the request should be passed on to SAM. */
+  obj = cn_cbor_mapget_int(body, DCAF_TICKET_ISS);
+  if (obj) {
+    if (obj->type != CN_CBOR_TEXT) {
+      dcaf_log(DCAF_LOG_WARNING,
+               "wrong type for field iss (expected text string)\n");
+      goto finish;
+    } else {
+      dcaf_log(DCAF_LOG_INFO, "iss: \"%.*s\"\n", obj->length, obj->v.str);
+    }
+  }
 
-  //  authz->lifetime = DCAF_DEFAULT_LIFETIME;
+  obj = cn_cbor_mapget_int(body, DCAF_TICKET_AUD);
+  if (!obj || (obj->type != CN_CBOR_TEXT)) {
+      dcaf_log(DCAF_LOG_WARNING, "invalid aud\n");
+      goto finish;
+  } else {
+    /* TODO: check if we know the server denoted by aud */
+    dcaf_log(DCAF_LOG_INFO, "aud: \"%.*s\"\n", obj->length, obj->v.str);
+  }
+
+  obj = cn_cbor_mapget_int(body, DCAF_TICKET_SCOPE);
+  if (obj) {
+    if (obj->type == CN_CBOR_TEXT) {
+      result_code = dcaf_aif_parse_string(obj, &aif);
+    } else {
+      result_code = dcaf_aif_parse(obj, &aif);
+    }
+  } else {
+    /* handle default scope */
+    const uint8_t scope[] = { 0x82, 0x61, 0x2F, 0x01 }; /* [ "/", 1 ] */
+    const size_t scope_length = sizeof(scope);
+    cn_cbor *tmp = cn_cbor_decode(scope, scope_length, NULL);
+    if (tmp) {
+      result_code = dcaf_aif_parse(tmp, &aif);
+      cn_cbor_free(tmp);
+    }
+  }
+
+#if 0
+  obj = cn_cbor_mapget_int(body, DCAF_TICKET_CAMT);
+  if (obj && (obj->type == CN_CBOR_UINT)) {
+    /* TODO: store camt */
+  }
+#endif
+
+  obj = cn_cbor_mapget_int(body, DCAF_TICKET_SNC);
+  if (obj && ((obj->type == CN_CBOR_BYTES) || (obj->type == CN_CBOR_TEXT))) {
+    /* TODO: store snc */
+  }
+  
+  if (result_code == DCAF_OK) {
+#define DCAF_DEFAULT_KID_SIZE 8
+    uint8_t kid[DCAF_DEFAULT_KID_SIZE] =
+      { 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48 };
+    unsigned long seq = 89;
+    dcaf_time_t ts = dcaf_gettime();
+    uint8_t key[DCAF_MAX_KEY_SIZE];
+
+    dcaf_prng(key, sizeof(key));
+    ticket = dcaf_new_ticket(kid, sizeof(kid),
+                             DCAF_AES_128,
+                             key, sizeof(key),
+                             seq, ts, DCAF_DEFAULT_LIFETIME);
+    if (ticket) {
+      ticket->aif = aif;
+    } else {
+      /* As we cannot store aif in the ticket structure, we must
+       * release its memory manually. */
+      dcaf_delete_aif(aif);
+      aif = NULL;
+    }
+  }
+
+ finish:
   cn_cbor_free(body);
   *result = ticket;
-  return DCAF_OK;
+  return result_code;
 }
 
 

@@ -81,12 +81,13 @@ hnd_post_token(coap_context_t *ctx,
 
   /* Check if authorized, i.e., the request was received on a secure
    * channel. */
+#if 0
   if (!dcaf_is_authorized(session, request)) {
     dcaf_set_sam_information(session, DCAF_MEDIATYPE_DCAF_CBOR,
                              response);
     return;
   }
-
+#endif
   res = dcaf_parse_ticket_request(session, request, &ticket);
   if (res != DCAF_OK) {
     (void)dcaf_set_error_response(session, res, response);
@@ -127,7 +128,7 @@ int
 main(int argc, char **argv) {
   dcaf_context_t  *dcaf;
   coap_context_t  *ctx;
-  std::string addr_str = "::";
+  std::string addr_str = "::1";
   int opt;
   coap_log_t log_level = LOG_WARNING;
   unsigned wait_ms;

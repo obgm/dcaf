@@ -664,6 +664,50 @@ get_session(
 }
 
 static void
+prepare_message(int message_type) {
+  static uint8_t buf[1024];
+  cn_cbor *cbor = NULL;
+
+  switch (message_type) {
+  case 1: { /* ticket request */
+    cn_cbor *scope;
+
+    method = COAP_REQUEST_POST;
+
+    /* set content type to application/dcaf+cbor */
+    coap_insert_optlist(&optlist,
+        coap_new_optlist(COAP_OPTION_CONTENT_FORMAT,
+                         coap_encode_var_safe(buf, sizeof(buf),
+                                              DCAF_MEDIATYPE_DCAF_CBOR),
+                         buf));
+
+    /* set payload */
+    cbor = cn_cbor_map_create(NULL);
+    cn_cbor_mapput_int(cbor, DCAF_TICKET_ISS,
+                       cn_cbor_string_create("foo", NULL),
+                       NULL);
+    cn_cbor_mapput_int(cbor, DCAF_TICKET_AUD,
+                       cn_cbor_string_create("bar", NULL),
+                       NULL);
+    scope = cn_cbor_array_create(NULL);
+    cn_cbor_array_append(scope, cn_cbor_string_create("/restricted", NULL), NULL);
+    cn_cbor_array_append(scope, cn_cbor_int_create(5, NULL), NULL);
+    cn_cbor_mapput_int(cbor, DCAF_TICKET_SCOPE, scope, NULL);
+    break;
+  }
+  default:
+    ;
+  }
+
+  if (cbor) {
+    payload.length = cn_cbor_encoder_write(buf, 0, sizeof(buf), cbor);
+    if (payload.length > 0) {
+      payload.s = buf;
+    }
+  }
+}
+
+static void
 rnd(uint8_t *out, size_t len) {
 #ifdef HAVE_GETRANDOM
   if (getrandom(out, len, 0) < 0) {
@@ -696,8 +740,9 @@ main(int argc, char **argv) {
   unsigned char user[MAX_USER + 1], key[MAX_KEY];
   ssize_t user_length = 0, key_length = 0;
   int create_uri_opts = 1;
+  int message_type = -1;
 
-  while ((opt = getopt(argc, argv, "a:k:p:u:v:A:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:k:p:u:v:A:M:")) != -1) {
     switch (opt) {
     case 'a':
       strncpy(node_str, optarg, NI_MAXHOST - 1);
@@ -712,6 +757,9 @@ main(int argc, char **argv) {
       break;
     case 'A':
       config.am_uri = optarg;
+      break;
+    case 'M':
+      message_type = atoi(optarg);
       break;
     case 'u':
       user_length = cmdline_read_user(optarg, user, MAX_USER);
@@ -791,7 +839,7 @@ main(int argc, char **argv) {
   coap_register_response_handler(ctx, message_handler);
 
   /* construct CoAP message */
-
+  prepare_message(message_type);
   if (!(pdu = coap_new_request(ctx, session, method, &optlist, payload.s, payload.length))) {
     goto finish;
   }
