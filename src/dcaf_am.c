@@ -129,6 +129,28 @@ make_ticket_face(const dcaf_ticket_t *ticket) {
   return map;
 }
 
+/* helper function to log cn-cbor parse errors */
+static inline void
+log_parse_error(const cn_cbor_errback err) {
+}
+
+static cn_cbor *
+parse_cbor(const coap_pdu_t *pdu) {
+  uint8_t *payload = NULL;
+  size_t payload_len = 0;
+  cn_cbor *cbor = NULL;
+
+  /* Retrieve payload and parse as CBOR. */
+  if (coap_get_data((coap_pdu_t *)pdu, &payload_len, &payload)) {
+    cn_cbor_errback errp;
+    cbor = cn_cbor_decode(payload, payload_len, &errp);
+    if (!cbor) {
+      dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", errp.err, errp.pos);
+    }
+  }
+  return cbor;
+}
+
 /* SAM parses ticket request message from CAM */
 dcaf_result_t
 dcaf_parse_ticket_request(const coap_session_t *session,
@@ -140,10 +162,8 @@ dcaf_parse_ticket_request(const coap_session_t *session,
         TS: 168537
       }
   */
-  coap_opt_iterator_t oi;
-  uint8_t *payload = NULL;
-  size_t payload_len = 0;
-  dcaf_ticket_t *ticket;
+  dcaf_ticket_t *ticket = NULL;
+  cn_cbor *body = NULL;
 
   assert(result);
   assert(request);
@@ -152,16 +172,11 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   *result = NULL;
 
   /* Ensure that no Content-Format other than application/dcaf+cbor
-   * was requested. */
-  if (!is_dcaf(coap_get_content_format(request))) {
+   * was requested and that we can parse the message body as CBOR. */
+  if (!is_dcaf(coap_get_content_format(request))
+      || !(body = parse_cbor(request))) {
+    dcaf_log(DCAF_LOG_WARNING, "cannot parse request as application/dcaf+cbor\n");
     return DCAF_ERROR_BAD_REQUEST;
-  }
-
-  /* retrieve payload */
-  if (!coap_get_data((coap_pdu_t *)request, &payload_len, &payload)) {
-    dcaf_log(DCAF_LOG_WARNING, "drop request with empty payload\n");
-    /*authz->code = DCAF_ERROR_BAD_REQUEST; */
-    goto finish;
   }
 
   /* TODO: replace parse_token_request */
@@ -174,7 +189,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   /* TODO: check aud, scope, token_type */
 
   //  authz->lifetime = DCAF_DEFAULT_LIFETIME;
- finish:
+  cn_cbor_free(body);
   *result = ticket;
   return DCAF_OK;
 }
