@@ -350,7 +350,6 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
 		const unsigned long seq, const dcaf_time_t ts,
 		const uint remaining_time) {
 
-  /* timestamp, remaining lifetime, authz info */
   dcaf_ticket_t *ticket = (dcaf_ticket_t *)dcaf_alloc_type(DCAF_TICKET);
   if (ticket) {
     memset(ticket, 0, sizeof(dcaf_ticket_t));
@@ -358,8 +357,9 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
     ticket->ts = ts;
     ticket->remaining_time = remaining_time;
     ticket->key = dcaf_new_key(key_type);
-    /* TODO: check if key is NULL */
-      
+    /* TODO: check if dcaf_new_key does what we want here */
+
+    /* set kid */
     if (kid && kid_length && ticket->key) {
       ticket->key->kid = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY,kid_length);
       if (ticket->key->kid) {
@@ -367,27 +367,22 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
 	ticket->key->kid_length = kid_length;
       }
     }
+    /* set key */
     if (verifier && verifier_length) {
       if (verifier_length<=DCAF_MAX_KEY_SIZE) {
 	memcpy(ticket->key->data, verifier, verifier_length);
 	ticket->key->length = verifier_length;
       }
     }
-    /*
-    if (kid && kid_length) {
-      ticket->kid = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY, kid_length);
-      if (ticket->kid) {
-        memcpy(ticket->kid, kid, kid_length);
-        ticket->kid_length = kid_length;
-      }
+    if (seq) {
+      ticket->seq = seq;
     }
-    if (verifier && verifier_length) {
-      ticket->verifier = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY, verifier_length);
-      if (ticket->verifier) {
-        memcpy(ticket->verifier, verifier, verifier_length);
-        ticket->verifier_length = verifier_length;
-      }
-      } */
+    if (ts) {
+      ticket->ts = ts;
+    }
+    if (remaining_time) {
+      ticket->remaining_time = remaining_time;
+    }
   }
   return ticket;
 }
