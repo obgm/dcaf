@@ -176,6 +176,9 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
                                       dcaf_result_t error,
                                       coap_pdu_t *response);
 
+dcaf_key_t * dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key);
+
+
 struct dcaf_ticket_t;
 typedef struct dcaf_ticket_t dcaf_ticket_t;
 
