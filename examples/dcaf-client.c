@@ -49,6 +49,8 @@
 #define AM_DEFAULT_PORT "7744"
 #define AM_DEFAULT_PATH "/"
 
+#define SNC_SIZE 8              /* default nonce size */
+
 const char am_default_uri[] =
   "coaps://" AM_DEFAULT_HOST ":" AM_DEFAULT_PORT AM_DEFAULT_PATH;
 
@@ -693,6 +695,11 @@ prepare_message(int message_type) {
     cn_cbor_array_append(scope, cn_cbor_string_create("/restricted", NULL), NULL);
     cn_cbor_array_append(scope, cn_cbor_int_create(5, NULL), NULL);
     cn_cbor_mapput_int(cbor, DCAF_TICKET_SCOPE, scope, NULL);
+
+    dcaf_prng(buf, SNC_SIZE);
+    cn_cbor_mapput_int(cbor, DCAF_TICKET_SNC,
+                       cn_cbor_data_create(buf, SNC_SIZE, NULL),
+                       NULL);
     break;
   }
   default:
