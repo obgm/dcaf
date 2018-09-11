@@ -66,26 +66,33 @@ make_cose_key(const dcaf_key_t *key) {
 static cn_cbor *
 make_ticket_face(const dcaf_ticket_t *ticket) {
   cn_cbor *map = cn_cbor_map_create(NULL);
-  cn_cbor *aif;
+  cn_cbor *aif, *cose_key;
 
   assert(ticket != NULL);
 
   aif = dcaf_aif_to_cbor(ticket->aif);
-  if (!aif || !map) {
+  cose_key = make_cose_key(ticket->key);
+  if (!aif || !map || !cose_key) {
     cn_cbor_free(map);
     cn_cbor_free(aif);
+    cn_cbor_free(cose_key);
     return NULL;
   }
 
   /* TODO: TS */
-  cn_cbor_mapput_int(map, DCAF_TYPE_SAI, aif, NULL);
-  /*    cn_cbor_mapput_int(map, DCAF_TYPE_L,
-	cn_cbor_int_create(ticket->lifetime, NULL),
-	NULL); */
-  cn_cbor_mapput_int(map, DCAF_TYPE_G,
-		     cn_cbor_int_create(ticket->key->type, NULL),
-		     NULL);
+  cn_cbor_mapput_int(map, DCAF_TICKET_AUD,
+                     cn_cbor_string_create("server.example.com", NULL),
+                     NULL);
+  cn_cbor_mapput_int(map, DCAF_TICKET_SCOPE, aif, NULL);
+  cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
+                     cn_cbor_int_create(ticket->seq, NULL),
+                     NULL);
+  cn_cbor_mapput_int(map, DCAF_TICKET_EXPIRES_IN,
+                     cn_cbor_int_create(ticket->remaining_time, NULL),
+                     NULL);
+  cn_cbor_mapput_int(map, DCAF_TICKET_CNF, cose_key, NULL);
 
+#if 0
   /* encrypt ticket face*/
   {
     cose_obj_t *cose;
@@ -126,6 +133,24 @@ make_ticket_face(const dcaf_ticket_t *ticket) {
     cose_obj_delete(cose);
     return cn_cbor_data_create(data, length, NULL);
   }
+#endif
+  return map;
+}
+
+static cn_cbor *
+make_client_info(const dcaf_ticket_t *ticket) {
+  cn_cbor *map = cn_cbor_map_create(NULL);
+
+  assert(ticket != NULL);
+
+  if (!map) {
+    return NULL;
+  }
+
+  /* TODO */
+  cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
+                     cn_cbor_int_create(ticket->seq, NULL),
+                     NULL);
   return map;
 }
 
@@ -171,7 +196,6 @@ dcaf_parse_ticket_request(const coap_session_t *session,
     return DCAF_ERROR_BAD_REQUEST;
   }
 
-  /* TODO: replace parse_token_request */
   /* TODO: check if we are addressed AM (iss). If not and we are
    * acting as CAM, the request should be passed on to SAM. */
   obj = cn_cbor_mapget_int(body, DCAF_TICKET_ISS);
@@ -221,21 +245,28 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 
   obj = cn_cbor_mapget_int(body, DCAF_TICKET_SNC);
   if (obj && ((obj->type == CN_CBOR_BYTES) || (obj->type == CN_CBOR_TEXT))) {
+    char printbuf[17];
+    const uint8_t *p = obj->v.bytes;
+    int n;
+
+    for (n = 0; n < obj->length; n++, p++) {
+      /* we can use sprintf() here because we check the bounds manually */
+      sprintf(printbuf + 2 * n, "%02x", *p);
+    }
+    printbuf[sizeof(printbuf) - 1] = '\0';
+
+    dcaf_log(DCAF_LOG_INFO, "snc: %s\n", printbuf);
     /* TODO: store snc */
   }
   
   if (result_code == DCAF_OK) {
-#define DCAF_DEFAULT_KID_SIZE 8
-    uint8_t kid[DCAF_DEFAULT_KID_SIZE] =
-      { 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48 };
+    /* TODO: check if the request contained a kid */
     unsigned long seq = 89;
     dcaf_time_t ts = dcaf_gettime();
-    uint8_t key[DCAF_MAX_KEY_SIZE];
 
-    dcaf_prng(key, sizeof(key));
-    ticket = dcaf_new_ticket(kid, sizeof(kid),
+    ticket = dcaf_new_ticket(NULL, 0, /* set kid only if specified in request */
                              DCAF_AES_128,
-                             key, sizeof(key),
+                             NULL, 0, /* do not set a key for now */
                              seq, ts, DCAF_DEFAULT_LIFETIME);
     if (ticket) {
       ticket->aif = aif;
@@ -254,16 +285,14 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 }
 
 
-#define MAJOR_TYPE_BYTE_STRING (2 << 5)
-
-
 void
 dcaf_set_ticket_grant(const coap_session_t *session,
                       const dcaf_ticket_t *ticket,
                       coap_pdu_t *response) {
   dcaf_context_t *ctx;
-  unsigned char buf[128];
+  unsigned char buf[1024];
   size_t length = 0;
+  cn_cbor *body, *ticket_face, *client_info;
   assert(ticket);
   assert(response);
 
@@ -278,45 +307,28 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   }
 
   /* generate ticket grant depending on media type */
-  buf[0] = 0xa2; /* map(2) */
-  buf[1] = DCAF_TYPE_F; /* unsigned int */
-  cn_cbor *face = make_ticket_face(ticket);
+  body = cn_cbor_map_create(NULL);
+  ticket_face = make_ticket_face(ticket);
+  client_info = make_client_info(ticket);
+  if (!body || !ticket_face) {
+    cn_cbor_free(body);
+    cn_cbor_free(ticket_face);
+    cn_cbor_free(client_info);
+    response->code = COAP_RESPONSE_CODE(500);
+    coap_add_data(response, 14, (unsigned char *)"internal error");
+    return;
+  }
 
-  length = cn_cbor_encoder_write(buf, 2, sizeof(buf), face);
-  /* TODO: create verifier over buf and append to map */
-  
-  buf[length + 2] = DCAF_TYPE_V; /* unsigned int */
-  
-#if 0
-  switch (ticket->key->type) {
-  case DCAF_KEY_HMAC_SHA256:
-    /* fall through */
-  case DCAF_KEY_HMAC_SHA384:
-    /* fall through */
-  case DCAF_KEY_HMAC_SHA512: {
-    const size_t face_length = length;
-    size_t len = sizeof(buf) - length;
-    dcaf_crypto_param_t params = {
-      .alg = DCAF_HS256,    /* TODO: support for additional types */
-      .params.key = ticket->key
-    };
-    length += 3;
-    if (dcaf_create_verifier(&params, buf + 3, face_length,
-			     buf + length, &len) == DCAF_OK) {
-      length += len;
-    }
-    break;
-  }
-  case DCAF_AES_CCM_16_64_128: {
-    /* TODO */
-    break;
-  }
-  default:
-    ;
-  }
-#endif
-  cn_cbor_free(face);
-  
+  /* FIXME: these definitions need to go into the enum
+   * dcaf_ticket_field in dcaf.h */
+#define DCAF_TICKET_FACE 133
+#define DCAF_TICKET_CLIENTINFO 134
+  cn_cbor_mapput_int(body, DCAF_TICKET_FACE, ticket_face, NULL);
+  cn_cbor_mapput_int(body, DCAF_TICKET_CLIENTINFO, client_info, NULL);
+
+  length = cn_cbor_encoder_write(buf, 0, sizeof(buf), body);
+  cn_cbor_free(body);
+
   if (length > 0) {  /* we have a response */
     unsigned char optionbuf[8];
 
@@ -351,33 +363,23 @@ dcaf_create_verifier(dcaf_context_t *ctx, dcaf_ticket_t *ticket) {
    *     - check if we need to generate a new key
    *     - support key generation, e.g. HKDF-based
    */
-  if (ticket->key == NULL) {
-    ticket->key = dcaf_new_key(DCAF_AES_128);
-    if (!ticket->key || !dcaf_key_rnd(ticket->key)) {
-      dcaf_delete_key(ticket->key);
-      ticket->key = NULL;
-      return DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
-    }
-    dcaf_log(DCAF_LOG_DEBUG, "generated key:\n");
-    dcaf_debug_hexdump(ticket->key->data, ticket->key->length);
-    return DCAF_OK;
+  if (!ticket->key || !dcaf_key_rnd(ticket->key)) {
+    dcaf_delete_key(ticket->key);
+    ticket->key = NULL;
+    dcaf_log(DCAF_LOG_DEBUG, "dcaf_create_verifier: unsupported key type\n");
+    return DCAF_ERROR_UNSUPPORTED_KEY_TYPE;
   }
-#if 0
-  size_t len;
-  if (!(out_length && (*out_length > 2))) {
-    return DCAF_ERROR_BUFFER_TOO_SMALL;
+  /* We have generated a new random key hence we generate a new kid */
+  if (dcaf_prng(ticket->key->kid, sizeof(ticket->key->kid))) {
+    ticket->key->kid_length = sizeof(ticket->key->kid);
+  } else {
+    ticket->key->kid_length = 0;
   }
 
-  len = *out_length - 2;
-  if (dcaf_hmac(params, face, face_length, output + 2, &len)) {
-    output[0] = MAJOR_TYPE_BYTE_STRING | 25;
-    output[1] = len;          /* TODO: handle len < 24 or len > 255 */
-    *out_length = len + 2;
-    return DCAF_OK;
-  }
-#endif
-
-  dcaf_log(DCAF_LOG_DEBUG, "dcaf_create_verifier: key should have been NULL\n");
-  return DCAF_ERROR_INTERNAL_ERROR;
+  dcaf_log(DCAF_LOG_DEBUG, "generated key:\n");
+  dcaf_debug_hexdump(ticket->key->data, ticket->key->length);
+  dcaf_log(DCAF_LOG_DEBUG, "with kid:\n");
+  dcaf_debug_hexdump(ticket->key->kid, ticket->key->kid_length);
+  return DCAF_OK;
 }
 
