@@ -43,6 +43,7 @@ typedef enum {
 #include "dcaf_prng.h"
 
 #include "cose.h"
+#include "cwt.h"
 
 #define DCAF_TYPE_SAM   0
 #define DCAF_TYPE_SAI   1
@@ -59,8 +60,8 @@ typedef enum {
 #define DCAF_TYPE_N    12
 
 enum dcaf_ticket_field {
-  DCAF_TICKET_IAT             = 6,
-  DCAF_TICKET_CNF             = 8,
+  DCAF_TICKET_IAT             = CWT_CLAIM_IAT,
+  DCAF_TICKET_CNF             = CWT_CLAIM_CNF,
   DCAF_TICKET_SCOPE           = 9,
   DCAF_TICKET_EXPIRES_IN      = 32,
   DCAF_TICKET_SNC             = 125,

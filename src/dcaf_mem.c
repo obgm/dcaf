@@ -48,8 +48,8 @@ dcaf_alloc_type(dcaf_object_type obj) {
   default: return NULL;
   case DCAF_CONTEXT: break;
   case DCAF_TICKET: break;
-  case DCAF_KEY: len = DCAF_MAX_KEY_SIZE; break;
-  case DCAF_AIF: break;
+  case DCAF_KEY: len = DCAF_MAX_KEY_SIZE; break; /* TODO: len correct? */
+  case DCAF_AIF: break; /* TODO: len? */
   case DCAF_OPTION: len = DCAF_MAX_OPT_SIZE; break;
   case DCAF_STRING: len = DCAF_MAX_STRING; break;
   case DCAF_DEP_TICKET: break;

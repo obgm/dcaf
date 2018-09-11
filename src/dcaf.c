@@ -357,14 +357,15 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
     ticket->ts = ts;
     ticket->remaining_time = remaining_time;
     ticket->key = dcaf_new_key(key_type);
-    /* TODO: check if dcaf_new_key does what we want here */
 
     /* set kid */
     if (kid && kid_length && ticket->key) {
-      ticket->key->kid = (uint8_t *)dcaf_alloc_type_len(DCAF_KEY,kid_length);
-      if (ticket->key->kid) {
+      if (kid_length <= DCAF_MAX_KID_SIZE) {
 	memcpy(ticket->key->kid, kid, kid_length);
 	ticket->key->kid_length = kid_length;
+      }
+      else {
+	dcaf_log(DCAF_LOG_WARNING, "kid exceeds DCAF_MAX_KID_SIZE\n");
       }
     }
     /* set key */
@@ -373,15 +374,6 @@ dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
 	memcpy(ticket->key->data, verifier, verifier_length);
 	ticket->key->length = verifier_length;
       }
-    }
-    if (seq) {
-      ticket->seq = seq;
-    }
-    if (ts) {
-      ticket->ts = ts;
-    }
-    if (remaining_time) {
-      ticket->remaining_time = remaining_time;
     }
   }
   return ticket;
@@ -419,8 +411,8 @@ dcaf_add_ticket(dcaf_ticket_t *ticket) {
 void
 dcaf_free_ticket(dcaf_ticket_t *ticket) {
   if (ticket) {
-    /* TODO: check if you freed everything */
-    //dcaf_free_type(DCAF_KEY, ticket->kid);
+    dcaf_free_type(DCAF_AIF, ticket->aif);
+    dcaf_free_type(DCAF_KEY, ticket->key);
     dcaf_free_type(DCAF_TICKET, ticket);
   }
 }
@@ -623,13 +615,10 @@ dcaf_parse_ticket(const coap_session_t *session,
     goto finish;
   }
 
+  key = get_cose_key(cnf); /* cn_cbor object with cose key object */
+
   /* TODO: get key type, kid, key */
   
-  /* kdf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_KDF); */
-  /* if (!cnf && !kdf) {  /\* no cnf object, no kdf, no verifier *\/ */
-  /*   dcaf_log(DCAF_LOG_INFO, "no cnf and no kdf found\n"); */
-  /*   goto finish; */
-  /* } */
   /* if (cnf && !kdf) { */
   /*   key = get_cose_key(cnf); */
   /*   (void)key; /\* FIXME: RIOT *\/ */

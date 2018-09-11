@@ -23,17 +23,7 @@ dcaf_new_key(dcaf_key_type type) {
 
   if (key) {
     memset(key, 0, sizeof(dcaf_key_t));
-    /* let data point to the struct's end */
     key->type = type;
-    switch(type) {
-    case DCAF_NONE: break;
-    case DCAF_KID: key->length = 16; break;
-    case DCAF_AES_128: key->length = 16; break;
-    case DCAF_AES_256: key->length = 32; break;
-    case DCAF_HS256: key->length = 32; break;
-    default:
-      ;
-    }
   }
   return key;
 }
@@ -45,7 +35,24 @@ dcaf_delete_key(dcaf_key_t *key) {
 
 bool
 dcaf_key_rnd(dcaf_key_t *key) {
-  return key && dcaf_prng(key->data, key->length);
+  if (key) {
+    key->length = 0;
+    switch (key->type) {
+    case DCAF_NONE:
+      break;
+    case DCAF_AES_128: key->length=16;
+      break;
+    case DCAF_AES_256: key->length=32;
+      break;
+    case DCAF_HS256: key->length=32;
+      break;
+    case DCAF_KID: key->length=DCAF_MAX_KID_SIZE;
+      break;
+    default:
+      ;
+    }
+  }
+  return key && key->length && dcaf_prng(key->data, key->length);
 }
 
 bool
