@@ -28,15 +28,27 @@ coap_ticks(coap_tick_t *t) {
   *t = timex_uint64(tx);
 }  
 
+int
+coap_get_content_format(const coap_pdu_t *pdu) {
+  /* FIXME */
+  return -1;
+}
+
 #else /* !RIOT_VERSION */
 
-#ifdef __clang__
-/* Make compilers happy that do not like empty modules. As this function is
- * never used, we ignore -Wunused-function at the end of compiling this file
- */
-#pragma GCC diagnostic ignored "-Wunused-function"
-#endif
-static inline void dummy(void) {
+int
+coap_get_content_format(const coap_pdu_t *pdu) {
+  if (pdu) {
+    coap_opt_iterator_t iter;
+    coap_option_t content_format;
+    coap_opt_t *opt;
+
+    /* Need to cast pdu as coap_check_option() does not take const */
+    opt = coap_check_option((coap_pdu_t *)pdu, COAP_OPTION_CONTENT_FORMAT, &iter);
+    if (opt && (coap_opt_parse(opt, coap_opt_size(opt), &content_format) > 0))
+      return coap_decode_var_bytes(content_format.value, content_format.length);
+  }
+  return -1;
 }
 
 #endif /* RIOT_VERSION */

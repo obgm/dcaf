@@ -42,6 +42,17 @@ void coap_ticks(coap_tick_t *t);
 #include <coap/coap.h>
 #endif /* RIOT_VERSION */
 
+/**
+ * Returns the Content Format specified in @p pdu
+ * or -1 if none was given.
+ *
+ * @param pdu  The CoAP pdu to search for Content-Format.
+ *
+ * @return The Content-Format value from @p pdu or
+ *         -1 if no Content-Format was specified.
+ */
+int coap_get_content_format(const coap_pdu_t *pdu);
+
 #ifndef COAP_MEDIATYPE_TEXT_PLAIN
 #define COAP_MEDIATYPE_TEXT_PLAIN (0)
 #endif
