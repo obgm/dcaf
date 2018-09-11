@@ -135,10 +135,13 @@ main(int argc, char **argv) {
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
 
-  while ((opt = getopt(argc, argv, "A:C:g:p:v:l:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:A:C:g:p:v:l:")) != -1) {
     switch (opt) {
-    case 'A' :
+    case 'a':
       config.host = optarg;
+      break;
+    case 'A' :
+      config.am_uri = optarg;
       break;
     case 'C' : {
       am_config::parser parser;
