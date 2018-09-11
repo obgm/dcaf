@@ -22,8 +22,9 @@
 
 /* Returns true iff DCAF should be used. */
 static bool
-is_dcaf(dcaf_mediatype_t mediatype) {
-  return mediatype != DCAF_MEDIATYPE_ACE_CBOR;
+is_dcaf(int content_format) {
+  return (content_format == -1)
+    || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
 }
 
 static cn_cbor *
@@ -140,8 +141,6 @@ dcaf_parse_ticket_request(const coap_session_t *session,
       }
   */
   coap_opt_iterator_t oi;
-  coap_opt_t *option;
-  coap_option_t accept;
   uint8_t *payload = NULL;
   size_t payload_len = 0;
   dcaf_ticket_t *ticket;
@@ -152,8 +151,11 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 
   *result = NULL;
 
-  option =
-    coap_check_option((coap_pdu_t *)request, COAP_OPTION_CONTENT_FORMAT, &oi);
+  /* Ensure that no Content-Format other than application/dcaf+cbor
+   * was requested. */
+  if (!is_dcaf(coap_get_content_format(request))) {
+    return DCAF_ERROR_BAD_REQUEST;
+  }
 
   /* retrieve payload */
   if (!coap_get_data((coap_pdu_t *)request, &payload_len, &payload)) {
