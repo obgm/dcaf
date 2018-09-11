@@ -18,7 +18,7 @@ extern "C" {
 #endif
 #endif
 
-#define DCAF_TOKEN_DEFAULT "token"
+#define DCAF_AM_DEFAULT_PATH "authorize"
 
 /** Default lifetime of a DCAF access ticket in seconds. */
 #define DCAF_DEFAULT_LIFETIME       3600
@@ -60,6 +60,8 @@ typedef enum {
 #define DCAF_TYPE_N    12
 
 enum dcaf_ticket_field {
+  DCAF_TICKET_ISS             = CWT_CLAIM_ISS,
+  DCAF_TICKET_AUD             = CWT_CLAIM_AUD,
   DCAF_TICKET_IAT             = CWT_CLAIM_IAT,
   DCAF_TICKET_CNF             = CWT_CLAIM_CNF,
   DCAF_TICKET_SCOPE           = 9,

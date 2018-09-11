@@ -81,13 +81,11 @@ hnd_post_token(coap_context_t *ctx,
 
   /* Check if authorized, i.e., the request was received on a secure
    * channel. */
-#if 0
   if (!dcaf_is_authorized(session, request)) {
     dcaf_set_sam_information(session, DCAF_MEDIATYPE_DCAF_CBOR,
                              response);
     return;
   }
-#endif
   res = dcaf_parse_ticket_request(session, request, &ticket);
   if (res != DCAF_OK) {
     (void)dcaf_set_error_response(session, res, response);
@@ -102,7 +100,7 @@ init_resources(coap_context_t *coap_context) {
   coap_resource_t *resource;
   const char mediatypes[] = DCAF_MEDIATYPE_DCAF_CBOR_STRING " " DCAF_MEDIATYPE_ACE_CBOR_STRING;
 
-  resource = coap_resource_init(coap_make_str_const(DCAF_TOKEN_DEFAULT), 0);
+  resource = coap_resource_init(coap_make_str_const(DCAF_AM_DEFAULT_PATH), 0);
   coap_register_handler(resource, COAP_REQUEST_POST, hnd_post_token);
   /* add values for supported content-formats */
   coap_add_attr(resource, coap_make_str_const("ct"),
