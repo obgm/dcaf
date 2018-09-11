@@ -423,6 +423,35 @@ log_parse_error(const cn_cbor_errback err) {
   dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
 }
 
+dcaf_key_t *
+dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key) {
+  if (cose_key && key) {
+    cn_cbor * obj;
+    obj = cn_cbor_mapget_int(cose_key,COSE_KEY_KID);
+    if (obj && (obj->type == CN_CBOR_BYTES) && (obj->length <= DCAF_MAX_KID_SIZE)) {
+      memcpy(key->kid,obj->v.bytes,obj->length);
+      key->kid_length = obj->length;
+    }
+    obj = cn_cbor_mapget_int(cose_key,COSE_KEY_ALG);
+    if (obj && (obj->type == CN_CBOR_INT)) {
+      switch (obj->v.sint) {
+      case COSE_AES_CCM_64_64_128:
+	key->type=DCAF_AES_128;
+	break;
+	/* TODO: other cases */
+      default:
+	;
+      }
+    }
+    obj = cn_cbor_mapget_int(cose_key,COSE_KEY_K);
+    if (obj && (obj->type == CN_CBOR_BYTES) && (obj->length <= DCAF_MAX_KEY_SIZE)) {
+      memcpy(key->data,obj->v.bytes,obj->length);
+      key->length = obj->length;
+    }
+  }
+  return key;
+}
+
 static inline const cn_cbor *
 get_cose_key(const cn_cbor *obj) {
   assert(obj);
@@ -485,11 +514,12 @@ dcaf_parse_ticket(const coap_session_t *session,
   cn_cbor *ticket_face = NULL;
   dcaf_ticket_t *ticket;
   dcaf_dep_ticket_t *dep_ticket;
-  const cn_cbor *key, *cnf, *snc, *iat, *ltm;
-  const cn_cbor *seq, *dseq, *kid;
+  const cn_cbor *cnf, *snc, *iat, *ltm;
+  const cn_cbor *seq, *dseq, *kid, *cose_key;
   cn_cbor_errback errp;
   dcaf_time_t now;
   int remaining_ltm;
+  dcaf_key_t *key;
   dcaf_key_type key_type = DCAF_NONE;
   
   (void)session;
@@ -615,7 +645,11 @@ dcaf_parse_ticket(const coap_session_t *session,
     goto finish;
   }
 
-  key = get_cose_key(cnf); /* cn_cbor object with cose key object */
+  *result = dcaf_new_ticket((uint8_t *)"kid", 3, key_type,
+                            (uint8_t *)"v", 1, seq->v.uint,
+			    now, remaining_ltm);
+  cose_key = get_cose_key(cnf); /* cn_cbor object with cose key object */
+  key = dcaf_parse_dcaf_key((*result)->key, cose_key);
 
   /* TODO: get key type, kid, key */
   
@@ -631,9 +665,6 @@ dcaf_parse_ticket(const coap_session_t *session,
 
   /* TODO: store remaining lifetime with ticket */
 
-  *result = dcaf_new_ticket((uint8_t *)"kid", 3, key_type,
-                            (uint8_t *)"v", 1, seq->v.uint,
-			    now, remaining_ltm);
 
   /* TODO: add actual permissions to ticket */
   /* TODO: add ticket to ticket list */
