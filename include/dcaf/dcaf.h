@@ -178,7 +178,7 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
                                       dcaf_result_t error,
                                       coap_pdu_t *response);
 
-dcaf_key_t * dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key);
+void dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key);
 
 
 struct dcaf_ticket_t;
@@ -265,10 +265,8 @@ dcaf_dep_ticket_t *dcaf_new_dep_ticket(const unsigned long seq,
 				       const dcaf_time_t ts,
 				       const uint remaining_time);
 
-dcaf_ticket_t *dcaf_new_ticket(const uint8_t *kid, size_t kid_length,
-			       const dcaf_key_type key_type,
-                               const uint8_t *verifier, size_t verifier_length,
-			       const unsigned long seq, const dcaf_time_t ts,
+dcaf_ticket_t *dcaf_new_ticket(const dcaf_key_type key_type,
+                               const unsigned long seq, const dcaf_time_t ts,
 			       const uint remaining_time);
 
 

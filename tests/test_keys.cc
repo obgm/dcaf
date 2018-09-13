@@ -41,8 +41,8 @@ SCENARIO( "DCAF key generator", "[keys]" ) {
   }
 
   GIVEN("A new ticket object") {
-    dcaf_ticket_t *a = dcaf_new_ticket(nullptr, 0, DCAF_AES_128,
-                                       nullptr, 0, 42, 1200, 600);
+    dcaf_ticket_t *a = dcaf_new_ticket(DCAF_AES_128,
+                                       42, 1200, 600);
     ticket.reset(a);
 
     WHEN("the key component is NULL") {

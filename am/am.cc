@@ -36,7 +36,7 @@ static void
 fill_keystore(coap_context_t *ctx) {
   //static uint8_t key[] = {'a', 'b', 'c', 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
   dcaf_time_t now = dcaf_gettime();
-  dcaf_ticket_t *ticket = dcaf_new_ticket((uint8_t *)"CoAP", 4, DCAF_AES_128, (uint8_t *)"secretPSK", 9, 265, now, 3600);
+  dcaf_ticket_t *ticket = dcaf_new_ticket(DCAF_AES_128, 265, now, 3600);
   (void)ctx;
 
   dcaf_add_ticket(ticket);

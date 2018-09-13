@@ -264,9 +264,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
     unsigned long seq = 89;
     dcaf_time_t ts = dcaf_gettime();
 
-    ticket = dcaf_new_ticket(NULL, 0, /* set kid only if specified in request */
-                             DCAF_AES_128,
-                             NULL, 0, /* do not set a key for now */
+    ticket = dcaf_new_ticket(DCAF_AES_128,
                              seq, ts, DCAF_DEFAULT_LIFETIME);
     if (ticket) {
       ticket->aif = aif;
