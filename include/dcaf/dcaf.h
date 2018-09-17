@@ -244,7 +244,7 @@ int dcaf_determine_offset_with_nonce(const uint8_t *nonces,size_t nonce_size);
  *         code can be used to construct an error response by
  *         dcaf_set_error_response().
  */
-dcaf_result_t dcaf_parse_ticket(const coap_session_t *session,
+dcaf_result_t dcaf_parse_ticket_face(const coap_session_t *session,
 				const uint8_t *data, size_t data_len,
 				dcaf_ticket_t **result);
 

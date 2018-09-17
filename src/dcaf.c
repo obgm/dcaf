@@ -325,16 +325,16 @@ set_endpoint(const dcaf_context_t *dcaf_context,
 #endif
 }
 
+/* TODO: store list per AM? */
 dcaf_ticket_t *dcaf_tickets = NULL;
 dcaf_dep_ticket_t *deprecated_tickets = NULL;
 
 static dcaf_ticket_t *
 dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
   dcaf_ticket_t *ticket = NULL;
+  /* fixme: kid is not necessarily unique. better search with seq */
+  /* maybe search with kid and am */
   LL_FOREACH(dcaf_tickets,ticket) {
-    /*
-    if ((kid_length == ticket->kid_length)
-    && (memcmp(kid, ticket->kid, ticket->kid_length) == 0)) { */
     if ((kid_length == ticket->key->kid_length)
 	&& (memcmp(kid, ticket->key->kid, ticket->key->kid_length) == 0)) {
       return ticket;
@@ -356,6 +356,7 @@ dcaf_new_ticket(const dcaf_key_type key_type,
     ticket->remaining_time = remaining_time;
     ticket->key = dcaf_new_key(key_type);
   }
+  /* TODO: do we need to reserve storage space for aif? */
   return ticket;
 }
 
@@ -487,7 +488,7 @@ int dcaf_determine_offset_with_nonce(const uint8_t *nonce, size_t nonce_size){
 }
 
 dcaf_result_t
-dcaf_parse_ticket(const coap_session_t *session,
+dcaf_parse_ticket_face(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
                   dcaf_ticket_t **result) {
   dcaf_result_t res = DCAF_ERROR_BAD_REQUEST;
@@ -495,7 +496,7 @@ dcaf_parse_ticket(const coap_session_t *session,
   cn_cbor *ticket_face = NULL;
   dcaf_ticket_t *ticket;
   dcaf_dep_ticket_t *dep_ticket;
-  const cn_cbor *cnf, *snc, *iat, *ltm;
+  const cn_cbor *cnf, *snc, *iat, *ltm, *scope;
   const cn_cbor *seq, *dseq, *cose_key;
   cn_cbor_errback errp;
   dcaf_time_t now;
@@ -618,7 +619,7 @@ dcaf_parse_ticket(const coap_session_t *session,
     goto finish;
   }
   
-  /* retrieve cnf claim to get kid and verifier */
+  /* retrieve cnf containg keying material information */
   cnf = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_CNF);
   if (!cnf) {
     dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
@@ -630,6 +631,12 @@ dcaf_parse_ticket(const coap_session_t *session,
 			    now, remaining_ltm);
   cose_key = get_cose_key(cnf); /* cn_cbor object with cose key object */
   dcaf_parse_dcaf_key((*result)->key, cose_key);
+
+  scope = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
+  if (scope) {
+    /* TODO: allocate storage space for aif */
+    dcaf_aif_t *aif = (dcaf_aif_t *)dcaf_alloc_type(DCAF_AIF);
+  }
 
   /* TODO: add actual permissions to ticket */
   /* TODO: add ticket to ticket list */
@@ -649,7 +656,7 @@ dcaf_get_server_psk(const coap_session_t *session,
   dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
   if (!t) { /* no ticket found, try to create new if possible */
     dcaf_log(DCAF_LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
-    if (dcaf_parse_ticket(session, identity, identity_len, &t) == DCAF_OK) {
+    if (dcaf_parse_ticket_face(session, identity, identity_len, &t) == DCAF_OK) {
       /* got a new ticket; just store it and continue */
       dcaf_add_ticket(t);
     }

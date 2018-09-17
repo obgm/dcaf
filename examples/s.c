@@ -109,7 +109,7 @@ hnd_ticket_post(coap_context_t *ctx,
     response->code = COAP_RESPONSE_CODE(400);
     return;
   }
-  res = dcaf_parse_ticket(session, data, size, &ticket);
+  res = dcaf_parse_ticket_face(session, data, size, &ticket);
   if (res == DCAF_ERROR_BAD_REQUEST) {
     response->code = COAP_RESPONSE_CODE(400);
     return;
