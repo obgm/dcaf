@@ -464,12 +464,13 @@ usage( const char *program, const char *version) {
   fprintf( stderr, "%s v%s -- DCAF example client\n"
      "Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>\n"
      "              2018 Stefanie Gerdes <gerdes@tzi.org>\n\n"
-     "Usage: %s [-A CAM-Uri] [-a addr] [-k key] [-p port] \n"
+     "Usage: %s [-A address] [-a URI] [-k key] [-p port] \n"
      "\t\t [-u user] [-v verbosity] [method] URI\n\n"
      "\tURI can be an absolute URI or a URI prefixed with scheme and host.\n\n"
      "\tMethod can be any of GET|PUT|POST|DELETE|FETCH|PATCH|IPATCH. If no\n"
      "\tmethod was specified the default is GET.\n\n"
-     "\t-a addr\t\tThe local interface address to use\n"
+     "\t-A address\tinterface address to bind to\n"
+     "\t-a URI\t\tauthorization manager (AM) URI (the \"token endpoint\")\n"
      "\t-k key \t\tPre-shared key for the specified user. This argument\n"
      "\t       \t\trequires (D)TLS with PSK to be available\n"
      "\t-p port\t\tListen on specified port\n"
@@ -751,7 +752,7 @@ main(int argc, char **argv) {
 
   while ((opt = getopt(argc, argv, "a:k:p:u:v:A:M:")) != -1) {
     switch (opt) {
-    case 'a':
+    case 'A':
       strncpy(node_str, optarg, NI_MAXHOST - 1);
       node_str[NI_MAXHOST - 1] = '\0';
       break;
@@ -762,7 +763,7 @@ main(int argc, char **argv) {
       strncpy(port_str, optarg, NI_MAXSERV - 1);
       port_str[NI_MAXSERV - 1] = '\0';
       break;
-    case 'A':
+    case 'a':
       config.am_uri = optarg;
       break;
     case 'M':
