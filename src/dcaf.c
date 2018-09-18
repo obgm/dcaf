@@ -299,18 +299,6 @@ handle_coap_response(struct coap_context_t *coap_context,
 #endif
 }
 
-static inline uint16_t
-coap_port(const dcaf_config_t *config) {
-  return (config && config->coap_port) ?
-    config->coap_port : COAP_DEFAULT_PORT;
-}
-
-static inline uint16_t
-coaps_port(const dcaf_config_t *config) {
-  return (config && config->coaps_port) ?
-    config->coaps_port : COAPS_DEFAULT_PORT;
-}
-
 static int
 set_endpoint(const dcaf_context_t *dcaf_context,
              const coap_address_t *addr,
@@ -718,43 +706,53 @@ dcaf_new_context(const dcaf_config_t *config) {
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
 #endif /* RIOT_VERSION */
 
-  if (config && config->host) {
-    addr_str = config->host;
-  }
-
-  if (dcaf_set_coap_address((const unsigned char *)addr_str, strlen(addr_str),
-                            coap_port(config), &addr) == DCAF_OK) {
-    if (set_endpoint(dcaf_context, &addr, COAP_PROTO_UDP)) {
-#ifndef RIOT_VERSION
-      unsigned char buf[INET6_ADDRSTRLEN + 8];
-
-      if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
-        dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
-      }
-#endif /* RIOT_VERSION */
+  if (config) {
+    if (config->host) {
+      addr_str = config->host;
     }
-  }
 
-  if (dcaf_set_coap_address((const unsigned char *)addr_str, strlen(addr_str),
-                            coaps_port(config), &addr) == DCAF_OK) {
-    if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
+    /* Bind address for plaintext communication if coap_port was
+     * configured. */
+    if (config->coap_port &&
+        (dcaf_set_coap_address((const unsigned char *)addr_str,
+                               strlen(addr_str),
+                               config->coap_port, &addr) == DCAF_OK)) {
+      if (set_endpoint(dcaf_context, &addr, COAP_PROTO_UDP)) {
 #ifndef RIOT_VERSION
-      unsigned char buf[INET6_ADDRSTRLEN + 8];
+        unsigned char buf[INET6_ADDRSTRLEN + 8];
 
-      if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
-        dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
-      }
+        if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
+          dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
+        }
 #endif /* RIOT_VERSION */
+      }
     }
-  }
 
-  /* set am_uri from config->am_uri */
-  if (config && config->am_uri) {
-    dcaf_set_am_uri(dcaf_context,
-                    (const unsigned char *)config->am_uri,
-                    strlen(config->am_uri));
-    if (dcaf_context->am_uri==NULL){
-      dcaf_log(DCAF_LOG_CRIT, "cannot set AM URI %s. Expected schema://host[...]\n", config->am_uri);
+    /* Bind address for secure communication if coaps_port was
+     * configured. */
+    if (config->coaps_port &&
+        (dcaf_set_coap_address((const unsigned char *)addr_str,
+                               strlen(addr_str),
+                               config->coaps_port, &addr) == DCAF_OK)) {
+      if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
+#ifndef RIOT_VERSION
+        unsigned char buf[INET6_ADDRSTRLEN + 8];
+
+        if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
+          dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
+        }
+#endif /* RIOT_VERSION */
+      }
+    }
+
+    /* set am_uri from config->am_uri */
+    if (config->am_uri) {
+      dcaf_set_am_uri(dcaf_context,
+                      (const unsigned char *)config->am_uri,
+                      strlen(config->am_uri));
+      if (dcaf_context->am_uri==NULL){
+        dcaf_log(DCAF_LOG_CRIT, "cannot set AM URI %s. Expected schema://host[...]\n", config->am_uri);
+      }
     }
   }
 
