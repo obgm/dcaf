@@ -196,6 +196,8 @@ main(int argc, char **argv) {
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str;
+  config.coap_port = COAP_DEFAULT_PORT;
+  config.coaps_port = COAPS_DEFAULT_PORT;
 
   while ((opt = getopt(argc, argv, "A:a:k:p:v:")) != -1) {
     switch (opt) {
