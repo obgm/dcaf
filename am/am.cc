@@ -134,6 +134,8 @@ main(int argc, char **argv) {
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
+  config.coap_port = DCAF_DEFAULT_COAP_PORT;
+  config.coaps_port = DCAF_DEFAULT_COAPS_PORT;
 
   while ((opt = getopt(argc, argv, "a:A:C:g:p:v:l:")) != -1) {
     switch (opt) {

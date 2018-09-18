@@ -20,6 +20,12 @@ extern "C" {
 
 #define DCAF_AM_DEFAULT_PATH "authorize"
 
+/** The default port for unencrypted DCAF traffic. */
+#define DCAF_DEFAULT_COAP_PORT      7743
+
+/** The default port for encrypted DCAF traffic. */
+#define DCAF_DEFAULT_COAPS_PORT     7744
+
 /** Default lifetime of a DCAF access ticket in seconds. */
 #define DCAF_DEFAULT_LIFETIME       3600
 
