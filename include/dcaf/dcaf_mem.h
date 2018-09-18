@@ -14,11 +14,12 @@ typedef enum dcaf_object_type {
   DCAF_CONTEXT = 1,
   DCAF_TICKET,
   DCAF_KEY,
-  DCAF_AIF,
+  DCAF_AIF,  
   DCAF_OPTION,
   DCAF_STRING,
   DCAF_DEP_TICKET,
   DCAF_TRANSACTION,
+  DCAF_NONCE,
 } dcaf_object_type;
 
 /**

@@ -69,6 +69,7 @@ enum dcaf_ticket_field {
   DCAF_TICKET_SNC             = 125,
   DCAF_TICKET_SEQ             = 126,
   DCAF_TICKET_DSEQ            = 127,
+  DCAF_TICKET_DAT             = 128
   /* use cti instead of seq? */
 };
 
@@ -248,7 +249,7 @@ dcaf_result_t dcaf_parse_ticket_face(const coap_session_t *session,
 				const uint8_t *data, size_t data_len,
 				dcaf_ticket_t **result);
 
-typedef unsigned long dcaf_time_t;
+typedef coap_time_t dcaf_time_t;
 
 /**
  * Returns the current time.
@@ -260,6 +261,7 @@ dcaf_time_t dcaf_gettime(void);
 struct dcaf_dep_ticket_t;
 typedef struct dcaf_dep_ticket_t dcaf_dep_ticket_t;
 
+dcaf_nonce_t *dcaf_new_nonce(size_t len);
 
 dcaf_dep_ticket_t *dcaf_new_dep_ticket(const unsigned long seq,
 				       const dcaf_time_t ts,

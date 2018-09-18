@@ -373,6 +373,16 @@ dcaf_new_dep_ticket(const unsigned long seq, const dcaf_time_t ts,
   return ticket;
 }
 
+dcaf_nonce_t *
+dcaf_new_nonce(size_t len) {
+  dcaf_nonce_t *nonce = (dcaf_nonce_t*)dcaf_alloc_type(DCAF_NONCE);
+  if (nonce) {
+    memset(nonce, 0, sizeof(dcaf_nonce_t));
+    nonce->nonce_length = len;
+  }
+  return nonce;
+}
+
 
 void
 dcaf_remove_ticket(dcaf_ticket_t *ticket) {
@@ -875,6 +885,7 @@ dcaf_is_authorized(const coap_session_t *session,
   return 0;
 }
 
+dcaf_nonce_t * nonces = NULL;
 
 dcaf_result_t
 dcaf_set_sam_information(const coap_session_t *session,
@@ -884,7 +895,8 @@ dcaf_set_sam_information(const coap_session_t *session,
   size_t length;
   coap_tick_t now;
   dcaf_context_t *dcaf_context;
-  uint16_t sam_key = DCAF_TYPE_SAM, nonce_key = DCAF_TYPE_NONCE;
+  uint16_t sam_key = DCAF_TICKET_ISS, validity_key = DCAF_TICKET_DAT;
+  dcaf_nonce_t *nonce;
 
   dcaf_log(DCAF_LOG_DEBUG, "create SAM Information\n");
   coap_ticks(&now);
@@ -927,17 +939,39 @@ dcaf_set_sam_information(const coap_session_t *session,
   /* } */
 
   dcaf_log(DCAF_LOG_DEBUG, "CBOR...\n");
+  /* set SAM URI */
   cn_cbor_mapput_int(map, sam_key,
                      cn_cbor_string_create(uri, NULL),
                      NULL);
-  cn_cbor_mapput_int(map, nonce_key,
-                     cn_cbor_int_create(coap_ticks_to_rt(now), NULL),
-                     NULL);
 
-  /* TODO: for validity options 2 and 3, S must add a nonce to the message */
-  /* TODO: for validity option 2, S must store the nonce and a timestamp, */
-  /* TODO: for validity option 3, S must store the nonce and start a timeout */
-
+  if (DCAF_SERVER_VALIDITY_OPTION == 1) {
+    /* set timestamp */
+    cn_cbor_mapput_int(map, validity_key,
+		       cn_cbor_int_create(coap_ticks_to_rt(now), NULL),
+		       NULL);
+  }
+  else {
+    validity_key = DCAF_TICKET_SNC;
+    /* create nonce */
+    nonce = dcaf_new_nonce(DCAF_MAX_NONCE_SIZE);
+    if (!nonce) {
+      dcaf_log(DCAF_LOG_DEBUG, "DCAF_ERROR_INTERNAL_ERROR\n");
+      return DCAF_ERROR_INTERNAL_ERROR;
+    }
+    /* store nonce */
+    dcaf_prng(nonce->nonce, nonce->nonce_length);
+    if (DCAF_SERVER_VALIDITY_OPTION == 2) {
+      nonce->validity_type = 2;
+      /* store timestamp */
+      nonce->validity_value.dat = (dcaf_time_t)coap_ticks_to_rt(now);
+    }
+    else {
+      nonce->validity_type=3;
+      /* store timer */
+      nonce->validity_value.timer=DCAF_MAX_SERVER_TIMEOUT;
+    }
+    LL_PREPEND(nonces, nonce);
+  }
   
 #ifdef DCAF_EXTENSIONS
   if (is_dcaf(mediatype)) {

@@ -57,6 +57,7 @@ struct dcaf_context_t {
 #ifndef DCAF_SERVER_VALIDITY_OPTION
 #define DCAF_SERVER_VALIDITY_OPTION (1U)
 #endif /* DCAF_SERVER_VALIDITY_OPTION */
+#define DCAF_MAX_SERVER_TIMEOUT 10 /* time in seconds that the server keeps the nonce when using validity option 3 */
 
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002
@@ -93,8 +94,10 @@ struct dcaf_dep_ticket_t {
 				  ticket becomes invalid */
 };
 
+#define DCAF_MAX_NONCE_SIZE 8
+
 struct dcaf_nonce_t {
-  uint8_t nonce[8];
+  uint8_t nonce[DCAF_MAX_NONCE_SIZE];
   size_t nonce_length;
   struct dcaf_nonce_t *next;
   /* timer or timestamp */
