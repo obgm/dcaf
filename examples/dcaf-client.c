@@ -742,7 +742,6 @@ main(int argc, char **argv) {
   coap_pdu_t  *pdu;
   static coap_str_const_t server;
   uint16_t port = COAP_DEFAULT_PORT;
-  char port_str[NI_MAXSERV] = "0";
   char node_str[NI_MAXHOST] = "";
   int opt, res;
   unsigned char user[MAX_USER + 1], key[MAX_KEY];
@@ -760,8 +759,8 @@ main(int argc, char **argv) {
       key_length = cmdline_read_key(optarg, key, MAX_KEY);
       break;
     case 'p':
-      strncpy(port_str, optarg, NI_MAXSERV - 1);
-      port_str[NI_MAXSERV - 1] = '\0';
+      config.coap_port = atoi(optarg);
+      config.coaps_port = config.coap_port + 1;
       break;
     case 'a':
       config.am_uri = optarg;
@@ -832,7 +831,7 @@ main(int argc, char **argv) {
 
   session = get_session(
     ctx,
-    node_str[0] ? node_str : NULL, port_str,
+    node_str[0] ? node_str : NULL, NULL,
     uri.scheme==COAP_URI_SCHEME_COAPS ? COAP_PROTO_DTLS : COAP_PROTO_UDP,
     &dst,
     user_length > 0 ? (const char *)user : NULL,
