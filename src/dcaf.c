@@ -632,13 +632,17 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   cose_key = get_cose_key(cnf); /* cn_cbor object with cose key object */
   dcaf_parse_dcaf_key((*result)->key, cose_key);
 
+  /* add permissions to ticket */
   scope = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
-  if (scope) {
-    /* TODO: allocate storage space for aif */
+  /* TODO: handle scopes that are not AIF */
+  if (scope && scope->type==CN_CBOR_ARRAY) {
     dcaf_aif_t *aif = (dcaf_aif_t *)dcaf_alloc_type(DCAF_AIF);
+    res=dcaf_aif_parse_string(scope,&aif);
+    if (res!=DCAF_OK) {
+      goto finish;
+    }
+    ticket->aif = aif;
   }
-
-  /* TODO: add actual permissions to ticket */
   /* TODO: add ticket to ticket list */
 
   res = DCAF_OK;
@@ -695,6 +699,7 @@ dcaf_new_context(const dcaf_config_t *config) {
     goto error;
   }
 
+  /* TODO: do not use hard-coded key */
   static uint8_t key[] = "secretPSK";
   size_t key_len = sizeof(key) - 1;
   coap_context_set_psk(dcaf_context->coap_context, "CoAP", key, key_len);
@@ -738,6 +743,9 @@ dcaf_new_context(const dcaf_config_t *config) {
     dcaf_set_am_uri(dcaf_context,
                     (const unsigned char *)config->am_uri,
                     strlen(config->am_uri));
+    if (dcaf_context->am_uri==NULL){
+      dcaf_log(DCAF_LOG_CRIT, "cannot set AM URI %s. Expected schema://host[...]\n", config->am_uri);
+    }
   }
 
 #ifndef RIOT_VERSION
@@ -801,7 +809,6 @@ dcaf_set_am_uri(dcaf_context_t *context,
 #else
   coap_free(context->am_uri);
   context->am_uri = coap_new_uri(uri, length);
-
   return context->am_uri &&
     (dcaf_set_coap_address(context->am_uri->host.s,
                            context->am_uri->host.length,
@@ -927,6 +934,11 @@ dcaf_set_sam_information(const coap_session_t *session,
                      cn_cbor_int_create(coap_ticks_to_rt(now), NULL),
                      NULL);
 
+  /* TODO: for validity options 2 and 3, S must add a nonce to the message */
+  /* TODO: for validity option 2, S must store the nonce and a timestamp, */
+  /* TODO: for validity option 3, S must store the nonce and start a timeout */
+
+  
 #ifdef DCAF_EXTENSIONS
   if (is_dcaf(mediatype)) {
     cn_cbor *accept = cn_cbor_array_create(NULL);

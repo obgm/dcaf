@@ -49,6 +49,7 @@ static char resource_buf[MAX_RESOURCE_BUF] =
   "This is a resource with restricted access.\n";
 static size_t resource_len = 43;
 
+/* handler for requests to a resource with restricted access */
 static void
 hnd_get(coap_context_t *ctx,
         struct coap_resource_t *resource,
@@ -74,7 +75,6 @@ hnd_get(coap_context_t *ctx,
     }
     return;
   }
-
   response->code = COAP_RESPONSE_CODE(205);
 
   coap_add_option(response,
@@ -86,6 +86,7 @@ hnd_get(coap_context_t *ctx,
   coap_add_data(response, resource_len, (const uint8_t *)resource_buf);
 }
 
+/* handler for uploads to the ticket resource */
 static void
 hnd_ticket_post(coap_context_t *ctx,
         struct coap_resource_t *resource,
@@ -113,6 +114,7 @@ hnd_ticket_post(coap_context_t *ctx,
   if (res == DCAF_ERROR_BAD_REQUEST) {
     response->code = COAP_RESPONSE_CODE(400);
     return;
+    /* FIXME: handle other errors */
   }
   dcaf_add_ticket(ticket);
   response->code = COAP_RESPONSE_CODE(204);
@@ -121,6 +123,7 @@ hnd_ticket_post(coap_context_t *ctx,
 static void
 init_resources(coap_context_t *ctx) {
   coap_resource_t *r;
+  /* initialize the resource for uploading tickets */
   r = coap_resource_init(coap_make_str_const(r_ticket), 0);
   coap_register_handler(r, COAP_REQUEST_POST, hnd_ticket_post);
   coap_add_attr(r, coap_make_str_const("ct"), coap_make_str_const("75"), 0);
@@ -128,6 +131,7 @@ init_resources(coap_context_t *ctx) {
   coap_add_attr(r, coap_make_str_const("title"), coap_make_str_const("\"ticket resource\""), 0);
   coap_add_resource(ctx, r);
 
+  /* initialize a resource with restricted access */
   r = coap_resource_init(coap_make_str_const(r_restricted), 0);
   coap_register_handler(r, COAP_REQUEST_GET, hnd_get);
 
@@ -200,6 +204,7 @@ main(int argc, char **argv) {
       addr_str[NI_MAXHOST - 1] = '\0';
       break;
     case 'a' :
+      /* FIXME: check if URI has correct format */
       config.am_uri = optarg;
       break;
     case 'k' :
@@ -221,6 +226,7 @@ main(int argc, char **argv) {
   coap_startup();
   coap_dtls_set_log_level(log_level);
   coap_set_log_level(log_level);
+  dcaf_set_log_level(log_level);
 
   /* set random number generator function for DCAF library */
   dcaf_set_prng(rnd);
