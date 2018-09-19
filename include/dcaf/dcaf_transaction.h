@@ -42,13 +42,8 @@ typedef void (*dcaf_error_handler_t)(dcaf_context_t *,
  * @return The created transaction object or NULL on error.
 */
 dcaf_transaction_t *dcaf_create_transaction(dcaf_context_t *dcaf_context,
-                                            int method,
-                                            const char *uri,
-                                            size_t uri_len,
-                                            dcaf_optlist_t options,
-                                            void *data,
-                                            size_t data_len,
-                                            int flags);
+                                            coap_session_t *session,
+                                            coap_pdu_t *pdu);
 
 /** Releases the storage that was allocated for @p transaction. */
 void dcaf_delete_transaction(dcaf_context_t *dcaf_context,
