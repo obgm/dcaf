@@ -64,7 +64,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   dcaf_context = dcaf_get_dcaf_context(coap_context);
   assert(dcaf_context);
 
-  t = dcaf_find_transaction(dcaf_context, &session->remote_addr, received);
+  t = dcaf_find_transaction(dcaf_context, session, received);
   if (!t) {
     dcaf_log(DCAF_LOG_ERR, "dropped response for unknown transaction\n");
     return;

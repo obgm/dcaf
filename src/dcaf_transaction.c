@@ -197,13 +197,21 @@ dcaf_transaction_set_error_handler(dcaf_transaction_t *transaction,
   transaction->error_handler = ehnd;
 }
 
+dcaf_key_t *
+dcaf_find_key(dcaf_context_t *dcaf_context,
+              const uint8_t *peer,
+              size_t peer_length) {
+  (void)dcaf_context;
+  return NULL;
+}
+
 dcaf_transaction_t *
 dcaf_find_transaction(dcaf_context_t *dcaf_context,
-                      const coap_address_t *peer,
+                      const coap_session_t *session,
                       const coap_pdu_t *pdu) {
 #if 1
   (void)dcaf_context;
-  (void)peer;
+  (void)session;
   (void)pdu;
 #else
   coap_tid_t id;
@@ -262,6 +270,94 @@ dcaf_transaction_start(dcaf_context_t *dcaf_context,
     return DCAF_TRANSACTION_NOT_SENT;
   }
 #endif
+}
+
+dcaf_result_t
+dcaf_send_request(dcaf_context_t *dcaf_context,
+                  int code,
+                  const char *uri_str,
+                  size_t uri_len,
+                  dcaf_optlist_t options,
+                  const uint8_t *data,
+                  size_t data_len,
+                  int flags) {
+  coap_context_t *ctx;
+  coap_uri_t uri;
+  int result;
+  coap_address_t dst;
+  coap_pdu_t *pdu;
+  coap_session_t *session;
+  (void)options;
+  (void)flags;
+
+  assert(dcaf_context);
+
+  ctx = dcaf_get_coap_context(dcaf_context);
+  assert(ctx);
+
+  if (coap_split_uri((unsigned char *)uri_str, uri_len, &uri) < 0) {
+    dcaf_log(DCAF_LOG_ERR, "cannot process request URI\n");
+    return DCAF_ERROR_BAD_REQUEST;
+  }
+
+    /* set remote address from uri->host */
+  result = dcaf_set_coap_address(uri.host.s, uri.host.length,
+                                 uri.port, &dst);
+  if (result < 0) {
+    dcaf_log(DCAF_LOG_ERR, "cannot resolve URI host '%.*s'\n",
+             (int)uri.host.length, uri.host.s);
+    return DCAF_ERROR_BAD_REQUEST;
+  }
+
+  if (coap_uri_scheme_is_secure(&uri)) {
+    dcaf_key_t *k = dcaf_find_key(dcaf_context, uri.host.s, uri.host.length);
+    char identity[DCAF_MAX_KID_SIZE+1];
+
+    if (!k) {
+      dcaf_log(DCAF_LOG_ERR, "cannot find credentials for %.*s\n",
+               (int)uri.host.length, uri.host.s);
+      return DCAF_ERROR_BAD_REQUEST;
+    }
+    if (k->kid_length > 0) {
+      assert(sizeof(k->kid) < sizeof(identity));
+      memcpy(identity, k->kid, k->kid_length);
+    }
+    identity[k->kid_length] = '\0';
+
+    session = coap_new_client_session_psk(ctx, NULL, &dst,
+                                          COAP_PROTO_DTLS,
+                                          identity, k->data, k->length);
+  } else { /* URI scheme for non-secure traffic */
+    session = coap_new_client_session(ctx, NULL, &dst, COAP_PROTO_UDP);
+  }
+  if (!session) {
+    dcaf_log(DCAF_LOG_ERR, "cannot create session\n");
+    return DCAF_ERROR_INTERNAL_ERROR;
+  }
+
+  pdu = coap_new_pdu(session);
+  if (!pdu) {
+    dcaf_log(DCAF_LOG_WARNING, "cannot create new PDU\n");
+    return DCAF_ERROR_OUT_OF_MEMORY;
+  }
+
+  pdu->type = COAP_MESSAGE_CON;
+  pdu->tid = coap_new_message_id(session);
+  pdu->code = code;
+
+  coap_insert_optlist((coap_optlist_t **)&options,
+                      coap_new_optlist(COAP_OPTION_URI_PATH,
+                                       10,
+                                       (unsigned char *)"restricted"));
+
+  coap_add_optlist_pdu(pdu, (coap_optlist_t **)&options);
+
+  if (data && data_len && !coap_add_data(pdu, data_len, data)) {
+      dcaf_log(DCAF_LOG_WARNING, "cannot set payload\n");
+  }
+
+  coap_send(session, pdu);
+  return DCAF_OK;
 }
 
 #undef min
