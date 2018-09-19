@@ -51,4 +51,14 @@ coap_get_content_format(const coap_pdu_t *pdu) {
   return -1;
 }
 
+const uint8_t *
+coap_get_token(const coap_pdu_t *pdu) {
+  return pdu->token;
+}
+
+size_t
+coap_get_token_length(const coap_pdu_t *pdu) {
+  return pdu->token_length;
+}
+
 #endif /* RIOT_VERSION */

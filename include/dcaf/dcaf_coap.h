@@ -53,6 +53,26 @@ void coap_ticks(coap_tick_t *t);
  */
 int coap_get_content_format(const coap_pdu_t *pdu);
 
+/**
+ * Returns a pointer to the token of @p pdu.
+ * The pointer may be NULL for a zero-length token.
+ *
+ * @param pdu The CoAP PDU.
+ *
+ * @return A pointer to the start of the @p pdu's
+ *         token, or NULL.
+ */
+const uint8_t *coap_get_token(const coap_pdu_t *pdu);
+
+/**
+ * Returns the size of the @p pdu's token.
+ *
+ * @param pdu The CoAP PDU.
+ *
+ * @return The size of the token in bytes.
+ */
+size_t coap_get_token_length(const coap_pdu_t *pdu);
+
 #ifndef COAP_MEDIATYPE_TEXT_PLAIN
 #define COAP_MEDIATYPE_TEXT_PLAIN (0)
 #endif
