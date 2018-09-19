@@ -223,6 +223,9 @@ void dcaf_set_ticket_grant(const coap_session_t *session,
 struct dcaf_nonce_t;
 typedef struct dcaf_nonce_t dcaf_nonce_t;
 
+
+void dcaf_expiration(void);
+
 /**
  * Searches the stored nonces for @p nonce with the size @p size and
  * determines the offset from the information stored with the nonce.

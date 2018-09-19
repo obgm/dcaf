@@ -313,9 +313,62 @@ set_endpoint(const dcaf_context_t *dcaf_context,
 #endif
 }
 
+dcaf_time_t dcaf_gettime(void) {
+  /* TODO: implement correct function */
+  return time(0);
+}
+
+dcaf_nonce_t *dcaf_nonces = NULL;
 /* TODO: store list per AM? */
 dcaf_ticket_t *dcaf_tickets = NULL;
 dcaf_dep_ticket_t *deprecated_tickets = NULL;
+
+
+void
+dcaf_expiration(void) {
+  dcaf_ticket_t *ticket=NULL, *temp = NULL;
+  dcaf_dep_ticket_t *dep_ticket=NULL, *tempp = NULL;
+  dcaf_nonce_t *nonce=NULL, *temppp = NULL;
+  /* search ticket list for expired tickets */
+  time_t now = dcaf_gettime();
+  LL_FOREACH_SAFE(dcaf_tickets, ticket, temp){
+    if ((ticket->ts+ticket->remaining_time)>now) {
+      dcaf_remove_ticket(ticket);
+    }
+  }
+  /* search deprecated tickets for expired tickets */
+  LL_FOREACH_SAFE(deprecated_tickets, dep_ticket,tempp) {
+    if ((dep_ticket->ts+dep_ticket->remaining_time)>now) {
+      LL_DELETE(deprecated_tickets, dep_ticket);
+      dcaf_free_type(DCAF_DEP_TICKET, dep_ticket);
+    }
+  }
+  LL_FOREACH_SAFE(dcaf_nonces, nonce, temppp) {
+    if (nonce->validity_type==2) {
+      if ((nonce->validity_value.dat+DCAF_MAX_SERVER_TIMEOUT)>now) {
+	LL_DELETE(dcaf_nonces,nonce);
+	dcaf_free_type(DCAF_NONCE, nonce);
+      }
+    }
+    else {
+      /* FIXME: function may not be called once per minute, so fix timer++ */
+      if ((nonce->validity_value.timer++)>=DCAF_MAX_SERVER_TIMEOUT) {
+	LL_DELETE(dcaf_nonces,nonce);
+	dcaf_free_type(DCAF_NONCE, nonce);
+      }
+    }
+  }
+}
+
+
+/* we could define a method that deletes all tickets, deprecated
+   tickets and nonces before sleeping, but since the non-permanent
+   storage is deleted during sleep anyway, this is not necessary */
+/* void */
+/* dcaf_prepare_sleep() { */
+/*   if (DCAF_SERVER_VALIDITY_OPTION==3) { */    
+/*   } */
+/* } */
 
 static dcaf_ticket_t *
 dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
@@ -444,13 +497,6 @@ get_cose_key(const cn_cbor *obj) {
     return obj;
   }
 }
-
-dcaf_time_t dcaf_gettime(void) {
-  /* TODO: implement correct function */
-  return time(0);
-}
-
-dcaf_nonce_t *dcaf_nonces = NULL;
 
 int dcaf_determine_offset_with_nonce(const uint8_t *nonce, size_t nonce_size){
   int offset = -1;
@@ -641,7 +687,6 @@ dcaf_parse_ticket_face(const coap_session_t *session,
     }
     ticket->aif = aif;
   }
-  /* TODO: add ticket to ticket list */
 
   res = DCAF_OK;
    
