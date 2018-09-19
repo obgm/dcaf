@@ -29,6 +29,9 @@ extern "C" {
 /** Default lifetime of a DCAF access ticket in seconds. */
 #define DCAF_DEFAULT_LIFETIME       3600
 
+/** Size of random token to be used in outgoing requests. */
+#define DCAF_DEFAULT_TOKEN_SIZE     4
+
 typedef enum {
   DCAF_OK,
   DCAF_ERROR_OUT_OF_MEMORY,
