@@ -84,5 +84,26 @@ cn_cbor *dcaf_aif_to_cbor(const dcaf_aif_t *aif);
  */
 void dcaf_delete_aif(dcaf_aif_t *aif);
 
+typedef enum {
+              DCAF_AIF_ERROR = -1,
+              DCAF_AIF_DENIED  = 0,
+              DCAF_AIF_ALLOWED = 1,
+} dcaf_aif_result_t;
+
+
+
+/**
+ * Returns DCAF_AIF_ALLOWED if @p pdu is permitted by means of @p aif.
+ * If not permitted, DCAF_AIF_DENIED is returned. An error is signaled
+ * by DCAF_AIF_ERROR.
+ */
+dcaf_aif_result_t dcaf_aif_evaluate(const dcaf_aif_t *aif,
+                                    const coap_pdu_t *pdu);
+
+static inline bool dcaf_aif_allowed(const dcaf_aif_t *aif,
+                                    const coap_pdu_t *pdu) {
+  return dcaf_aif_evaluate(aif, pdu) == DCAF_AIF_ALLOWED;
+}
+
 #endif /* _AIF_H_ */
 
