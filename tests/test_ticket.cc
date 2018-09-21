@@ -43,7 +43,8 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<coap_pdu_t, Deleter> coap_response;
   static std::unique_ptr<cn_cbor, Deleter> claim;
   static std::unique_ptr<cose_obj_t, Deleter> object;
-  static bool coap_dtls = false;
+  static cn_cbor *ticket_face = nullptr;
+  static cn_cbor *cinfo = nullptr;
 
   coap_response.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
 
@@ -51,12 +52,12 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     static uint8_t coap_data[] = {
       (COAP_DEFAULT_VERSION << 6) | (COAP_MESSAGE_NON << 4), /* TKL == 0 */
       COAP_REQUEST_POST, 0x12, 0x34, /* arbitray mid */
-      (COAP_OPTION_CONTENT_FORMAT << 4) | 1, COAP_MEDIATYPE_APPLICATION_CBOR,
+      (COAP_OPTION_CONTENT_FORMAT << 4) | 1, DCAF_MEDIATYPE_DCAF_CBOR,
       COAP_PAYLOAD_START,
-      0xa2, 0x03, 0x6d, 0x73, 0x2e, 0x65, 0x78, 0x61,
-      0x6d, 0x70, 0x6c, 0x65, 0x2e, 0x6f, 0x72, 0x67,
-      0x0c, 0x82, 0x6c, 0x2f, 0x72, 0x65, 0x73, 0x74,
-      0x72, 0x69, 0x63, 0x74, 0x65, 0x64, 0x31, 0x05
+      0xA4, 0x01, 0x63, 0x66, 0X6F, 0X6F, 0x03, 0x63,
+      0x62, 0x61, 0x72, 0x09, 0x82, 0x62, 0X2F, 0x72,
+      0x05, 0x18, 0X7D, 0x48, 0x41, 0x42, 0x43, 0x44,
+      0x45, 0x46, 0x47, 0x48
     };
     coap_pdu.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
     REQUIRE(coap_pdu.get() != nullptr);
@@ -109,18 +110,23 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     WHEN("A ticket grant was created") {
       REQUIRE(claim.get() != nullptr);
 
-      THEN("The profile must be coap_dtls") {
-        cn_cbor *profile = cn_cbor_mapget_int(claim.get(), ACE_CLAIM_PROFILE);
-        REQUIRE(profile != nullptr);
-        REQUIRE(profile->type == CN_CBOR_UINT);
-        REQUIRE(profile->v.uint == ACE_PROFILE_DTLS);
-        coap_dtls = true;
+      THEN("The grant must contain a ticket face") {
+        /* The ticket face is part of claim and thus must not be deleted. */
+        ticket_face = cn_cbor_mapget_int(claim.get(), DCAF_TICKET_FACE);
+        REQUIRE(ticket_face != nullptr);
+        REQUIRE(ticket_face->type == CN_CBOR_MAP);
+      }
+
+      THEN("The grant must contain client information") {
+        cinfo = cn_cbor_mapget_int(claim.get(), DCAF_TICKET_CLIENTINFO);
+        REQUIRE(cinfo != nullptr);
+        REQUIRE(cinfo->type == CN_CBOR_MAP);
       }
     }
 
-    WHEN("A ticket grant for coap_dtls is present") {
+    WHEN("A ticket grant with a ticket face is present") {
       REQUIRE(claim.get() != nullptr);
-      REQUIRE(coap_dtls);
+      REQUIRE(ticket_face != nullptr);
 
       THEN("The grant must contain a cnf claim with a symmetric key") {
         cn_cbor *cnf = cn_cbor_mapget_int(claim.get(), ACE_CLAIM_CNF);
