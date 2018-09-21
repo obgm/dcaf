@@ -907,25 +907,45 @@ dcaf_select_interface(dcaf_context_t *context,
 }
 #endif
 
+static dcaf_check_scope_callback_t check_scope = NULL;
+
+void dcaf_set_scope_check_function(dcaf_check_scope_callback_t func) {
+  check_scope = func;
+}
+
+static bool
+dcaf_default_check_scope(dcaf_scope_t type, void *perm, const coap_pdu_t *pdu) {
+  switch (type) {
+  default: return false;
+  case DCAF_SCOPE_AIF: return dcaf_aif_allowed((const dcaf_aif_t *)perm, pdu);
+  }
+}
+
 int
 dcaf_is_authorized(const coap_session_t *session,
                    coap_pdu_t *pdu) {
+  int result = 0;               /* not authorized by default */
   if (is_secure(session)) {
-    /* FIXME: retrieve and check ticket */
     dcaf_ticket_t *ticket;
+    dcaf_check_scope_callback_t check =
+      check_scope ? check_scope : dcaf_default_check_scope;
+
     ticket = dcaf_find_ticket(session->psk_identity, session->psk_identity_len);
     if (ticket) {
-      /* check expiration time */
-      /* check scope type */
+      /* FIXME: check expiration time */
+      /* FIXME: check scope type (currently, we always assume AIF */
       /* check method and uri */
+      result = check(DCAF_SCOPE_AIF, ticket->aif, pdu);
+      if (!result) {
+        dcaf_log(DCAF_LOG_INFO, "access denied\n");
+      }
     }
 #ifndef RIOT_VERSION
     dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);
 #endif /* RIOT_VERSION */
-    return pdu != NULL;
   }
-  return 0;
+  return result;
 }
 
 dcaf_nonce_t * nonces = NULL;

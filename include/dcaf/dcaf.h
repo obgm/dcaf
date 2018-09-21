@@ -53,6 +53,7 @@ typedef enum {
 
 #include "cose.h"
 #include "cwt.h"
+#include "scope.h"
 
 #define DCAF_TYPE_SAM   0
 #define DCAF_TYPE_SAI   1
@@ -78,8 +79,13 @@ enum dcaf_ticket_field {
   DCAF_TICKET_SNC             = 125,
   DCAF_TICKET_SEQ             = 126,
   DCAF_TICKET_DSEQ            = 127,
-  DCAF_TICKET_DAT             = 128
+  DCAF_TICKET_DAT             = 128,
   /* use cti instead of seq? */
+
+  /* Face and client info are always present and therefore need
+   * numbers below 23. */
+  DCAF_TICKET_FACE            = 17,
+  DCAF_TICKET_CLIENTINFO      = 18,
 };
 
 typedef enum {
@@ -104,6 +110,14 @@ typedef struct dcaf_config_t {
    * registered as a resource with coap_context. */
   const char *am_uri;
 } dcaf_config_t;
+
+/**
+ * Sets a callback function that is invoked for each PDU to check
+ * against a ticket's scope. If set to NULL, the library's default
+ * scope check function is used. This function is set globally,
+ * i.e., all DCAF contexts will use the same scope check.
+ */
+void dcaf_set_scope_check_function(dcaf_check_scope_callback_t func);
 
 struct dcaf_context_t;
 typedef struct dcaf_context_t dcaf_context_t;
