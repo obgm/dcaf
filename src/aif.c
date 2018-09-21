@@ -242,8 +242,11 @@ dcaf_aif_evaluate(const dcaf_aif_t *aif,
   int allowed = 0;
   int denied = 0;
 
-  assert(aif);
   assert(pdu);
+
+  if (!pdu || !aif) {
+    return DCAF_AIF_DENIED;
+  }
 
   if (!coap_get_resource_uri(pdu, uri, &length, 0)) {
     return DCAF_AIF_ERROR;
