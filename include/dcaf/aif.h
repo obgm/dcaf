@@ -15,9 +15,9 @@
 
 #include "dcaf/dcaf.h"
 
-#define DCAF_MAX_RESOURCE_LEN 32
+#define DCAF_MAX_RESOURCE_LEN 31
 typedef struct dcaf_aif_permission_t {
-  uint8_t resource[DCAF_MAX_RESOURCE_LEN];
+  uint8_t resource[DCAF_MAX_RESOURCE_LEN+1];
   size_t resource_len;
   uint32_t methods;
 } dcaf_aif_permission_t;

@@ -114,6 +114,7 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
       }
       memcpy(aif->perm.resource, p, q - p);
       aif->perm.resource_len = q - p;
+      aif->perm.resource[aif->perm.resource_len] = '\0';
       aif->perm.methods = method;
 
       LL_PREPEND(*result, aif);
@@ -195,8 +196,7 @@ dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
 
   LL_FOREACH(aif, tmp) {
     cn_cbor *resource, *methods;
-    resource = cn_cbor_data_create(tmp->perm.resource,
-                                   tmp->perm.resource_len,
+    resource = cn_cbor_string_create((const char *)tmp->perm.resource,
                                    NULL);
     methods =  cn_cbor_int_create(tmp->perm.methods, NULL);
 
@@ -236,7 +236,7 @@ dcaf_aif_result_t
 dcaf_aif_evaluate(const dcaf_aif_t *aif,
                   const coap_pdu_t *pdu) {
   const dcaf_aif_t *elem;
-  uint8_t uri[DCAF_MAX_RESOURCE_LEN];
+  uint8_t uri[DCAF_MAX_RESOURCE_LEN+1];
   size_t length = sizeof(uri);
   int method;
   int allowed = 0;
