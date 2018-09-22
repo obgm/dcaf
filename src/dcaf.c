@@ -680,7 +680,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   scope = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
   /* TODO: handle scopes that are not AIF */
   if (scope && scope->type==CN_CBOR_ARRAY) {
-    dcaf_aif_t *aif = (dcaf_aif_t *)dcaf_alloc_type(DCAF_AIF);
+    dcaf_aif_t *aif;
     res=dcaf_aif_parse_string(scope,&aif);
     if (res!=DCAF_OK) {
       goto finish;
