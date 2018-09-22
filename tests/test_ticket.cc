@@ -45,6 +45,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<cose_obj_t, Deleter> object;
   static cn_cbor *ticket_face = nullptr;
   static cn_cbor *cinfo = nullptr;
+  static std::unique_ptr<dcaf_aif_t, Deleter> aif;
 
   coap_response.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
 
@@ -129,7 +130,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
       REQUIRE(ticket_face != nullptr);
 
       THEN("The grant must contain a cnf claim with a symmetric key") {
-        cn_cbor *cnf = cn_cbor_mapget_int(claim.get(), ACE_CLAIM_CNF);
+        cn_cbor *cnf = cn_cbor_mapget_int(claim.get(), DCAF_TICKET_CNF);
         REQUIRE(cnf != nullptr);
         REQUIRE(cnf->type == CN_CBOR_MAP);
 
@@ -155,20 +156,19 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
       }
     }
 
-    WHEN("The grant contains a bstr-encoded access ticket") {
+    WHEN("The ticket face contains an array as scope") {
       REQUIRE(claim.get() != nullptr);
+      REQUIRE(ticket_face != nullptr);
 
-      cn_cbor *bstr = cn_cbor_mapget_int(claim.get(), ACE_CLAIM_ACCESS_TOKEN);
-      REQUIRE(bstr != nullptr);
-      REQUIRE(bstr->type == CN_CBOR_BYTES);
+      cn_cbor *scope = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
+      REQUIRE(scope != nullptr);
+      REQUIRE(scope->type == CN_CBOR_ARRAY);
 
-      THEN("It must contain an encrypted COSE_Key structure") {
-        cose_obj_t *result;
-        cose_result_t res =
-          cose_parse(bstr->v.bytes, bstr->length, &result);
-        REQUIRE(res == COSE_OK);
+      THEN("It can be parsed as AIF") {
+        dcaf_aif_t *result;
+        REQUIRE(dcaf_aif_parse_string(scope, &result) == DCAF_OK);
         REQUIRE(result != nullptr);
-        object.reset(result);
+        aif.reset(result);
       }
     }
 
