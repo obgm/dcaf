@@ -362,8 +362,8 @@ dcaf_expiration(void) {
 
 
 /* we could define a method that deletes all tickets, deprecated
-   tickets and nonces before sleeping, but since the non-permanent
-   storage is deleted during sleep anyway, this is not necessary */
+   tickets and nonces before sleeping, but sleeping takes care of this
+   problem anyway */
 /* void */
 /* dcaf_prepare_sleep() { */
 /*   if (DCAF_SERVER_VALIDITY_OPTION==3) { */    
@@ -700,24 +700,17 @@ static size_t
 dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
                     uint8_t *psk, size_t max_psk_len) {
-  dcaf_ticket_t *t = dcaf_find_ticket(identity, identity_len);
-  if (!t) { /* no ticket found, try to create new if possible */
-    dcaf_log(DCAF_LOG_DEBUG, "no ticket found, checking if psk_identity contains an access token\n");
-    if (dcaf_parse_ticket_face(session, identity, identity_len, &t) == DCAF_OK) {
-      /* got a new ticket; just store it and continue */
-      dcaf_add_ticket(t);
-    }
+  dcaf_ticket_t *t = NULL;
+  if (dcaf_parse_ticket_face(session, identity, identity_len, &t) == DCAF_OK){
+    /* got a new ticket; just store it and continue */
+    dcaf_add_ticket(t);
   }
-
   if (t &&  t->key && (t->key->length <=max_psk_len)) {
+    /* TODO check if key is a psk and return 0 otherwise */
     memcpy(psk, t->key->data, t->key->length);
     /* return length of key */
     return t->key->length;
   }
-  /* if (t && t->verifier && (t->verifier_length <= max_psk_len)) { */
-  /*   memcpy(psk, t->verifier, t->verifier_length); */
-  /*   return t->verifier_length; */
-  /* } */
   return 0;
 }
 
@@ -913,10 +906,24 @@ dcaf_is_authorized(const coap_session_t *session,
   if (is_secure(session)) {
     /* FIXME: retrieve and check ticket */
     dcaf_ticket_t *ticket;
+    /* FIXME dcaf_find_ticket expects the key id */
     ticket = dcaf_find_ticket(session->psk_identity, session->psk_identity_len);
     if (ticket) {
+      dcaf_aif_t *aif=NULL;
       /* check expiration time */
+      dcaf_time_t now = dcaf_gettime();
+      if ((ticket->ts+ticket->remaining_time)>=now) {
+	/* ticket expired */
+	return 0;
+      }
       /* check scope type */
+      /* which method on which resource was requested? */
+      /* coap_get_method(); */
+      /* coap_get_resource(); */
+      if (ticket->aif) {
+	LL_FOREACH(ticket->aif, aif){
+	}
+      }
       /* check method and uri */
     }
 #ifndef RIOT_VERSION

@@ -240,10 +240,6 @@ main(int argc, char **argv) {
 
   fill_keystore(ctx);
   init_resources(ctx);
-  /* TODO: start checking timers for validity option 3 */
-  /* delete nonce if timeout was reached */
-  /* if (DCAF_SERVER_VALIDITY_OPTION == 3) { */
-  /* } */
 
   while (true) {
     coap_run_once(ctx, 0);
