@@ -317,10 +317,6 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     return;
   }
 
-  /* FIXME: these definitions need to go into the enum
-   * dcaf_ticket_field in dcaf.h */
-#define DCAF_TICKET_FACE 133
-#define DCAF_TICKET_CLIENTINFO 134
   cn_cbor_mapput_int(body, DCAF_TICKET_FACE, ticket_face, NULL);
   cn_cbor_mapput_int(body, DCAF_TICKET_CLIENTINFO, client_info, NULL);
 

@@ -54,6 +54,41 @@ void coap_ticks(coap_tick_t *t);
 int coap_get_content_format(const coap_pdu_t *pdu);
 
 /**
+ * Returns the CoAP request method or response code of
+ * the specified @p pdu.
+ *
+ * @param pdu  The CoAP pdu to retrieve the code from.
+ *
+ * @return The contents of the @p pdu's code field.
+ */
+uint8_t coap_get_method(const coap_pdu_t *pdu);
+
+/**
+ * Retrieves the resource URI from @p pdu into
+ * @p buf. This function will write at most
+ * @p buf_len bytes. The return value is 0 if
+ * the URI did not fit into @p buf, or if an
+ * internal error occurred.
+ * @p *buf_len is set to the number of bytes written
+ * even if the URI was clipped. In case of an error,
+ * @p *buf_len will be 0 and the function's return
+ * valued will be 0 as well.
+ *
+ * @param pdu     The CoAP pdu to retrieve the URI from.
+ * @param buf     The buffer where the URI is copied.
+ * @param buf_len Points to the maximum number of bytes
+ *                that @p buf can hold when the function
+ *                is called and will be updated to the
+ *                actual number of bytes written.
+ * @param flags   Must be set to 0 for now.
+ *
+ * @return 0 if the URI was clipped, non-zero otherwise.
+ */
+int coap_get_resource_uri(const coap_pdu_t *pdu,
+                          uint8_t *buf, size_t *buf_len,
+                          int flags);
+
+/**
  * Returns a pointer to the token of @p pdu.
  * The pointer may be NULL for a zero-length token.
  *

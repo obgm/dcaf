@@ -680,7 +680,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   scope = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
   /* TODO: handle scopes that are not AIF */
   if (scope && scope->type==CN_CBOR_ARRAY) {
-    dcaf_aif_t *aif = (dcaf_aif_t *)dcaf_alloc_type(DCAF_AIF);
+    dcaf_aif_t *aif;
     res=dcaf_aif_parse_string(scope,&aif);
     if (res!=DCAF_OK) {
       goto finish;
@@ -900,39 +900,50 @@ dcaf_select_interface(dcaf_context_t *context,
 }
 #endif
 
+static dcaf_check_scope_callback_t check_scope = NULL;
+
+void dcaf_set_scope_check_function(dcaf_check_scope_callback_t func) {
+  check_scope = func;
+}
+
+static bool
+dcaf_default_check_scope(dcaf_scope_t type, void *perm, const coap_pdu_t *pdu) {
+  switch (type) {
+  default: return false;
+  case DCAF_SCOPE_AIF: return dcaf_aif_allowed((const dcaf_aif_t *)perm, pdu);
+  }
+}
+
 int
 dcaf_is_authorized(const coap_session_t *session,
                    coap_pdu_t *pdu) {
+  int result = 0;               /* not authorized by default */
   if (is_secure(session)) {
-    /* FIXME: retrieve and check ticket */
     dcaf_ticket_t *ticket;
+    dcaf_check_scope_callback_t check =
+      check_scope ? check_scope : dcaf_default_check_scope;
+    
     /* FIXME dcaf_find_ticket expects the key id */
     ticket = dcaf_find_ticket(session->psk_identity, session->psk_identity_len);
     if (ticket) {
-      dcaf_aif_t *aif=NULL;
       /* check expiration time */
       dcaf_time_t now = dcaf_gettime();
       if ((ticket->ts+ticket->remaining_time)>=now) {
 	/* ticket expired */
 	return 0;
       }
-      /* check scope type */
-      /* which method on which resource was requested? */
-      /* coap_get_method(); */
-      /* coap_get_resource(); */
-      if (ticket->aif) {
-	LL_FOREACH(ticket->aif, aif){
-	}
-      }
       /* check method and uri */
+      result = check(DCAF_SCOPE_AIF, ticket->aif, pdu);
+      if (!result) {
+        dcaf_log(DCAF_LOG_INFO, "access denied\n");
+      }
     }
 #ifndef RIOT_VERSION
     dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);
 #endif /* RIOT_VERSION */
-    return pdu != NULL;
   }
-  return 0;
+  return result;
 }
 
 dcaf_nonce_t * nonces = NULL;

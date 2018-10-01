@@ -114,6 +114,7 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
       }
       memcpy(aif->perm.resource, p, q - p);
       aif->perm.resource_len = q - p;
+      aif->perm.resource[aif->perm.resource_len] = '\0';
       aif->perm.methods = method;
 
       LL_PREPEND(*result, aif);
@@ -195,8 +196,7 @@ dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
 
   LL_FOREACH(aif, tmp) {
     cn_cbor *resource, *methods;
-    resource = cn_cbor_data_create(tmp->perm.resource,
-                                   tmp->perm.resource_len,
+    resource = cn_cbor_string_create((const char *)tmp->perm.resource,
                                    NULL);
     methods =  cn_cbor_int_create(tmp->perm.methods, NULL);
 
@@ -220,3 +220,56 @@ dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
   }
 }
 
+static bool
+uri_matches(const dcaf_aif_permission_t *perm,
+            const uint8_t *uri, size_t uri_length) {
+  assert(perm);
+
+  /* TODO: partial URI matches/URI templates */
+  return (uri_length == perm->resource_len)
+    && ((uri_length == 0) || (uri && (strncmp((const char *)uri,
+                                              (const char *)perm->resource,
+                                              uri_length) == 0)));
+}
+
+dcaf_aif_result_t
+dcaf_aif_evaluate(const dcaf_aif_t *aif,
+                  const coap_pdu_t *pdu) {
+  const dcaf_aif_t *elem;
+  uint8_t uri[DCAF_MAX_RESOURCE_LEN+1];
+  size_t length = sizeof(uri);
+  int method;
+  int allowed = 0;
+  int denied = 0;
+
+  assert(pdu);
+
+  if (!pdu || !aif) {
+    return DCAF_AIF_DENIED;
+  }
+
+  if (!coap_get_resource_uri(pdu, uri, &length, 0)) {
+    return DCAF_AIF_ERROR;
+  }
+
+  method = coap_get_method(pdu);
+
+  /* Traverse aif list and check for each matching URI whether the
+   * permissions explicitly allow or deny the request. The result
+   * should be DCAF_AIF_ALLOW only if there is at least one permission
+   * that allows the request and none that denies it. */
+  LL_FOREACH(aif, elem) {
+    if (uri_matches(&elem->perm, uri, length)) {
+      if ((elem->perm.methods & method) > 0) 
+        allowed++;
+      else 
+        denied++;
+    }
+  }
+
+  /*
+    (allowed && !denied) evaluates to 1 -> DCAF_AIF_ALLOWED (==1)
+                         evaluates to 0 -> DCAF_AIF_DENIED  (==0)
+  */
+  return (allowed && !denied);
+}
