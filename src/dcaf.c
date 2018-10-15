@@ -47,6 +47,13 @@ struct coap_session_t {
 };
 #endif
 
+/* Returns true iff DCAF should be used. */
+static bool
+is_dcaf(int content_format) {
+  return (content_format == -1)
+    || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
+}
+
 static void
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
@@ -70,12 +77,26 @@ handle_coap_response(struct coap_context_t *coap_context,
     return;
   }
 
-#if 0
   switch (t->state) {
   case DCAF_STATE_IDLE: {
     /* FIXME: check response code, handle DCAF SAM response
               deliver message in any other case */
-    deliver = 1;
+    if (is_dcaf(coap_get_content_format(received))) {
+      if (coap_get_response_code(received) == COAP_RESPONSE_CODE(401)) {
+        uint8_t *sam_info;
+        size_t sam_info_len;
+        coap_get_data(received, &sam_info_len, &sam_info);
+        /* pass SAM response to AM */
+        dcaf_send_request(dcaf_context, COAP_REQUEST_POST,
+                          /* FIXME: our AM URI */
+                          "coaps://am.libcoap.net", 22,
+                          NULL /* optlist */,
+                          sam_info, sam_info_len,
+                          0);
+      }
+    } else {
+      deliver = 1;
+    }
     break;
   }
   case DCAF_STATE_ACCESS_REQUEST:
@@ -92,7 +113,6 @@ handle_coap_response(struct coap_context_t *coap_context,
     dcaf_log(DCAF_LOG_ALERT, "unknown transaction state\n");
     return;
   }
-#endif
 
   if (deliver && t->response_handler) {
     t->response_handler(dcaf_context, t, received);
@@ -721,6 +741,16 @@ dcaf_get_server_psk(const coap_session_t *session,
   return 0;
 }
 
+static size_t
+dcaf_get_client_psk(const coap_session_t *session,
+                    const uint8_t *hint, size_t hint_len,
+                    uint8_t *identity, size_t *identity_len,
+                    size_t max_identity_len,
+                    uint8_t *psk, size_t max_psk_len) {
+  dcaf_log(DCAF_LOG_DEBUG, "dcaf_get_client_psk() called\n");
+  return 0;
+}
+
 dcaf_context_t *
 dcaf_new_context(const dcaf_config_t *config) {
   dcaf_context_t *dcaf_context;
@@ -747,6 +777,7 @@ dcaf_new_context(const dcaf_config_t *config) {
   size_t key_len = sizeof(key) - 1;
   coap_context_set_psk(dcaf_context->coap_context, "CoAP", key, key_len);
 
+  dcaf_context->coap_context->get_client_psk = dcaf_get_client_psk;
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
 #endif /* RIOT_VERSION */
