@@ -38,9 +38,8 @@
 #undef VERSION
 #define VERSION "1.0"
 
+#define MAX_KEY   64 /* Maximum length of a key (i.e., PSK) in bytes. */
 #define MAX_RESOURCE_BUF 1024
-
-static dcaf_context_t *dcaf_context;
 
 static const char r_restricted[] = "restricted";
 static const char r_ticket[] = "ticket";
@@ -95,7 +94,6 @@ hnd_ticket_post(coap_context_t *ctx,
         coap_binary_t *token,
         coap_string_t *query,
         coap_pdu_t *response) {
-  unsigned char buf[3];
   size_t size;
   dcaf_result_t res;
   unsigned char *data;
@@ -140,12 +138,16 @@ init_resources(coap_context_t *ctx) {
   coap_add_resource(ctx, r);
 }
 
-static void
-fill_keystore(coap_context_t *ctx) {
-  static uint8_t key[] = "secretPSK";
-  size_t key_len = sizeof(key) - 1;
-  coap_context_set_psk(ctx, "SAM", key, key_len);
+static ssize_t
+cmdline_read_key(char *arg, unsigned char *buf, size_t maxlen) {
+  size_t len = strnlen(arg, maxlen);
+  if (len) {
+    memcpy(buf, arg, len);
+    return len;
+  }
+  return -1;
 }
+
 
 static void
 usage(const char *program, const char *version) {
@@ -193,6 +195,8 @@ main(int argc, char **argv) {
   int opt, result = 0;
   coap_log_t log_level = LOG_WARNING;
   dcaf_config_t config;
+  unsigned char key[MAX_KEY];
+  ssize_t key_length = 0;
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str;
@@ -210,7 +214,7 @@ main(int argc, char **argv) {
       config.am_uri = optarg;
       break;
     case 'k' :
-      /* FIXME: read AM shared secret from command line */
+      key_length = cmdline_read_key(optarg, key, MAX_KEY);
       break;
     case 'p' :
       config.coap_port = (uint16_t)strtol(optarg, NULL, 10);
@@ -238,7 +242,21 @@ main(int argc, char **argv) {
   if (!dcaf || !(ctx = dcaf_get_coap_context(dcaf)))
     return 2;
 
-  fill_keystore(ctx);
+  /* set AM key when specified */
+  if (key_length > 0) {
+    dcaf_key_t *k = dcaf_new_key(DCAF_AES_128);
+    if (!k) {
+      dcaf_log(DCAF_LOG_CRIT, "cannot set AM key\n");
+      dcaf_free_context(dcaf);
+      return 3;
+    }
+    dcaf_set_key(k, key, key_length);
+    dcaf_set_am_key(NULL, 0, k);
+    
+    /* set default key for incoming requests from SAM */
+    coap_context_set_psk(ctx, "SAM", key, key_length);
+  }
+
   init_resources(ctx);
   /* TODO: start checking timers for validity option 3 */
   /* delete nonce if timeout was reached */
