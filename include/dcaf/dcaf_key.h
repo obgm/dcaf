@@ -113,4 +113,28 @@ dcaf_key_t *dcaf_find_key(struct dcaf_context_t *dcaf_context,
                           const uint8_t *kid,
                           size_t kid_length);
 
+
+/**
+ * Stores the given AM @p key with identifier @p kid.
+ *
+ * @param kid        An identifier associated with @p key.
+ * @param kid_length The length of @p kid in bytes.
+ * @param key        The AM key to store.
+ */
+void dcaf_set_am_key(const char *kid, size_t kid_length, dcaf_key_t *key);
+
+/**
+ * Retrieves a key with identifier @p kid that has previously been
+ * stored by dcaf_get_am_key().
+ *
+ * @param kid        An identifier for the key to retrieve or
+ *                   NULL for any key.
+ * @param kid_length The length of @p kid in bytes. Should be 0 if
+ *                   @p kid is set to NULL.
+ *
+ * @return The dcaf_key_t object associated with @p kid or NULL
+ *         if no key was found.
+ */
+const dcaf_key_t *dcaf_get_am_key(const char *kid, size_t kid_length);
+
 #endif /* _DCAF_KEY_H_ */

@@ -136,3 +136,27 @@ dcaf_find_key(dcaf_context_t *dcaf_context,
   }
   return NULL;
 }
+
+/* Storage for AM keys.
+ * FIXME: Need to release the stored keys.
+ */
+static dcaf_key_t *am_key = NULL;
+
+void
+dcaf_set_am_key(const char *kid, size_t kid_length, dcaf_key_t *key) {
+  (void)kid;
+  (void)kid_length;
+
+  if (am_key != NULL) {
+    dcaf_delete_key(am_key);
+  }
+  am_key = key;
+}
+
+const dcaf_key_t *
+dcaf_get_am_key(const char *kid, size_t kid_length) {
+  (void)kid;
+  (void)kid_length;
+
+  return am_key;
+}
