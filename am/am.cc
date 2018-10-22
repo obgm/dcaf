@@ -13,9 +13,12 @@
 #include <algorithm>
 #include <random>
 #include <string>
+#include <type_traits>
 
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <memory>
 
 #include <cstring>
 #include <cstdlib>
@@ -28,19 +31,10 @@
 #include <coap/coap_dtls.h>
 
 #include "dcaf/dcaf.h"
+#include "dcaf/dcaf_am.h"
 #include "config_parser.hh"
 
 #define COAP_RESOURCE_CHECK_TIME 2
-
-static void
-fill_keystore(coap_context_t *ctx) {
-  //static uint8_t key[] = {'a', 'b', 'c', 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-  dcaf_time_t now = dcaf_gettime();
-  dcaf_ticket_t *ticket = dcaf_new_ticket(DCAF_AES_128, 265, now, 3600);
-  (void)ctx;
-
-  dcaf_add_ticket(ticket);
-}
 
 static void
 usage( const char *program, const char *version) {
@@ -71,7 +65,7 @@ hnd_post_token(coap_context_t *ctx,
               coap_binary_t *token,
               coap_string_t *query,
               coap_pdu_t *response) {
-  dcaf_ticket_t *ticket;
+  dcaf_ticket_request_t *treq = NULL;
   dcaf_result_t res;
 
   (void)ctx;
@@ -86,13 +80,13 @@ hnd_post_token(coap_context_t *ctx,
                              response);
     return;
   }
-  res = dcaf_parse_ticket_request(session, request, &ticket);
+  res = dcaf_parse_ticket_request(session, request, &treq);
   if (res != DCAF_OK) {
     (void)dcaf_set_error_response(session, res, response);
     return;
   }
 
-  dcaf_set_ticket_grant(session, ticket, response);
+  dcaf_set_ticket_grant(session, treq, response);
 }
 
 static void
@@ -122,6 +116,27 @@ rnd(uint8_t *out, size_t len) {
   }
 }
 
+constexpr static const uint8_t *cast(const char *p) {
+  static_assert(std::is_same<unsigned char, uint8_t>::value, "uint8_t is not unsigned char");
+  return reinterpret_cast<const uint8_t *>(p);
+}
+
+static dcaf_key_t *
+make_key(const std::string &id, const am_config::parser::key_type &type) {
+  if (std::get<0>(type) == am_config::parser::key_t::PSK) {
+    dcaf_key_t *key = dcaf_new_key(DCAF_AES_128);
+    if (dcaf_set_key(key,
+                     cast(std::get<1>(type).c_str()),
+                     std::get<1>(type).length()) &&
+        dcaf_set_kid(key, cast(id.c_str()), id.length())) {
+      return key;
+    } else {
+      dcaf_delete_key(key);
+    }
+  }
+  return nullptr;
+}
+
 int
 main(int argc, char **argv) {
   dcaf_context_t  *dcaf;
@@ -131,6 +146,7 @@ main(int argc, char **argv) {
   coap_log_t log_level = LOG_WARNING;
   unsigned wait_ms;
   dcaf_config_t config;
+  am_config::parser parser;
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
@@ -146,7 +162,6 @@ main(int argc, char **argv) {
       config.am_uri = optarg;
       break;
     case 'C' : {
-      am_config::parser parser;
       std::fstream cf(optarg, std::ios_base::in);
       if (!cf) {
         std::cerr << "Cannot open config file '" << optarg << "'" << std::endl;
@@ -161,11 +176,6 @@ main(int argc, char **argv) {
         std::cerr << "Error: " << e.what() << std::endl;
         exit(3);
       }
-      std::cout << "configured keys: " << std::endl;
-      for (auto k : parser.keys) {
-        std::cout << "\"" << k.first << "\" => \"" << std::get<1>(k.second) << "\"" << std::endl;
-      }
-
       break;
     }
     case 'p' :
@@ -193,7 +203,16 @@ main(int argc, char **argv) {
   if (!dcaf || !(ctx = dcaf_get_coap_context(dcaf)))
     return -1;
 
-  fill_keystore(ctx);
+  /* fill key store */
+  std::for_each(parser.keys.cbegin(), parser.keys.cend(),
+                [&dcaf](auto const &k) {
+                  dcaf_key_t *key = make_key(k.first, k.second);
+                  if (key) {
+                    std::cout << std::quoted(k.first) << " \u2192 "
+                              << std::quoted(std::get<1>(k.second)) << std::endl;
+                    dcaf_add_key(dcaf, nullptr, 0, key);
+                  }
+                });
   init_resources(ctx);
 
   wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
