@@ -58,7 +58,7 @@ parser::parser() {
       | (sv_%String <[&]() { *keytype_ = std::tuple{key_t::PSK, std::string(*sv_)}; })
                                         ) <[&]() { return *keytype_; };
     rule KeyObject      = "key"_sx > sv_%String > ~"as"_sx > keytype_%Keytype
-      <[&,this]{ keys[std::string(*sv_)] = *keytype_; };
+      <[&]{ keys[std::string(*sv_)] = *keytype_; };
     rule Configure      = "configure"_sx > KeyObject;
     rule Group          = "add"_sx > "key"_sx > sv_%String > "to"_sx > "group"_sx > id_%Identifier;
     rule Method         =
