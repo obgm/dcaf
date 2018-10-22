@@ -561,6 +561,8 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   }
 
   /* TODO: find out if the ticket was meant for me */
+  /* FIXME: determine if ticket stems from an authorized SAM using */
+  /* key derivation, SAM's signature or SAM's MAC  */
 
   /* FIXME: decrypt data first */
   ticket_face = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
@@ -923,7 +925,7 @@ dcaf_is_authorized(const coap_session_t *session,
     dcaf_check_scope_callback_t check =
       check_scope ? check_scope : dcaf_default_check_scope;
     
-    /* FIXME dcaf_find_ticket expects the key id */
+    /* FIXME dcaf_find_ticket expects the key id, not the psk identity */
     ticket = dcaf_find_ticket(session->psk_identity, session->psk_identity_len);
     if (ticket) {
       /* check expiration time */
@@ -938,6 +940,7 @@ dcaf_is_authorized(const coap_session_t *session,
         dcaf_log(DCAF_LOG_INFO, "access denied\n");
       }
     }
+    /* TODO cases where the ticket is transported in the psk_identity */
 #ifndef RIOT_VERSION
     dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);

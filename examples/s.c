@@ -44,6 +44,7 @@ static dcaf_context_t *dcaf_context;
 
 static const char r_restricted[] = "restricted";
 static const char r_ticket[] = "ticket";
+static const char r_am_info[] = "am-info";
 
 static char resource_buf[MAX_RESOURCE_BUF] =
   "This is a resource with restricted access.\n";
@@ -121,6 +122,30 @@ hnd_ticket_post(coap_context_t *ctx,
 }
 
 static void
+hnd_am_info_get(coap_context_t *ctx,
+        struct coap_resource_t *resource,
+        coap_session_t *session,
+        coap_pdu_t *request,
+        coap_binary_t *token,
+        coap_string_t *query,
+        coap_pdu_t *response) {
+  unsigned char buf[3];
+  (void)ctx;
+  (void)resource;
+  (void)token;
+  (void)query;
+
+  dcaf_result_t res;
+  res = dcaf_set_sam_information(session, DCAF_MEDIATYPE_DCAF_CBOR,
+				 response);
+  if (res != DCAF_OK) {
+    coap_log(LOG_WARNING, "cannot create SAM Information %d\n", res);
+  }
+  return;
+}
+
+
+static void
 init_resources(coap_context_t *ctx) {
   coap_resource_t *r;
   /* initialize the resource for uploading tickets */
@@ -137,6 +162,11 @@ init_resources(coap_context_t *ctx) {
 
   coap_add_attr(r, coap_make_str_const("ct"), coap_make_str_const("0"), 0);
   coap_add_attr(r, coap_make_str_const("title"), coap_make_str_const("\"restricted access\""), 0);
+  coap_add_resource(ctx, r);
+  r = coap_resource_init(coap_make_str_const(r_am_info), 0);
+  coap_register_handler(r, COAP_REQUEST_GET, hnd_am_info_get);
+  coap_add_attr(r, coap_make_str_const("rt"), coap_make_str_const("am-info"), 0);
+    coap_add_attr(r, coap_make_str_const("title"), coap_make_str_const("\"SAM information resource\""), 0);
   coap_add_resource(ctx, r);
 }
 
