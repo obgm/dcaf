@@ -208,35 +208,6 @@ void dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key);
 struct dcaf_ticket_t;
 typedef struct dcaf_ticket_t dcaf_ticket_t;
 
-/**
- * Parses the @p request as ticket request message into @p result.
- * This function returns DCAF_OK if the request was successfully
- * parsed and @p result has been updated. Otherwise, an error
- * code is returned.
- *
- * @param session  The session where the @p request was received.
- * @param request  The ticket request message.
- * @param result   A result parameter that will be filled in with a
- *                 pointer to a newly created dcaf_ticket_t  structure
- *                 with the authorization results in case the request
- *                 was successfully parsed. If and only if this
- *                 function returns DCAF_OK, @p *result will point
- *                 to a new dcaf_ticket_t object that must be released
- *                 by dcaf_delete_ticket().
- *
- * @return DCAF_OK on success, or an error code otherwise. The error
- *         code can be used to construct an error response by
- *         dcaf_set_error_response().
- */
-dcaf_result_t dcaf_parse_ticket_request(const coap_session_t *session,
-                                        const coap_pdu_t *request,
-                                        dcaf_ticket_t **result);
-
-
-void dcaf_set_ticket_grant(const coap_session_t *session,
-                           const dcaf_ticket_t *ticket,
-                           coap_pdu_t *response);
-
 struct dcaf_nonce_t;
 typedef struct dcaf_nonce_t dcaf_nonce_t;
 

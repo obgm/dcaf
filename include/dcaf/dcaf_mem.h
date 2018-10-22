@@ -20,6 +20,7 @@ typedef enum dcaf_object_type {
   DCAF_DEP_TICKET,
   DCAF_TRANSACTION,
   DCAF_NONCE,
+  DCAF_TICKET_REQUEST,
 } dcaf_object_type;
 
 /**

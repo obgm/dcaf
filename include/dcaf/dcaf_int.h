@@ -61,6 +61,11 @@ struct dcaf_context_t {
 #endif /* DCAF_SERVER_VALIDITY_OPTION */
 #define DCAF_MAX_SERVER_TIMEOUT 10 /* time in seconds that the server keeps the nonce when using validity option 3 */
 
+#ifndef DCAF_AM_ENCRYPT_TICKET_FACE
+/** If set to 1, the ticket face will be encrypted */
+#define DCAF_AM_ENCRYPT_TICKET_FACE (1U)
+#endif /* DCAF_AM_ENCRYPT_TICKET_FACE */
+
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002
 
@@ -94,6 +99,14 @@ struct dcaf_dep_ticket_t {
 				  remaining time refers */
   uint remaining_time;         /**< The time in seconds until the
 				  ticket becomes invalid */
+};
+
+#define DCAF_MAX_AUDIENCE_SIZE DCAF_MAX_STRING
+
+/* Information received by a ticket request */
+struct dcaf_ticket_request_t {
+  char aud[DCAF_MAX_AUDIENCE_SIZE + 1]; /**< addressed audience */
+  dcaf_aif_t *aif;                  /**< requested permissions */
 };
 
 #define DCAF_MAX_NONCE_SIZE 8

@@ -13,6 +13,7 @@
 #include "dcaf/aif.h"
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
+#include "dcaf/dcaf_am.h"
 #include "dcaf/cose.h"
 #include "dcaf/cose_int.h"
 
@@ -26,6 +27,7 @@ struct Deleter {
   void operator()(dcaf_aif_t *p) { dcaf_delete_aif(p); }
   void operator()(dcaf_key_t *p) { dcaf_delete_key(p); }
   void operator()(dcaf_ticket_t *p) { dcaf_free_ticket(p); }
+  void operator()(dcaf_ticket_request_t *p) { dcaf_delete_ticket_request(p); }
   void operator()(cose_obj_t *p) { cose_obj_delete(p); }
 
   /* objects from external libraries used for testing */
