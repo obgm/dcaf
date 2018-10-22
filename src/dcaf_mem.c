@@ -37,6 +37,7 @@ dcaf_alloc_type_len(dcaf_object_type obj, size_t len) {
   case DCAF_DEP_TICKET: return CHECK_AND_ALLOC(dcaf_dep_ticket_t, 0, len);
   case DCAF_TRANSACTION: return CHECK_AND_ALLOC(dcaf_transaction_t, 0, len);
   case DCAF_NONCE: return CHECK_AND_ALLOC(dcaf_nonce_t, 0, len); /* TODO: check */
+  case DCAF_TICKET_REQUEST: return CHECK_AND_ALLOC(struct dcaf_ticket_request_t, 0, len);
   }
 }
 #undef CHECK_AND_ALLOC
@@ -56,6 +57,7 @@ dcaf_alloc_type(dcaf_object_type obj) {
   case DCAF_DEP_TICKET: break;
   case DCAF_TRANSACTION: break;
   case DCAF_NONCE: break;
+  case DCAF_TICKET_REQUEST: break;
   }
   return dcaf_alloc_type_len(obj, len);
 }
@@ -73,6 +75,7 @@ dcaf_free_type(dcaf_object_type obj, void *p) {
   case DCAF_DEP_TICKET: FREE(obj, p); break;
   case DCAF_TRANSACTION: FREE(obj, p); break;
   case DCAF_NONCE: FREE(obj,p); break;
+  case DCAF_TICKET_REQUEST: FREE(obj,p); break;
   default:
     ;
   }
