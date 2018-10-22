@@ -69,6 +69,20 @@ bool dcaf_key_rnd(dcaf_key_t *key);
  */
 bool dcaf_set_key(dcaf_key_t *key, const uint8_t *data, size_t data_len);
 
+/**
+ * Sets the key identifier (kid) for the given @p key. This function
+ * copies @p kid_len bytes from @p kid into @p key. The result is true
+ * if all bytes have been stored, false otherwise.
+ *
+ * @param key     The key to modify.
+ * @param kid     The identifier to associate with @p key.
+ * @param kid_len The number of bytes to copy from @p kid into @p key.
+ *                This value may be zero to set an empty kid.
+ *
+ * @return true on sucess, false otherwise.
+ */
+bool dcaf_set_kid(dcaf_key_t *key, const uint8_t *kid, size_t kid_len);
+
 struct dcaf_context_t;
 /**
  * Adds the specified @p key to the key storage of

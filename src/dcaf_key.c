@@ -69,6 +69,19 @@ dcaf_set_key(dcaf_key_t *key, const uint8_t *data, size_t data_len) {
   return false;
 }
 
+bool
+dcaf_set_kid(dcaf_key_t *key, const uint8_t *kid, size_t kid_len) {
+  if (key && (kid_len <= DCAF_MAX_KID_SIZE)) {
+    memset(key->kid, 0, DCAF_MAX_KID_SIZE);
+    key->kid_length = kid_len;
+    if (kid_len > 0) {
+      memcpy(key->kid, kid, kid_len);
+    }
+    return true;
+  }
+  return false;
+}
+
 /* TODO: might want to use hash map on non-constrained systems. */
 struct dcaf_keystore_t {
   struct dcaf_keystore_t *next;
