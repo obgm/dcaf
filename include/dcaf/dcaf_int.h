@@ -22,6 +22,7 @@ extern "C" {
 #include "dcaf.h"
 #include "dcaf_mem.h"
 #include "dcaf_coap.h"
+#include "state.h"
 
 #include <cn-cbor/cn-cbor.h>
 
@@ -35,7 +36,7 @@ struct dcaf_transaction_t {
   int flags;
   coap_tid_t tid;
   coap_pdu_t *pdu;
-  /* dcaf_state_t state; */
+  dcaf_state_t state;
 };
 
 struct dcaf_context_t {
@@ -45,6 +46,7 @@ struct dcaf_context_t {
   void *app;
   int flags;
   dcaf_transaction_t *transactions;
+  dcaf_keystore_t *keystore;
 };
 
 /**

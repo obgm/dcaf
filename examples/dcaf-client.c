@@ -551,6 +551,17 @@ main(int argc, char **argv) {
   dcaf_log(DCAF_LOG_DEBUG, "sending CoAP request:\n");
   coap_show_pdu(LOG_INFO, pdu);
 #endif
+  if (key_length > 0) {
+    dcaf_key_t *k = dcaf_new_key(DCAF_AES_128);
+    if (!k) {
+      dcaf_log(DCAF_LOG_CRIT, "cannot set AM key\n");
+      goto finish;
+    }
+    dcaf_set_key(k, key, key_length);
+    /* FIXME: use our AM name to identify the peer */
+    dcaf_set_am_key(user, user_length, k);
+  }
+
   if (dcaf_send_request(dcaf, method, uri, strlen(uri), &optlist, payload.s, payload.length, 0) != DCAF_OK) {
     dcaf_log(DCAF_LOG_EMERG, "cannot send request\n");
     exit(EXIT_FAILURE);

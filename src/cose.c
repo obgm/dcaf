@@ -146,7 +146,8 @@ cose_parse(const uint8_t *data, size_t data_len, cose_obj_t **result) {
 
   if (!cur) {
     log_parse_error(errp);
-    return COSE_PARSE_ERROR;
+    res = COSE_PARSE_ERROR;
+    goto error;
   }
 
   if (cur->type == CN_CBOR_TAG) {

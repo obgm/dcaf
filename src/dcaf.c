@@ -47,6 +47,13 @@ struct coap_session_t {
 };
 #endif
 
+/* Returns true iff DCAF should be used. */
+static bool
+is_dcaf(int content_format) {
+  return (content_format == -1)
+    || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
+}
+
 static void
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
@@ -70,12 +77,26 @@ handle_coap_response(struct coap_context_t *coap_context,
     return;
   }
 
-#if 0
   switch (t->state) {
   case DCAF_STATE_IDLE: {
     /* FIXME: check response code, handle DCAF SAM response
               deliver message in any other case */
-    deliver = 1;
+    if (is_dcaf(coap_get_content_format(received))) {
+      if (coap_get_response_code(received) == COAP_RESPONSE_CODE(401)) {
+        uint8_t *sam_info;
+        size_t sam_info_len;
+        coap_get_data(received, &sam_info_len, &sam_info);
+        /* pass SAM response to AM */
+        dcaf_send_request(dcaf_context, COAP_REQUEST_POST,
+                          /* FIXME: our AM URI */
+                          "coaps://am.libcoap.net", 22,
+                          NULL /* optlist */,
+                          sam_info, sam_info_len,
+                          0);
+      }
+    } else {
+      deliver = 1;
+    }
     break;
   }
   case DCAF_STATE_ACCESS_REQUEST:
@@ -92,7 +113,6 @@ handle_coap_response(struct coap_context_t *coap_context,
     dcaf_log(DCAF_LOG_ALERT, "unknown transaction state\n");
     return;
   }
-#endif
 
   if (deliver && t->response_handler) {
     t->response_handler(dcaf_context, t, received);
@@ -531,6 +551,55 @@ int dcaf_determine_offset_with_nonce(const uint8_t *nonce, size_t nonce_size){
   return offset;
 }
 
+static const dcaf_key_t *
+get_am_key(const char *kid, size_t kid_length, cose_mode_t mode) {
+  if (mode != COSE_MODE_DECRYPT) {
+    return NULL;
+  }
+
+  return dcaf_get_am_key(kid, kid_length);
+}
+
+#define MAJOR_TYPE_MASK     (0xE0) /* 0b111_00000 */
+
+enum {
+      CBOR_MAJOR_TYPE_ARRAY=4,
+      CBOR_MAJOR_TYPE_MAP=5,
+      CBOR_MAJOR_TYPE_TAG=6,
+};
+
+static inline int
+cbor_major_type(const uint8_t b) {
+  return (b & MAJOR_TYPE_MASK) >> 5;
+}
+
+static inline int
+get_cbor_tag(const uint8_t *data, size_t length) {
+  if (data && (length > 0)) {
+    if (cbor_major_type(data[0]) == CBOR_MAJOR_TYPE_TAG) {
+      /* FIXME: handle multi-byte values */
+      return data[0] & ~MAJOR_TYPE_MASK;
+    }
+  }
+  return -1;
+}
+
+static inline int
+maybe_cose(const uint8_t *data, size_t length) {
+  if (data && (length > 0)) {
+    int tag = get_cbor_tag(data, length);
+    switch (tag) {
+    case -1:                    /* not tagged, look for array */
+      return cbor_major_type(data[0]) == CBOR_MAJOR_TYPE_ARRAY;
+    case COSE_ENCRYPT0: /* for now, only COSE_Encrypt0 is recognized */
+      return (length > 1) && (cbor_major_type(data[1]) == CBOR_MAJOR_TYPE_ARRAY);
+    default:
+      ;
+    }
+  }
+  return 0;
+}
+
 dcaf_result_t
 dcaf_parse_ticket_face(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
@@ -542,7 +611,6 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   dcaf_dep_ticket_t *dep_ticket;
   const cn_cbor *cnf, *snc, *iat, *ltm, *scope;
   const cn_cbor *seq, *dseq, *cose_key;
-  cn_cbor_errback errp;
   dcaf_time_t now;
   int remaining_ltm;
   dcaf_key_type key_type = DCAF_NONE;
@@ -551,25 +619,46 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   assert(result);
   *result = NULL;
 
-  /* data must contain a valid access token which is a map that was
-   * serialized as a CBOR byte string.
+  /* data must contain a valid access token which is a map or a
+   * COSE_Encrypt0 structure.
    */
-  bstr = cn_cbor_decode(data, data_len, &errp);
-  if (!bstr || (bstr->type != CN_CBOR_BYTES)) {
-    dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
-    goto finish;
+  if (maybe_cose(data, data_len)) {
+    cose_obj_t *cose_obj = NULL;
+    /* TODO: plaintext could be allocated on the heap on demand but
+     * must be released before this function is left. For now, we use
+     * static memory which makes this function MT-unsafe. */
+    static uint8_t plaintext[512];
+    size_t plaintext_length = sizeof(plaintext);
+
+    if (cose_parse(bstr->v.bytes, bstr->length, &cose_obj) != COSE_OK) {
+      dcaf_log(DCAF_LOG_INFO, "cannot parse COSE object\n");
+      goto finish;
+    }
+    if (cose_decrypt(cose_obj,
+                     NULL, 0,
+                     plaintext, &plaintext_length,
+                     get_am_key) != COSE_OK) {
+      dcaf_log(DCAF_LOG_INFO, "cannot decrypt COSE object\n");
+      cose_obj_delete(cose_obj);
+      goto finish;
+    }
+    cose_obj_delete(cose_obj);
+    ticket_face = cn_cbor_decode(plaintext, plaintext_length, NULL);
+  } else {
+    ticket_face = cn_cbor_decode(data, data_len, NULL);
   }
 
-  /* TODO: find out if the ticket was meant for me */
   /* FIXME: determine if ticket stems from an authorized SAM using */
   /* key derivation, SAM's signature or SAM's MAC  */
 
-  /* FIXME: decrypt data first */
-  ticket_face = cn_cbor_decode(bstr->v.bytes, bstr->length, NULL);
   if (!ticket_face || (ticket_face->type != CN_CBOR_MAP)) {
     dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
     goto finish;
   }
+
+  /* process contents of ticket face */
+
+  /* TODO: find out if the ticket was meant for me */
 
   seq = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SEQ);
   if (!seq) {
@@ -716,6 +805,16 @@ dcaf_get_server_psk(const coap_session_t *session,
   return 0;
 }
 
+static size_t
+dcaf_get_client_psk(const coap_session_t *session,
+                    const uint8_t *hint, size_t hint_len,
+                    uint8_t *identity, size_t *identity_len,
+                    size_t max_identity_len,
+                    uint8_t *psk, size_t max_psk_len) {
+  dcaf_log(DCAF_LOG_DEBUG, "dcaf_get_client_psk() called\n");
+  return 0;
+}
+
 dcaf_context_t *
 dcaf_new_context(const dcaf_config_t *config) {
   dcaf_context_t *dcaf_context;
@@ -742,6 +841,7 @@ dcaf_new_context(const dcaf_config_t *config) {
   size_t key_len = sizeof(key) - 1;
   coap_context_set_psk(dcaf_context->coap_context, "CoAP", key, key_len);
 
+  dcaf_context->coap_context->get_client_psk = dcaf_get_client_psk;
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
 #endif /* RIOT_VERSION */

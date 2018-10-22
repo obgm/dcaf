@@ -118,6 +118,7 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
   get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
   transaction->pdu = pdu;
 
+  transaction->state = DCAF_STATE_IDLE;
 #if 0
   /* Select endpoint according to URI scheme and remote address. */
   transaction->local_interface =
@@ -181,14 +182,6 @@ void
 dcaf_transaction_set_error_handler(dcaf_transaction_t *transaction,
                                    dcaf_error_handler_t ehnd) {
   transaction->error_handler = ehnd;
-}
-
-dcaf_key_t *
-dcaf_find_key(dcaf_context_t *dcaf_context,
-              const uint8_t *peer,
-              size_t peer_length) {
-  (void)dcaf_context;
-  return NULL;
 }
 
 dcaf_transaction_t *
@@ -295,7 +288,7 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   if (!(session = coap_session_get_by_peer(ctx, &dst, 0 /* ifindex */))) {
     /* no session available, create new */
     if (coap_uri_scheme_is_secure(&uri)) {
-      dcaf_key_t *k = dcaf_find_key(dcaf_context, uri.host.s, uri.host.length);
+      dcaf_key_t *k = dcaf_find_key(dcaf_context, uri.host.s, uri.host.length, NULL, 0);
       char identity[DCAF_MAX_KID_SIZE+1];
 
       if (!k) {

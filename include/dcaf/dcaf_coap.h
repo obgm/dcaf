@@ -64,6 +64,19 @@ int coap_get_content_format(const coap_pdu_t *pdu);
 uint8_t coap_get_method(const coap_pdu_t *pdu);
 
 /**
+ * Returns the CoAP response code of the specified @p pdu.  This
+ * function is just a convenience function that calls
+ * coap_get_method().
+ *
+ * @param pdu  The CoAP pdu to retrieve the code from.
+ *
+ * @return The contents of the @p pdu's code field.
+ */
+static inline uint8_t coap_get_response_code(const coap_pdu_t *pdu) {
+  return coap_get_method(pdu);
+}
+
+/**
  * Retrieves the resource URI from @p pdu into
  * @p buf. This function will write at most
  * @p buf_len bytes. The return value is 0 if
