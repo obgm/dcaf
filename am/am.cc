@@ -90,6 +90,38 @@ hnd_post_token(coap_context_t *ctx,
 }
 
 static void
+hnd_unknown(coap_context_t *ctx,
+            struct coap_resource_t *resource,
+            coap_session_t *session,
+            coap_pdu_t *request,
+            coap_binary_t *token,
+            coap_string_t *query,
+            coap_pdu_t *response) {
+  coap_string_t *uri_path;
+  (void)ctx;
+  (void)resource;
+  (void)session;
+  (void)token;
+  (void)query;
+
+  /* the default response code */
+  response->code = COAP_RESPONSE_CODE(404);
+  uri_path = coap_get_uri_path(request);
+  if (!uri_path) {
+    return;
+  }
+
+  std::string_view uri(reinterpret_cast<const char *>(uri_path->s), uri_path->length);
+  if ((coap_get_method(request) == COAP_REQUEST_PUT)) {
+    if (uri.substr(0, 4) == "key/") {
+      /* FIXME: read payload as key and add to key store */
+      dcaf_log(DCAF_LOG_DEBUG, "a key!\n");
+      response->code = COAP_RESPONSE_CODE(201);
+    }
+  }
+}
+
+static void
 init_resources(coap_context_t *coap_context) {
   coap_resource_t *resource;
   const char mediatypes[] = DCAF_MEDIATYPE_DCAF_CBOR_STRING " " DCAF_MEDIATYPE_ACE_CBOR_STRING;
@@ -100,6 +132,12 @@ init_resources(coap_context_t *coap_context) {
   coap_add_attr(resource, coap_make_str_const("ct"),
                 coap_make_str_const(mediatypes), 0);
   coap_add_resource(coap_context, resource);
+
+  resource = coap_resource_unknown_init(hnd_unknown);
+  if (resource) {
+    coap_register_handler(resource, COAP_REQUEST_POST, hnd_unknown);
+    coap_add_resource(coap_context, resource);
+  }
 }
 
 static void
