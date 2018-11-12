@@ -15,9 +15,9 @@ bin_PROGRAMS = dcaf-am
 
 dcaf_am_DEPENDENCIES = $(top_builddir)/libdcaf.a
 
+dcaf_am_includedir = $(top_builddir)/am
+dcaf_am_include_HEADERS = config_parser.hh
 dcaf_am_SOURCES = am.cc config_parser.cc
 dcaf_am_CXXFLAGS = $(AM_CXXFLAGS)
 dcaf_am_CPPFLAGS = $(filter-out -Wswitch-enum -fpermissive -Winline, $(AM_CPPFLAGS))
 dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@
-
-#FIXME: extra dist files: config_parser.hh
