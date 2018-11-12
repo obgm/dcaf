@@ -811,6 +811,14 @@ dcaf_get_client_psk(const coap_session_t *session,
                     uint8_t *identity, size_t *identity_len,
                     size_t max_identity_len,
                     uint8_t *psk, size_t max_psk_len) {
+  (void)session;
+  (void)hint;
+  (void)hint_len;
+  (void)identity;
+  (void)identity_len;
+  (void)max_identity_len;
+  (void)psk;
+  (void)max_psk_len;
   dcaf_log(DCAF_LOG_DEBUG, "dcaf_get_client_psk() called\n");
   return 0;
 }
