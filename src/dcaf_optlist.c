@@ -16,6 +16,7 @@
 #include "dcaf/dcaf_mem.h"
 #include "dcaf/utlist.h"
 
+#if 0
 dcaf_option_t *
 dcaf_option_create(unsigned int type, unsigned char *data, size_t datalen) {
   dcaf_option_t *opt;
@@ -120,3 +121,4 @@ dcaf_optlist_serialize(dcaf_optlist_t node, coap_pdu_t *pdu) {
 
   return sum;
 }
+#endif

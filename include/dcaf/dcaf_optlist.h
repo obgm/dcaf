@@ -13,24 +13,10 @@
 
 #define DCAF_MAX_OPT_SIZE 64
 
-/** Representation of CoAP options. */
-typedef struct dcaf_option_t {
-  struct dcaf_option_t *next;   /* internal use */
-  unsigned int key;             /**< option type */
-  size_t size;                  /**< length of data in bytes */
-
-  /**
-   * option value
-   *
-   * As ISO C++ forbids flexible arrays at least one byte needs to be
-   * reserved.
-   */
-  unsigned char data[1];
-} dcaf_option_t;
-
 /** Sorted list of CoAP options. */
-typedef dcaf_option_t *dcaf_optlist_t;
+typedef coap_optlist_t *dcaf_optlist_t;
 
+#if 0
 /**
  * Allocates storage for a new option that is initialized with the
  * specified values. The option must be released using
@@ -101,5 +87,6 @@ struct coap_pdu_t;
  * @return The number of bytes written on success, or -1 otherwise.
  */
 ssize_t dcaf_optlist_serialize(dcaf_optlist_t queue, struct coap_pdu_t *pdu);
+#endif
 
 #endif /* _DCAF_OPTLIST_H_ */
