@@ -25,62 +25,32 @@ get_default_port(const coap_uri_t *u) {
 }
 #endif
 
-#if 0
 static int
 set_uri_options(coap_uri_t *uri, dcaf_optlist_t *optlist) {
-#define BUFSIZE 40
-  unsigned char _buf[BUFSIZE];
-  unsigned char *buf = _buf;
-  size_t buflen;
-  int result;
+  unsigned char buf[MAX_URI_PATH_SIZE];
+  unsigned char *bufp = buf;
+  size_t buf_size = sizeof(buf);
+  int num_segments =
+    coap_split_path(uri->path.s, uri->path.length, buf, &buf_size);
 
-  dcaf_optlist_remove_key(optlist, COAP_OPTION_URI_HOST);
-  dcaf_optlist_remove_key(optlist, COAP_OPTION_URI_PORT);
-  dcaf_optlist_remove_key(optlist, COAP_OPTION_URI_PATH);
-  dcaf_optlist_remove_key(optlist, COAP_OPTION_URI_QUERY);
-
-  if (uri->port != get_default_port(uri)) {
-    unsigned char portbuf[2];
-
-    dcaf_optlist_insert(optlist,
-                dcaf_option_create(COAP_OPTION_URI_PORT,
-                                   portbuf,
-                                   coap_encode_var_safe(portbuf,
-                                                        sizeof(portbuf),
-                                                        uri->port)));
-  }
-
-  if (uri->path.length) {
-    buflen = BUFSIZE;
-    result = coap_split_path(uri->path.s, uri->path.length, buf, &buflen);
-
-    while (result--) {
-      dcaf_optlist_insert(optlist,
-                          dcaf_option_create(COAP_OPTION_URI_PATH,
-                                             coap_opt_value(buf),
-                                             coap_opt_length(buf)));
-
-      buf += coap_opt_size(buf);
+  /* TODO: remove options to replace from optlist */
+  for (int i = 0; (i < num_segments) && (buf_size > 0); i++) {
+    coap_option_t opt;
+    size_t len = coap_opt_parse(bufp, buf_size, &opt);
+    if (!len) {
+      dcaf_log(DCAF_LOG_WARNING, "invalid URI encountered\n");
+      return -1;
+    } else {
+      coap_insert_optlist(optlist,
+                          coap_new_optlist(COAP_OPTION_URI_PATH,
+                                           opt.length, opt.value));
+      bufp += len;
+      buf_size -= len;
     }
   }
 
-  if (uri->query.length) {
-    buflen = BUFSIZE;
-    buf = _buf;
-    result = coap_split_query(uri->query.s, uri->query.length, buf, &buflen);
-
-    while (result--) {
-      dcaf_optlist_insert(optlist,
-                          dcaf_option_create(COAP_OPTION_URI_QUERY,
-                                             coap_opt_value(buf),
-                                             coap_opt_length(buf)));
-
-      buf += coap_opt_size(buf);
-    }
-  }
-  return 0;  
+  return 0;
 }
-#endif
 
 static size_t
 get_token_from_pdu(const coap_pdu_t *pdu, void *buf, size_t max_buf) {
@@ -262,7 +232,6 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   coap_pdu_t *pdu;
   coap_session_t *session;
   uint8_t token[DCAF_DEFAULT_TOKEN_SIZE];
-  (void)options;
   (void)flags;
 
   assert(dcaf_context);
@@ -324,18 +293,15 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   pdu->tid = coap_new_message_id(session);
   pdu->code = code;
 
-  /* FIXME: generate random token */
+  /* generate random token */
   if (!dcaf_prng(token, sizeof(token))
       || !coap_add_token(pdu, sizeof(token), token)) {
     dcaf_log(DCAF_LOG_DEBUG, "cannot add token to request\n");
     goto error;
   }
 
-  coap_insert_optlist((coap_optlist_t **)&options,
-                      coap_new_optlist(COAP_OPTION_URI_PATH,
-                                       10,
-                                       (unsigned char *)"restricted"));
-
+  /* insert URI options for request */
+  set_uri_options(&uri, &options);
   coap_add_optlist_pdu(pdu, (coap_optlist_t **)&options);
 
   if (data && data_len && !coap_add_data(pdu, data_len, data)) {

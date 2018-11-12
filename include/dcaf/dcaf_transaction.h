@@ -13,6 +13,14 @@
 
 #include "dcaf.h"
 
+/**
+ * The maximum size of a URI path that dcaf_send_request() can
+ * handle. As the URI is split on the stack, it should be reasonably
+ * sized for constrained devices. */
+#ifndef MAX_URI_PATH_SIZE
+#define MAX_URI_PATH_SIZE 64
+#endif /* MAX_URI_PATH_SIZE */
+
 struct dcaf_transaction_t;
 typedef struct dcaf_transaction_t dcaf_transaction_t;
 
