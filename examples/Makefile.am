@@ -10,8 +10,8 @@ AM_CFLAGS = -I @top_builddir@/include $(WARNING_CFLAGS)
 AM_CPPFLAGS = @libcoap_CFLAGS@
 
 AM_LDFLAGS = -L@top_builddir@
-libs = -ldcaf  @libcoap_LIBS@ @cn_cbor_LIBS@
 
+libs = $(top_builddir)/libdcaf.a @libcoap_LIBS@ @cn_cbor_LIBS@
 bin_PROGRAMS = s dcaf-client
 
 s_SOURCES = s.c
@@ -19,5 +19,3 @@ s_LDADD = $(libs)
 
 dcaf_client_SOURCES = dcaf-client.c
 dcaf_client_LDADD = $(libs)
-
-
