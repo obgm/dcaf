@@ -54,6 +54,7 @@ libdcaf_include_HEADERS = \
    include/dcaf/cose.h \
    include/dcaf/cose_types.h \
    include/dcaf/dcaf.h \
+   include/dcaf/dcaf_am.h \
    include/dcaf/dcaf_coap.h \
    include/dcaf/dcaf_crypto.h \
    include/dcaf/dcaf_debug.h \
