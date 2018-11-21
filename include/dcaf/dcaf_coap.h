@@ -39,7 +39,7 @@ typedef enum {
 typedef uint64_t coap_tick_t;
 void coap_ticks(coap_tick_t *t);
 #else  /* include libcoap headers */
-#include <coap/coap.h>
+#include <coap2/coap.h>
 #endif /* RIOT_VERSION */
 
 /**

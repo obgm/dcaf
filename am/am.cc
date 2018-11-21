@@ -27,8 +27,8 @@
 #include <ctype.h>
 #include <unistd.h>
 
-#include <coap/coap.h>
-#include <coap/coap_dtls.h>
+#include <coap2/coap.h>
+#include <coap2/coap_dtls.h>
 
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_am.h"
