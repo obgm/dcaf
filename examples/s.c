@@ -26,8 +26,8 @@
 #include <sys/random.h>
 #endif
 
-#include <coap/coap.h>
-#include <coap/coap_dtls.h>
+#include <coap2/coap.h>
+#include <coap2/coap_dtls.h>
 
 #include "dcaf/dcaf.h"
 

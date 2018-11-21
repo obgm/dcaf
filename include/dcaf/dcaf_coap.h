@@ -10,7 +10,7 @@
 #ifndef _DCAF_COAP_H_
 #define _DCAF_COAP_H_ 1
 
-#include <coap/coap.h>
+#include <coap2/coap.h>
 
 #if !defined(RIOT_VERSION)
 #define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
