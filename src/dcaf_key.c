@@ -85,15 +85,13 @@ dcaf_set_kid(dcaf_key_t *key, const uint8_t *kid, size_t kid_len) {
 /* TODO: might want to use hash map on non-constrained systems. */
 struct dcaf_keystore_t {
   struct dcaf_keystore_t *next;
-#define DCAF_MAX_PEER_SIZE 32
-  uint8_t peer[DCAF_MAX_PEER_SIZE];
-  size_t peer_len;
+  coap_address_t peer;
   dcaf_key_t *key;
 };
 
 void
 dcaf_add_key(dcaf_context_t *dcaf_context,
-             const uint8_t *peer, size_t peer_len,
+             const coap_address_t *peer,
              dcaf_key_t *key) {
   /* FIXME: replace if already exists */
   /* FIXME: dcaf_alloc_type */
@@ -101,9 +99,8 @@ dcaf_add_key(dcaf_context_t *dcaf_context,
   if (ks) {
     memset(ks, 0, sizeof(dcaf_keystore_t));
     ks->key = key;
-    if (peer && (peer_len > 0) && (peer_len <= DCAF_MAX_PEER_SIZE)) {
-      memcpy(ks->peer, peer, peer_len);
-      ks->peer_len = peer_len;
+    if (peer) {
+      coap_address_copy(&ks->peer, peer);
     }
     LL_PREPEND(dcaf_context->keystore, ks);
   } else {
@@ -124,23 +121,21 @@ kid_matches(const dcaf_key_t *key, const uint8_t *kid, size_t len) {
 
 dcaf_key_t *
 dcaf_find_key(dcaf_context_t *dcaf_context,
-              const uint8_t *peer,
-              size_t peer_length,
+              const coap_address_t *peer,
               const uint8_t *kid,
               size_t kid_length) {
   dcaf_keystore_t *ks;
 
   LL_FOREACH(dcaf_context->keystore, ks) {
     /* match kid only if peer is empty */
-    if (!peer || (peer_length == 0)) {
+    if (!peer) {
       if (kid_matches(ks->key, kid, kid_length)) {
         return ks->key;
       }
     } else {
       /* Check kid only if peers match. Note that ks->peer is not
        * empty if peer_length == ks->peer_length is true. */
-      if ((peer_length == ks->peer_len)
-          && (memcmp(ks->peer, peer, ks->peer_len) == 0)) {
+      if (coap_address_equals(&ks->peer, peer)) {
         if (kid_matches(ks->key, kid, kid_length)) {
           return ks->key;
         }
@@ -148,28 +143,4 @@ dcaf_find_key(dcaf_context_t *dcaf_context,
     }
   }
   return NULL;
-}
-
-/* Storage for AM keys.
- * FIXME: Need to release the stored keys.
- */
-static dcaf_key_t *am_key = NULL;
-
-void
-dcaf_set_am_key(const char *kid, size_t kid_length, dcaf_key_t *key) {
-  (void)kid;
-  (void)kid_length;
-
-  if (am_key != NULL) {
-    dcaf_delete_key(am_key);
-  }
-  am_key = key;
-}
-
-const dcaf_key_t *
-dcaf_get_am_key(const char *kid, size_t kid_length) {
-  (void)kid;
-  (void)kid_length;
-
-  return am_key;
 }

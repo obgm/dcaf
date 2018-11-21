@@ -19,6 +19,8 @@ typedef struct dcaf_key_t dcaf_key_t;
 struct dcaf_keystore_t;
 typedef struct dcaf_keystore_t dcaf_keystore_t;
 
+struct coap_address_t;
+
 typedef enum {
   DCAF_NONE = 0,
   DCAF_AES_128 = 1,             /**< AES-128-CCM */
@@ -89,15 +91,13 @@ struct dcaf_context_t;
  * @p dcaf_context.
  *
  * @param dcaf_context The DCAF context to store the
-              *        @p key.
- * @param peer         The entity with which @p key is
- *                     associated.
- * @param peer_length  The actual length of @p peer in
- *                     bytes.
+ *                     @p key.
+ * @param peer         The address of the entity with
+ *                     which @p key is associated.
  * @param key          The key object to store.
  */
 void dcaf_add_key(struct dcaf_context_t *dcaf_context,
-                  const uint8_t *peer, size_t peer_len,
+                  const struct coap_address_t *peer,
                   dcaf_key_t *key);
 
 /**
@@ -108,10 +108,8 @@ void dcaf_add_key(struct dcaf_context_t *dcaf_context,
  *
  * @param dcaf_context   The DCAF context where to search
  *                       for the key.
- * @param peer           The identifier of the peer for
+ * @param peer           The address of the peer for
  *                       which to lookup the key.
- * @param peer_length    The actual length of @p peer
- *                       in bytes.
  * @param kid            The key identifier as defined
  *                       for this key by @p peer. If
  *                       set to NULL, any key identifier
@@ -122,33 +120,8 @@ void dcaf_add_key(struct dcaf_context_t *dcaf_context,
  *         was found.
  */
 dcaf_key_t *dcaf_find_key(struct dcaf_context_t *dcaf_context,
-                          const uint8_t *peer,
-                          size_t peer_length,
+                          const struct coap_address_t *peer,
                           const uint8_t *kid,
                           size_t kid_length);
-
-
-/**
- * Stores the given AM @p key with identifier @p kid.
- *
- * @param kid        An identifier associated with @p key.
- * @param kid_length The length of @p kid in bytes.
- * @param key        The AM key to store.
- */
-void dcaf_set_am_key(const char *kid, size_t kid_length, dcaf_key_t *key);
-
-/**
- * Retrieves a key with identifier @p kid that has previously been
- * stored by dcaf_get_am_key().
- *
- * @param kid        An identifier for the key to retrieve or
- *                   NULL for any key.
- * @param kid_length The length of @p kid in bytes. Should be 0 if
- *                   @p kid is set to NULL.
- *
- * @return The dcaf_key_t object associated with @p kid or NULL
- *         if no key was found.
- */
-const dcaf_key_t *dcaf_get_am_key(const char *kid, size_t kid_length);
 
 #endif /* _DCAF_KEY_H_ */
