@@ -85,11 +85,11 @@ handle_coap_response(struct coap_context_t *coap_context,
       if (coap_get_response_code(received) == COAP_RESPONSE_CODE(401)) {
         uint8_t *sam_info;
         size_t sam_info_len;
+        dcaf_log(DCAF_LOG_DEBUG, "pass DCAF Unauthorized response to AM\n");
         coap_get_data(received, &sam_info_len, &sam_info);
         /* pass SAM response to AM */
-        dcaf_send_request(dcaf_context, COAP_REQUEST_POST,
-                          /* FIXME: our AM URI */
-                          "coaps://am.libcoap.net", 22,
+        dcaf_send_request_uri(dcaf_context, COAP_REQUEST_POST,
+                          dcaf_context->am_uri,
                           NULL /* optlist */,
                           sam_info, sam_info_len,
                           0);
@@ -552,12 +552,14 @@ int dcaf_determine_offset_with_nonce(const uint8_t *nonce, size_t nonce_size){
 }
 
 static const dcaf_key_t *
-get_am_key(const char *kid, size_t kid_length, cose_mode_t mode) {
-  if (mode != COSE_MODE_DECRYPT) {
+get_am_key(const char *kid, size_t kid_length, cose_mode_t mode, void *arg) {
+  dcaf_context_t *dcaf_context = (dcaf_context_t *)arg;
+
+  if ((mode != COSE_MODE_DECRYPT) || !dcaf_context) {
     return NULL;
   }
 
-  return dcaf_get_am_key(kid, kid_length);
+  return dcaf_find_key(dcaf_context, NULL, (const uint8_t *)kid, kid_length);
 }
 
 #define MAJOR_TYPE_MASK     (0xE0) /* 0b111_00000 */
@@ -600,6 +602,19 @@ maybe_cose(const uint8_t *data, size_t length) {
   return 0;
 }
 
+static dcaf_context_t *
+get_dcaf_context_from_session(const coap_session_t *session) {
+#ifdef RIOT_VERSION
+  (void)session;
+  return NULL; /* FIXME: RIOT */
+#else
+  if (session && session->context) {
+    return dcaf_get_dcaf_context(session->context);
+  }
+  return NULL;
+#endif /* RIOT_VERSION */
+}
+
 dcaf_result_t
 dcaf_parse_ticket_face(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
@@ -615,7 +630,6 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   int remaining_ltm;
   dcaf_key_type key_type = DCAF_NONE;
   
-  (void)session;
   assert(result);
   *result = NULL;
 
@@ -624,6 +638,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
    */
   if (maybe_cose(data, data_len)) {
     cose_obj_t *cose_obj = NULL;
+    cose_result_t cose_res;
     /* TODO: plaintext could be allocated on the heap on demand but
      * must be released before this function is left. For now, we use
      * static memory which makes this function MT-unsafe. */
@@ -634,10 +649,14 @@ dcaf_parse_ticket_face(const coap_session_t *session,
       dcaf_log(DCAF_LOG_INFO, "cannot parse COSE object\n");
       goto finish;
     }
-    if (cose_decrypt(cose_obj,
-                     NULL, 0,
-                     plaintext, &plaintext_length,
-                     get_am_key) != COSE_OK) {
+
+    /* Retrieve dcaf_context from session object and pass it as
+     * argument to the get_am_key callback function. */
+    cose_res = cose_decrypt(cose_obj, NULL, 0,
+                            plaintext, &plaintext_length,
+                            get_am_key,
+                            get_dcaf_context_from_session(session));
+    if (cose_res != COSE_OK) {
       dcaf_log(DCAF_LOG_INFO, "cannot decrypt COSE object\n");
       cose_obj_delete(cose_obj);
       goto finish;
@@ -900,6 +919,8 @@ dcaf_new_context(const dcaf_config_t *config) {
                       strlen(config->am_uri));
       if (dcaf_context->am_uri==NULL){
         dcaf_log(DCAF_LOG_CRIT, "cannot set AM URI %s. Expected schema://host[...]\n", config->am_uri);
+      } else {
+        dcaf_log(DCAF_LOG_INFO, "AM URI is %s\n", config->am_uri);
       }
     }
   }

@@ -26,7 +26,7 @@ get_default_port(const coap_uri_t *u) {
 #endif
 
 static int
-set_uri_options(coap_uri_t *uri, dcaf_optlist_t *optlist) {
+set_uri_options(const coap_uri_t *uri, dcaf_optlist_t *optlist) {
   unsigned char buf[MAX_URI_PATH_SIZE];
   unsigned char *bufp = buf;
   size_t buf_size = sizeof(buf);
@@ -216,16 +216,14 @@ dcaf_transaction_start(dcaf_context_t *dcaf_context,
 }
 
 dcaf_result_t
-dcaf_send_request(dcaf_context_t *dcaf_context,
+dcaf_send_request_uri(dcaf_context_t *dcaf_context,
                   int code,
-                  const char *uri_str,
-                  size_t uri_len,
+                  const coap_uri_t *uri,
                   dcaf_optlist_t options,
                   const uint8_t *data,
                   size_t data_len,
                   int flags) {
   coap_context_t *ctx;
-  coap_uri_t uri;
   int result;
   dcaf_result_t res = DCAF_ERROR_BAD_REQUEST;
   coap_address_t dst;
@@ -235,34 +233,30 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   (void)flags;
 
   assert(dcaf_context);
+  assert(uri);
 
   ctx = dcaf_get_coap_context(dcaf_context);
   assert(ctx);
 
-  if (coap_split_uri((unsigned char *)uri_str, uri_len, &uri) < 0) {
-    dcaf_log(DCAF_LOG_ERR, "cannot process request URI\n");
-    return DCAF_ERROR_BAD_REQUEST;
-  }
-
     /* set remote address from uri->host */
-  result = dcaf_set_coap_address(uri.host.s, uri.host.length,
-                                 uri.port, &dst);
+  result = dcaf_set_coap_address(uri->host.s, uri->host.length,
+                                 uri->port, &dst);
   if (result < 0) {
     dcaf_log(DCAF_LOG_ERR, "cannot resolve URI host '%.*s'\n",
-             (int)uri.host.length, uri.host.s);
+             (int)uri->host.length, uri->host.s);
     return DCAF_ERROR_BAD_REQUEST;
   }
 
   /* check if we have an ongoing session with this peer */
   if (!(session = coap_session_get_by_peer(ctx, &dst, 0 /* ifindex */))) {
     /* no session available, create new */
-    if (coap_uri_scheme_is_secure(&uri)) {
-      dcaf_key_t *k = dcaf_find_key(dcaf_context, uri.host.s, uri.host.length, NULL, 0);
+    if (coap_uri_scheme_is_secure(uri)) {
+      dcaf_key_t *k = dcaf_find_key(dcaf_context, &dst, NULL, 0);
       char identity[DCAF_MAX_KID_SIZE+1];
 
       if (!k) {
         dcaf_log(DCAF_LOG_ERR, "cannot find credentials for %.*s\n",
-                 (int)uri.host.length, uri.host.s);
+                 (int)uri->host.length, uri->host.s);
         return DCAF_ERROR_BAD_REQUEST;
       }
       if (k->kid_length > 0) {
@@ -301,7 +295,7 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   }
 
   /* insert URI options for request */
-  set_uri_options(&uri, &options);
+  set_uri_options(uri, &options);
   coap_add_optlist_pdu(pdu, (coap_optlist_t **)&options);
 
   if (data && data_len && !coap_add_data(pdu, data_len, data)) {
@@ -322,4 +316,27 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   return res;
 }
 
+dcaf_result_t
+dcaf_send_request(dcaf_context_t *dcaf_context,
+                  int code,
+                  const char *uri_str,
+                  size_t uri_len,
+                  dcaf_optlist_t options,
+                  const uint8_t *data,
+                  size_t data_len,
+                  int flags) {
+  unsigned char buf[uri_len];
+  coap_uri_t uri;
+
+  assert(uri_len > 0);
+  memcpy(buf, uri_str, uri_len);
+
+  if (coap_split_uri(buf, uri_len, &uri) < 0) {
+    dcaf_log(DCAF_LOG_ERR, "cannot process request URI\n");
+    return DCAF_ERROR_BAD_REQUEST;
+  }
+
+  return dcaf_send_request_uri(dcaf_context, code, &uri, options,
+                               data, data_len, flags);
+}
 #undef min

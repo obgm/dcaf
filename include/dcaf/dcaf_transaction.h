@@ -71,6 +71,35 @@ dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
                                               dcaf_transaction_t *transaction);
 
 /**
+ * Sends a request with method @p code to the endpoint denoted by @p
+ * uri. The options specified in @p options and the payload given as
+ * @p data are added to the newly created CoAP message. This function
+ * returns DCAF_OK if the request could be created and was passed to
+ * the DCAF transaction layer. Otherwise, an error code is returned.
+ *
+ * @param dcaf_context  The DCAF context to use.
+ * @param code          The CoAP method to use.
+ * @param uri_str       The destination URI.
+ * @param options       An optional list of CoAP options
+ *                      to add to the request. This argument
+ *                      may be NULL.
+ * @param data          The message's payload. This argument
+ *                      may be NULL.
+ * @param data_len      The actual length of @p data. Must
+ *                      be 0 if @p data is NULL.
+ * @param flags         Optional flags. Should be set to 0
+ *                      for now.
+ *
+ * @return DCAF_OK on success, an error code otherwise.
+ */
+dcaf_result_t dcaf_send_request_uri(dcaf_context_t *dcaf_context,
+                                int code,
+                                const coap_uri_t *uri,
+                                dcaf_optlist_t options,
+                                const uint8_t *data,
+                                size_t data_len,
+                                int flags);
+/**
  * Sends a request with method @p code to the endpoint denoted
  * by @p uri_str. The options specified in @p options and the
  * payload given as @p data are added to the newly created

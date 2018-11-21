@@ -59,7 +59,7 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
     WHEN("cose_decrypt() is called with key 6162630405060708090a0b0c0d0e0f10") {
       buflen = sizeof(buf);
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
-                         [](const char *, size_t, cose_mode_t) {
+                         [](const char *, size_t, cose_mode_t, void *) {
                            static const dcaf_key_t key = {
                              (dcaf_key_type)COSE_AES_CCM_16_64_128,
 			     {}, 0,
@@ -69,7 +69,8 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
 			     16
                            };
                            return &key;
-                         });
+                         },
+                         nullptr);
 
       THEN("decryption is successful") {
         REQUIRE(res == COSE_OK);
@@ -83,9 +84,10 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
     WHEN("cose_decrypt() is called with key == NULL") {
       buflen = sizeof(buf);
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
-                         [](const char *, size_t, cose_mode_t) {
+                         [](const char *, size_t, cose_mode_t, void *) {
                            return static_cast<const dcaf_key_t *>(nullptr);
-                         });
+                         },
+                         nullptr);
 
       THEN("result is COSE_TYPE_ERROR ") {
         REQUIRE(res == COSE_TYPE_ERROR);
@@ -96,7 +98,7 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
     WHEN("cose_decrypt() is called with key == 0xffff") {
       buflen = sizeof(buf);
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
-                         [](const char *, size_t, cose_mode_t) {
+                         [](const char *, size_t, cose_mode_t, void *) {
                            static const dcaf_key_t key = {
                              (dcaf_key_type)COSE_AES_CCM_16_64_128,
 			     {}, 0,
@@ -105,7 +107,8 @@ SCENARIO( "CWT Example 3.3", "[cwt]" ) {
 			     2
                            };
                            return &key;
-                         });
+                         },
+                         nullptr);
 
       THEN("result is COSE_DECRYPT_ERROR ") {
         REQUIRE(res == COSE_DECRYPT_ERROR);
@@ -148,7 +151,7 @@ SCENARIO( "RFC 8152 Example C.4.1", "[C.4.1]" ) {
       THEN("it can be decrypted") {
         buflen = sizeof(buf);
         res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
-                           [](const char *, size_t, cose_mode_t) {
+                           [](const char *, size_t, cose_mode_t, void *) {
                              static const dcaf_key_t key = {
                                (dcaf_key_type)COSE_AES_CCM_16_64_128,
 			       {}, 0,
@@ -159,7 +162,8 @@ SCENARIO( "RFC 8152 Example C.4.1", "[C.4.1]" ) {
 			       16
                              };
                              return &key;
-                           });
+                           },
+                           nullptr);
 
         REQUIRE(res == COSE_OK);
 
@@ -237,7 +241,7 @@ SCENARIO( "ACE-java CWT test", "[ace-java]" ) {
     WHEN("cose_decrypt() is called with key 6162630405060708090a0b0c0d0e0f10") {
       buflen = sizeof(buf);
       res = cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
-                         [](const char *, size_t, cose_mode_t mode) {
+                         [](const char *, size_t, cose_mode_t mode, void *) {
                            static const dcaf_key_t key = {
                              (dcaf_key_type)COSE_AES_CCM_16_64_128,
 			     {}, 0,
@@ -248,7 +252,8 @@ SCENARIO( "ACE-java CWT test", "[ace-java]" ) {
                            };
                            REQUIRE(mode == COSE_MODE_DECRYPT);
                            return &key;
-                         });
+                         },
+                         nullptr);
 
       THEN("decryption is successful") {
         REQUIRE(res == COSE_OK);
@@ -479,15 +484,16 @@ SCENARIO("Creation of COSE_Encrypt0", "[cose]") {
       THEN("it can be decrypted") {
         buflen = sizeof(buf);
         res = cose_decrypt(object.get(), nullptr, 0, buf, (size_t *)&buflen,
-                         [](const char *, size_t, cose_mode_t mode) {
+                           [](const char *, size_t, cose_mode_t mode, void *) {
                            // static const dcaf_key_t key = {
                            //   (dcaf_key_type)COSE_AES_CCM_16_64_128, 0,
                            //   sizeof(key_data),
                            //   (uint8_t *)"abc\x04\x05\x06\a\b\t\n\v\f\r\x0E\x0F\x10"
                            // };
-                           REQUIRE(mode == COSE_MODE_DECRYPT);
-                           return static_cast<const dcaf_key_t *>(key.get());
-                         });
+                             REQUIRE(mode == COSE_MODE_DECRYPT);
+                             return static_cast<const dcaf_key_t *>(key.get());
+                           },
+                           nullptr);
         REQUIRE(res == COSE_OK);
       }
     }

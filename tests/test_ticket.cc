@@ -183,7 +183,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         size_t buflen = sizeof(buf);
         cose_result_t res =
           cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
-                       [](const char *, size_t, cose_mode_t) {
+                       [](const char *, size_t, cose_mode_t, void *) {
                          static const dcaf_key_t key = {
                            (dcaf_key_type)COSE_AES_CCM_16_64_128,
 			   {}, 0,
@@ -192,7 +192,8 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 			   16
                          };
                          return &key;
-                       });
+                       },
+                       nullptr);
 
         REQUIRE(res == COSE_OK);
       }

@@ -281,7 +281,7 @@ main(int argc, char **argv) {
       return 3;
     }
     dcaf_set_key(k, key, key_length);
-    dcaf_set_am_key(NULL, 0, k);
+    dcaf_add_key(dcaf, dcaf_get_am_address(dcaf), k);
     
     /* set default key for incoming requests from SAM */
     coap_context_set_psk(ctx, "SAM", key, key_length);

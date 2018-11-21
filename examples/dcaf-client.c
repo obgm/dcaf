@@ -558,11 +558,13 @@ main(int argc, char **argv) {
       goto finish;
     }
     dcaf_set_key(k, key, key_length);
-    /* FIXME: use our AM name to identify the peer */
-    dcaf_set_am_key(user, user_length, k);
+    if (user_length > 0) {
+      dcaf_set_kid(k, user, user_length);
+    }
+    dcaf_add_key(dcaf, dcaf_get_am_address(dcaf), k);
   }
 
-  if (dcaf_send_request(dcaf, method, uri, strlen(uri), &optlist, payload.s, payload.length, 0) != DCAF_OK) {
+  if (dcaf_send_request(dcaf, method, uri, strlen(uri), optlist, payload.s, payload.length, 0) != DCAF_OK) {
     dcaf_log(DCAF_LOG_EMERG, "cannot send request\n");
     exit(EXIT_FAILURE);
   }

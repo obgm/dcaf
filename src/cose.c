@@ -503,7 +503,8 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
 static bool
 setup_crypto_params(const cose_obj_t *obj,
                     dcaf_crypto_param_t *params,
-                    cose_key_callback_t cb) {
+                    cose_key_callback_t cb,
+                    void *arg) {
   const dcaf_key_t *k = NULL;
   const cn_cbor *cbor;
 
@@ -538,13 +539,13 @@ setup_crypto_params(const cose_obj_t *obj,
   cbor = from_general_headers(obj, COSE_KID);
   if (cbor) {
     if ((cbor->type == CN_CBOR_BYTES) || (cbor->type == CN_CBOR_TEXT)) {
-      k = cb(cbor->v.str, cbor->length, COSE_MODE_DECRYPT);
+      k = cb(cbor->v.str, cbor->length, COSE_MODE_DECRYPT, arg);
     } else {
       dcaf_log(DCAF_LOG_WARNING, "illegal type for kid parameter\n");
       return false;
     }
   }
-  if (!(k || (k = cb(NULL, 0, COSE_MODE_DECRYPT)))) {
+  if (!(k || (k = cb(NULL, 0, COSE_MODE_DECRYPT, arg)))) {
     dcaf_log(DCAF_LOG_ERR, "no key found\n");
     return false;
   } else {
@@ -585,7 +586,8 @@ cose_result_t
 cose_decrypt(cose_obj_t *obj,
              uint8_t *external_aad, size_t external_aad_len,
              uint8_t *data, size_t *data_len,
-             cose_key_callback_t cb) {
+             cose_key_callback_t cb,
+             void *arg) {
   cose_type_t type;
   size_t buflen;
 
@@ -643,7 +645,7 @@ cose_decrypt(cose_obj_t *obj,
   dcaf_debug_hexdump(p, len);
 
   dcaf_crypto_param_t params;
-  if (!setup_crypto_params(obj, &params, cb)) {
+  if (!setup_crypto_params(obj, &params, cb, arg)) {
     dcaf_log(DCAF_LOG_WARNING, "cose_decrypt: cannot setup crypto params\n");
     return COSE_TYPE_ERROR;
   }

@@ -248,7 +248,7 @@ main(int argc, char **argv) {
                   if (key) {
                     std::cout << std::quoted(k.first) << " \u2192 "
                               << std::quoted(std::get<1>(k.second)) << std::endl;
-                    dcaf_add_key(dcaf, nullptr, 0, key);
+                    dcaf_add_key(dcaf, nullptr, key);
                   }
                 });
   init_resources(ctx);

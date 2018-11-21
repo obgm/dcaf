@@ -107,7 +107,7 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
     size_t buf_len;
 
     dcaf_key_t *rs_key =
-      dcaf_find_key(dcaf_context, NULL, 0, aud->v.bytes, aud->length);
+      dcaf_find_key(dcaf_context, NULL, aud->v.bytes, aud->length);
 
     if (!rs_key) {
       dcaf_log(DCAF_LOG_ERR, "cannot find ticket face encryption key\n");

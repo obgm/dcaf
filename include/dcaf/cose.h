@@ -74,7 +74,7 @@ void cose_obj_delete(cose_obj_t *object);
  * Callback function to retrieve keying material to be used for the
  * operation specified by the mode parameter.
  */
-typedef const dcaf_key_t *(*cose_key_callback_t)(const char *, size_t, cose_mode_t mode);
+typedef const dcaf_key_t *(*cose_key_callback_t)(const char *, size_t, cose_mode_t mode, void *arg);
 
 cose_result_t cose_encrypt0(cose_alg_t alg,
                             const dcaf_key_t *key,
@@ -87,7 +87,8 @@ cose_result_t cose_encrypt0(cose_alg_t alg,
 cose_result_t cose_decrypt(cose_obj_t *obj,
                            uint8_t *external_aad, size_t external_aad_len,
                            uint8_t *data, size_t *data_len,
-                           cose_key_callback_t cb);
+                           cose_key_callback_t cb,
+                           void *arg);
 
 typedef enum cose_bucket_type {
   COSE_PROTECTED,
