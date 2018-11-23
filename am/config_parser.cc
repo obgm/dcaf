@@ -38,8 +38,8 @@ parser::parser() {
   rule AMConfig;
     rule UnicodeEscape  = lexeme[ chr('u') > "[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]"_rx ];
     rule Escape         = lexeme[ "\\" > ("[/\\bfnrt]"_rx | UnicodeEscape) ];
-    rule String         = lexeme[ "\"" > capture(sv_)[*(u8"[^\"\\\u0000-\u001F]"_rx | Escape)] > "\"" ] <[&]{ std::cout << "String: " << *sv_ << std::endl; return *sv_; };
-    rule Identifier     = lexeme[ capture(id_)["[a-z]"_irx > *("[0-9a-z_]"_irx) ] ] <[&]{ std::cout << "Identifier: " << *id_ << std::endl; return *id_; };
+    rule String         = lexeme[ "\"" > capture(sv_)[*(u8"[^\"\\\u0000-\u001F]"_rx | Escape)] > "\"" ] <[&]{ return *sv_; };
+    rule Identifier     = lexeme[ capture(id_)["[a-z]"_irx > *("[0-9a-z_]"_irx) ] ] <[&]{ return *id_; };
     rule Hex            = lexeme[ capture(sv_)[+("[0-9a-f]"_irx "[0-9a-f]"_irx)] ] <[&]{ return *sv_; };
     rule Keytype        =  "psk"_isx > ((sv_%Hex      <[&]() {
         std::string key;
