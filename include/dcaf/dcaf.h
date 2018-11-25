@@ -43,6 +43,7 @@ typedef enum {
   DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16
 } dcaf_result_t;
 
+#include "libdcaf.h"
 #include "dcaf_coap.h"
 #include "dcaf_address.h"
 #include "dcaf_debug.h"
