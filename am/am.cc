@@ -45,10 +45,11 @@ usage( const char *program, const char *version) {
     program = ++p;
 
   fprintf( stderr, "%s v%s -- DCAF Authorization Server\n"
-           "(c) 2015-2018 Olaf Bergmann <bergmann@tzi.org>\n\n"
+           "(c) 2015-2018 Olaf Bergmann <bergmann@tzi.org>\n"
            "(c) 2015-2018 Stefanie Gerdes <gerdes@tzi.org>\n\n"
            "usage: %s [-A address] [-p port]\n\n"
            "\t-A address\tinterface address to bind to\n"
+           "\t-a URI\t\tauthorization manager (AM) URI (the \"token endpoint\")\n"
            "\t-p port\t\tlisten on specified port\n"
            "\t-v num\t\tverbosity level (default: 3)\n",
     program, version, program );
@@ -193,10 +194,10 @@ main(int argc, char **argv) {
 
   while ((opt = getopt(argc, argv, "a:A:C:g:p:v:l:")) != -1) {
     switch (opt) {
-    case 'a':
+    case 'A':
       config.host = optarg;
       break;
-    case 'A' :
+    case 'a' :
       config.am_uri = optarg;
       break;
     case 'C' : {
@@ -224,7 +225,7 @@ main(int argc, char **argv) {
       log_level = static_cast<coap_log_t>(strtol(optarg, nullptr, 10));
       break;
     default:
-      usage(argv[0], LIBCOAP_PACKAGE_VERSION);
+      usage(argv[0], LIBDCAF_PACKAGE_VERSION);
       exit(1);
     }
   }
