@@ -185,5 +185,6 @@ AC_SUBST(PLATFORM)
 AC_CONFIG_FILES([Makefile
                  tests/Makefile
                  am/Makefile
-                 examples/Makefile])
+                 examples/Makefile
+                 include/dcaf/libdcaf.h])
 AC_OUTPUT

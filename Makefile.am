@@ -1,6 +1,6 @@
 # Makefile.am for dcaf
 #
-# Copyright (C) 2016-2017 Olaf Bergmann <bergmann@tzi.org>
+# Copyright (C) 2016-2018 Olaf Bergmann <bergmann@tzi.org>
 #
 # This file is part of the library dcaf. Please see README and
 # COPYING for terms of use.
@@ -49,22 +49,23 @@ libdcaf_a_SOURCES = \
 ## Public header files and their installation location.
 libdcaf_includedir = $(includedir)/dcaf/
 libdcaf_include_HEADERS = \
-   include/dcaf/ace.h \
-   include/dcaf/aif.h \
-   include/dcaf/cose.h \
-   include/dcaf/cose_types.h \
-   include/dcaf/dcaf.h \
-   include/dcaf/dcaf_am.h \
-   include/dcaf/dcaf_coap.h \
-   include/dcaf/dcaf_crypto.h \
-   include/dcaf/dcaf_debug.h \
-   include/dcaf/dcaf_int.h \
-   include/dcaf/dcaf_key.h \
-   include/dcaf/dcaf_mem.h \
-   include/dcaf/dcaf_optlist.h \
-   include/dcaf/dcaf_prng.h \
-   include/dcaf/dcaf_transaction.h \
-   include/dcaf/dcaf_address.h
+   $(top_srcdir)/include/dcaf/ace.h \
+   $(top_srcdir)/include/dcaf/aif.h \
+   $(top_srcdir)/include/dcaf/cose.h \
+   $(top_srcdir)/include/dcaf/cose_types.h \
+   $(top_srcdir)/include/dcaf/dcaf.h \
+   $(top_srcdir)/include/dcaf/dcaf_am.h \
+   $(top_srcdir)/include/dcaf/dcaf_coap.h \
+   $(top_srcdir)/include/dcaf/dcaf_crypto.h \
+   $(top_srcdir)/include/dcaf/dcaf_debug.h \
+   $(top_srcdir)/include/dcaf/dcaf_int.h \
+   $(top_srcdir)/include/dcaf/dcaf_key.h \
+   $(top_srcdir)/include/dcaf/dcaf_mem.h \
+   $(top_srcdir)/include/dcaf/dcaf_optlist.h \
+   $(top_srcdir)/include/dcaf/dcaf_prng.h \
+   $(top_srcdir)/include/dcaf/dcaf_transaction.h \
+   $(top_srcdir)/include/dcaf/dcaf_address.h \
+   $(top_builddir)/include/dcaf/dcaf.h
 
 ## Include autogen.sh in distribution but do not install it.
 dist_noinst_SCRIPTS = autogen.sh
