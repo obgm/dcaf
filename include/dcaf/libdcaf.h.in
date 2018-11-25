@@ -1,0 +1,28 @@
+/*
+ * libdcaf.h -- internal symbols for libdcaf
+ *
+ * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
+ * for terms of use.
+ */
+
+#ifndef _LIBDCAF_H_
+#define _LIBDCAF_H_
+
+/* Define the address where bug reports for libdcaf should be sent. */
+#define LIBDCAF_PACKAGE_BUGREPORT "@PACKAGE_BUGREPORT@"
+
+/* Define the full name of libdcaf. */
+#define LIBDCAF_PACKAGE_NAME "@PACKAGE_NAME@"
+
+/* Define the full name and version of libdcaf. */
+#define LIBDCAF_PACKAGE_STRING "@PACKAGE_STRING@"
+
+/* Define the home page for libdcaf. */
+#define LIBDCAF_PACKAGE_URL "@PACKAGE_URL@"
+
+/* Define the version of libdcaf this file belongs to. */
+#define LIBDCAF_PACKAGE_VERSION "@PACKAGE_VERSION@"
+
+#endif /* _LIBDCAF_H_ */
