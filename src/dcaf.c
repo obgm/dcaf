@@ -863,10 +863,8 @@ dcaf_new_context(const dcaf_config_t *config) {
     goto error;
   }
 
-  /* TODO: do not use hard-coded key */
-  static uint8_t key[] = "secretPSK";
-  size_t key_len = sizeof(key) - 1;
-  coap_context_set_psk(dcaf_context->coap_context, "CoAP", key, key_len);
+  /* initialize PKS mode */
+  coap_context_set_psk(dcaf_context->coap_context, NULL, NULL, 0);
 
   dcaf_context->coap_context->get_client_psk = dcaf_get_client_psk;
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
