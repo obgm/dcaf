@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <ctype.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include <coap/coap.h>
@@ -55,6 +56,16 @@ usage( const char *program, const char *version) {
     program, version, program );
 }
 
+/* Set to true if SIGINT or SIGTERM are caught. The main loop will
+ * exit gracefully if quit == true. */
+static bool quit = false;
+
+/* SIGINT handler: set quit to 1 for graceful termination */
+static void
+handle_sigint(int signum) {
+  (void)signum;
+  quit = true;
+}
 
 /* TODO: store issued tickets until they become invalid */
 
@@ -186,6 +197,7 @@ main(int argc, char **argv) {
   unsigned wait_ms;
   dcaf_config_t config;
   am_config::parser parser;
+  struct sigaction sa;
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
@@ -254,9 +266,16 @@ main(int argc, char **argv) {
                 });
   init_resources(ctx);
 
+  memset (&sa, 0, sizeof(sa));
+  sigemptyset(&sa.sa_mask);
+  sa.sa_handler = handle_sigint;
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+
   wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
 
-  while (true) {
+  while (!quit) {
     int result = coap_run_once(ctx, wait_ms);
     if ( result < 0 ) {
       break;
