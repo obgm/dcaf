@@ -261,7 +261,7 @@ usage( const char *program, const char *version) {
      "\t-u user\t\tUser identity for pre-shared key mode. This argument\n"
      "\t       \t\trequires (D)TLS with PSK to be available\n"
      "\t-v num \t\tVerbosity level (default: %d)\n"
-     "\t-A CAM\t\tURI of the client authorization manager\n"
+     "\t-a CAM\t\tURI of the client authorization manager\n"
      "\n"
            ,program, version, program, log_level);
 }
