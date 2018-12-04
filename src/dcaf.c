@@ -811,15 +811,36 @@ dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
                     uint8_t *psk, size_t max_psk_len) {
   dcaf_ticket_t *t = NULL;
+  dcaf_log(DCAF_LOG_DEBUG, "dcaf_get_server_psk() called\n");
   if (dcaf_parse_ticket_face(session, identity, identity_len, &t) == DCAF_OK){
     /* got a new ticket; just store it and continue */
     dcaf_add_ticket(t);
-  }
-  if (t &&  t->key && (t->key->length <=max_psk_len)) {
-    /* TODO check if key is a psk and return 0 otherwise */
-    memcpy(psk, t->key->data, t->key->length);
-    /* return length of key */
-    return t->key->length;
+
+    if (t &&  t->key && (t->key->length <=max_psk_len)) {
+      /* TODO check if key is a psk and return 0 otherwise */
+      memcpy(psk, t->key->data, t->key->length);
+      /* return length of key */
+      return t->key->length;
+    }
+  } else {
+    dcaf_context_t *dcaf_context;
+
+    dcaf_context = get_dcaf_context_from_session(session);
+    assert(dcaf_context);
+    if (dcaf_context) {
+      /* TODO check if we want to pass &session->remote_addr as well.
+       *      (keys would need to be added with peer addr set to make
+       *      this work) */
+      dcaf_key_t *key = dcaf_find_key(dcaf_context, NULL,
+                                      identity, identity_len);
+
+      if (key) {
+        dcaf_log(DCAF_LOG_DEBUG, "found psk for %.*s\n",
+                 (int)identity_len, identity);
+        memcpy(psk, key->data, key->length);
+        return key->length;
+      }
+    }
   }
   return 0;
 }
@@ -830,15 +851,45 @@ dcaf_get_client_psk(const coap_session_t *session,
                     uint8_t *identity, size_t *identity_len,
                     size_t max_identity_len,
                     uint8_t *psk, size_t max_psk_len) {
-  (void)session;
+  dcaf_context_t *dcaf_context;
   (void)hint;
   (void)hint_len;
-  (void)identity;
-  (void)identity_len;
-  (void)max_identity_len;
-  (void)psk;
-  (void)max_psk_len;
   dcaf_log(DCAF_LOG_DEBUG, "dcaf_get_client_psk() called\n");
+
+  dcaf_context = get_dcaf_context_from_session(session);
+  assert(dcaf_context);
+  if (dcaf_context) {
+    dcaf_key_t *k;
+    /* TODO: use hint as search criteria? */
+    k = dcaf_find_key(dcaf_context, &session->remote_addr, NULL, 0);
+
+    if (!k) {
+      dcaf_log(DCAF_LOG_ERR, "cannot find credentials\n");
+      return 0;
+    }
+    if (k->kid_length > 0) {
+      if (max_identity_len < k->kid_length) {
+        dcaf_log(DCAF_LOG_ERR, "cannot store identity (buffer too small)\n");
+        return 0;
+      }
+
+      memset(identity, 0, max_identity_len);
+      memcpy(identity, k->kid, k->kid_length);
+      *identity_len = k->kid_length;
+      dcaf_log(DCAF_LOG_DEBUG, "set identity to '%.*s' (%zu bytes)\n", (int)*identity_len, identity, *identity_len);
+    }
+    if (k->length > 0) {
+      if (max_psk_len < k->length) {
+        dcaf_log(DCAF_LOG_ERR, "cannot store PSK (buffer too small)\n");
+        return 0;
+      }
+      memset(psk, 0, max_psk_len);
+      memcpy(psk, k->data, k->length);
+      dcaf_log(DCAF_LOG_DEBUG, "set psk to '%.*s' (%zu bytes)\n", (int)k->length, k->data, k->length);
+      return k->length;
+    }
+  }
+
   return 0;
 }
 
