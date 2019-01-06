@@ -87,11 +87,11 @@ hnd_post_token(coap_context_t *ctx,
 
   /* Check if authorized, i.e., the request was received on a secure
    * channel. */
-  if (!dcaf_is_authorized(session, request)) {
-    dcaf_set_sam_information(session, DCAF_MEDIATYPE_DCAF_CBOR,
-                             response);
-    return;
-  }
+  // if (!dcaf_is_authorized(session, request)) {
+  //   dcaf_set_sam_information(session, DCAF_MEDIATYPE_DCAF_CBOR,
+  //                            response);
+  //   return;
+  // }
   res = dcaf_parse_ticket_request(session, request, &treq);
   if (res != DCAF_OK) {
     (void)dcaf_set_error_response(session, res, response);
