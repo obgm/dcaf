@@ -60,17 +60,6 @@ int coap_add_data(coap_pdu_t *pkt,
 
 #define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
 #define COAP_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
-
-/**
- * Set the CoAP response code for the specified @p pdu.
- *
- * @param pdu  The CoAP pdu to set the code.
- * @param code The CoAP code to set.
- */
-static inline void coap_set_response_code(coap_pdu_t *pdu,
-                                          uint8_t code) {
-  pdu->code = code;
-}
 #endif /* RIOT_VERSION */
 
 /**
@@ -105,6 +94,22 @@ uint8_t coap_get_method(const coap_pdu_t *pdu);
  */
 static inline uint8_t coap_get_response_code(const coap_pdu_t *pdu) {
   return coap_get_method(pdu);
+}
+
+
+/**
+ * Set the CoAP response code for the specified @p pdu.
+ *
+ * @param pdu  The CoAP pdu to set the code.
+ * @param code The CoAP code to set.
+ */
+static inline void coap_set_response_code(coap_pdu_t *pdu,
+                                          uint8_t code) {
+#ifdef RIOT_VERSION
+  coap_hdr_set_code(pdu->hdr, code);
+#else /* !RIOT_VERSION */
+  pdu->code = code;
+#endif /* RIOT_VERSION */
 }
 
 /**
