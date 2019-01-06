@@ -38,8 +38,39 @@ typedef enum {
 
 typedef uint64_t coap_tick_t;
 void coap_ticks(coap_tick_t *t);
+
+typedef uint64_t coap_time_t;
+coap_time_t coap_ticks_to_rt(coap_tick_t t);
+
+typedef struct coap_optlist_t coap_optlist_t;
+
+#define COAP_REQUEST_POST COAP_METHOD_POST
+
+int coap_get_data(coap_pdu_t *pkt,
+                  size_t *len,
+                  unsigned char **data);
+
+int coap_add_data(coap_pdu_t *pkt,
+                  unsigned int len,
+                  const unsigned char *data);
+
 #else  /* include libcoap headers */
+
 #include <coap/coap.h>
+
+#define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
+#define COAP_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
+
+/**
+ * Set the CoAP response code for the specified @p pdu.
+ *
+ * @param pdu  The CoAP pdu to set the code.
+ * @param code The CoAP code to set.
+ */
+static inline void coap_set_response_code(coap_pdu_t *pdu,
+                                          uint8_t code) {
+  pdu->code = code;
+}
 #endif /* RIOT_VERSION */
 
 /**

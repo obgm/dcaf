@@ -12,7 +12,7 @@
 #include <stdint.h>
 
 #ifdef RIOT_VERSION
-#include <timex.h>
+#include <xtimer.h>
 #endif /* RIOT_VERSION */
 
 #include "dcaf/dcaf.h"
@@ -23,10 +23,14 @@
 
 void
 coap_ticks(coap_tick_t *t) {
-  timex_t tx;
   assert(t);
-  *t = timex_uint64(tx);
+  *t = xtimer_now_usec64();
 }  
+
+coap_time_t
+coap_ticks_to_rt(coap_tick_t t) {
+  return t / 1000000UL;
+}
 
 int
 coap_get_content_format(const coap_pdu_t *pdu) {
@@ -34,6 +38,38 @@ coap_get_content_format(const coap_pdu_t *pdu) {
   return -1;
 }
 
+int
+coap_get_data(coap_pdu_t *pkt, size_t *len, unsigned char **data) {
+  assert(pkt != NULL);
+  assert(len != NULL);
+
+  if (pkt) {
+    *len = pkt->payload_len;
+    if (data) {
+      *data = pkt->payload;
+    }
+  } else {
+    *len = 0;
+  }
+  return *len > 0;
+}
+
+int
+coap_add_data(coap_pdu_t *pkt,
+              unsigned int len,
+              const unsigned char *data) {
+  assert(pkt != NULL);
+
+  if (pkt) {
+    pkt->payload = dcaf_alloc_type_len(DCAF_STRING, len);
+    if (pkt->payload) {
+      pkt->payload_len = len;
+      memcpy(pkt->payload, data, pkt->payload_len);
+      return 1;
+    }
+  }
+  return 0;
+}
 #else /* !RIOT_VERSION */
 
 int
