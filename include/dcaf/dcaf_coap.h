@@ -15,10 +15,11 @@
 #include <net/nanocoap_sock.h>
 #include <net/ipv6/addr.h>
 
-typedef struct {
+struct coap_address_t {
   network_uint16_t port;
   ipv6_addr_t addr;
-} coap_address_t;
+};
+typedef struct coap_address_t coap_address_t;
 
 typedef coap_block1_t coap_block_t;
 typedef uint32_t coap_tid_t;
