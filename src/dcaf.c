@@ -54,6 +54,220 @@ is_dcaf(int content_format) {
     || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
 }
 
+/**
+ * Utility function to extract a COSE_Key from @p obj skipping the
+ * CBOR tag if present.  This function returns a pointer to the
+ * cn_cbor structure representing the actual COSE_Key, or NULL on
+ * error.
+ */
+static inline const cn_cbor *
+get_cose_key(const cn_cbor *obj) {
+  assert(obj);
+
+  obj = cn_cbor_mapget_int(obj, CWT_CNF_COSE_KEY);
+
+  if (obj && (obj->type == CN_CBOR_TAG)) {
+    return (obj->v.uint == COSE_KEY) ? obj->first_child : NULL;
+  } else {
+    return obj;
+  }
+}
+
+static dcaf_transaction_result_t
+access_response_handler(dcaf_context_t *dcaf_context,
+                        dcaf_transaction_t *t,
+                        coap_pdu_t *received) {
+  (void)dcaf_context;
+  (void)received;
+  dcaf_log(DCAF_LOG_DEBUG, "handle response from AM\n");
+  /* TODO: parse response to access request
+   *       must be DCAF
+   *         on success, proceed with t->future
+   *         on error, make t->future fail as well
+   *       indicate via result if transaction can be deleted?
+   */
+
+  if (t->state.future) {
+    /* if we are done, deliver to future's deliver handler (or so) */
+  }
+  return DCAF_TRANSACTION_OK;
+}
+
+static void
+am_error_handler(dcaf_context_t *dcaf_context,
+                 dcaf_transaction_t *t,
+                 int error) {
+  (void)dcaf_context;
+  (void)t;
+  dcaf_log(DCAF_LOG_DEBUG, "AM error %d\n", error);
+}
+
+static size_t
+make_ticket_request(const uint8_t *data, size_t data_len,
+                    uint8_t *result, size_t max_result_len) {
+  cn_cbor *req = cn_cbor_decode(data, data_len, NULL);
+  cn_cbor *scope;
+  char uri[] = "coaps://node1";
+  size_t len;
+
+  if (!req || (req->type != CN_CBOR_MAP)) {
+    return 0;
+  }
+
+  cn_cbor_mapput_int(req, DCAF_TICKET_AUD,
+                     cn_cbor_string_create(uri, NULL),
+                     NULL);
+
+  scope = cn_cbor_array_create(NULL);
+  cn_cbor_array_append(scope,
+                       cn_cbor_string_create("/restricted", NULL),
+                       NULL);
+  cn_cbor_array_append(scope, cn_cbor_int_create(5, NULL), NULL);
+
+  cn_cbor_mapput_int(req, DCAF_TICKET_SCOPE, scope, NULL);
+
+  len = cn_cbor_encoder_write(result, 0, max_result_len, req);
+  cn_cbor_free(req);
+
+  return len;
+}
+
+static void
+handle_unauthorized(dcaf_context_t *dcaf_context,
+                    dcaf_transaction_t *t,
+                    coap_pdu_t *received) {
+  uint8_t *data;
+  size_t data_len;
+  dcaf_transaction_t *am_t;
+  cn_cbor *sam_info;
+
+#define DCAF_TRANSACTION_ERR_MAX 1
+  if (++t->state.err_cnt > DCAF_TRANSACTION_ERR_MAX) {
+    dcaf_log(DCAF_LOG_DEBUG,
+             "reached failure threshold for transaction\n");
+
+    /* invoke error callback if set */
+    if (t->error_handler) {
+      t->error_handler(dcaf_context, t, DCAF_ERROR_UNAUTHORIZED_THRESHOLD);
+    }
+    dcaf_delete_transaction(dcaf_context, t);
+    return;
+  }
+
+  coap_get_data(received, &data_len, &data);
+
+  if (data_len > 0) {
+    uint8_t ticket_req[512];
+    size_t len;
+
+    len = make_ticket_request(data, data_len,
+                              ticket_req, sizeof(ticket_req));
+    if (len > 0) {
+      /* FIXME: Set Content-Format to DCAF_MEDIATYPE_DCAF_CBOR */
+      /* pass SAM response to AM */
+      dcaf_log(DCAF_LOG_DEBUG, "pass DCAF Unauthorized response to AM\n");
+      am_t = dcaf_send_request_uri(dcaf_context, COAP_REQUEST_POST,
+                                   dcaf_context->am_uri,
+                                   NULL /* optlist */,
+                                   ticket_req, len,
+                                   0);
+      if (am_t) {
+        t->state.act = DCAF_STATE_ACCESS_REQUEST;
+        am_t->state.type = DCAF_TRANSACTION_SYSTEM;
+        am_t->state.future = t;
+        /* am_t->response_handler = access_response_handler; */
+        /* am_t->error_handler = am_error_handler; */
+      }
+    } else {
+    dcaf_log(DCAF_LOG_ERR, "cannot create ticket request\n");
+    dcaf_delete_transaction(dcaf_context, t);
+    }
+  } else {
+    dcaf_log(DCAF_LOG_ERR, "No SAM info in unauthorized response\n");
+    dcaf_delete_transaction(dcaf_context, t);
+  }
+}
+
+static void
+handle_ticket_transfer(dcaf_context_t *dcaf_context,
+                       dcaf_transaction_t *t,
+                       coap_pdu_t *received) {
+  size_t content_len = 0;
+  uint8_t *content = NULL;
+  cn_cbor *cbor;
+  cn_cbor *ticket_face, *client_information, *cnf;
+  cn_cbor *cose_key = NULL;
+  dcaf_ticket_t *cinfo;
+  dcaf_key_type key_type = DCAF_NONE;
+
+  (void)received;
+
+  dcaf_log(DCAF_LOG_DEBUG, "handle ticket transfer\n");
+
+  /* This function is called from handle_coap_response() after
+   * checking the correct Content-Format for dcaf. Thus, we do not
+   * need to check again.
+   */
+
+  assert(t);
+  /* Parse ticket from message content and add to ticket store. */
+
+  if (!coap_get_data(received, &content_len, &content)) {
+    dcaf_log(DCAF_LOG_ERR, "no ticket found in received message\n");
+    return;
+  }
+
+  /* A constrained application may parse on-demand, i.e. treat the
+   * ticket_face as opaque. */
+  cbor = cn_cbor_decode(content, content_len, NULL);
+  if (!cbor) {
+    dcaf_log(DCAF_LOG_ERR, "cannot parse ticket\n");
+    return;
+  }
+
+  /* TODO: get key from cbor and use ticket face as psk for new
+     session */
+  ticket_face = cn_cbor_mapget_int(cbor, DCAF_TICKET_FACE);
+  client_information = cn_cbor_mapget_int(cbor, DCAF_TICKET_CLIENTINFO);
+
+  if (!ticket_face || (ticket_face->type != CN_CBOR_MAP)) {
+    dcaf_log(DCAF_LOG_INFO, "invalid ticket face\n");
+    goto finish;
+  }
+  if (!client_information) {
+    dcaf_log(DCAF_LOG_ERR, "ticket has no client information\n");
+    goto finish;
+  }
+
+  /* retrieve cnf containg keying material information */
+  cnf = cn_cbor_mapget_int(client_information, DCAF_TICKET_CNF);
+  if (!cnf) {
+    dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
+    goto finish;
+  }
+
+  cinfo = dcaf_new_ticket(key_type, 0 /* FIXME: seq->v.uint */,
+                          0 /* FIXME: now */,
+                          1000 /* FIXME: remaining_ltm */);
+  cose_key = get_cose_key(cnf); /* cn_cbor object with cose key object */
+  if (!cose_key) {
+    dcaf_log(DCAF_LOG_INFO, "no COSE_Key found\n");
+    goto finish;
+  }
+  dcaf_parse_dcaf_key(cinfo->key, cose_key);
+  dcaf_log(DCAF_LOG_DEBUG, "we have a key!\n");
+
+  if (dcaf_check_transaction(dcaf_context, t->state.future)) {
+    /* The future transaction can be completed with the access
+     * ticket we have received. We need to create a coaps session
+     * with the ticket face as identity and the contained key
+     * as PSK.
+     */
+  }
+ finish:
+  cn_cbor_free(cbor);
+}
+
 static void
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
@@ -63,6 +277,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   dcaf_context_t *dcaf_context;
   dcaf_transaction_t *t;
   int deliver = 0;
+  uint8_t code;
 
   (void)session;
   (void)sent;
@@ -77,30 +292,53 @@ handle_coap_response(struct coap_context_t *coap_context,
     return;
   }
 
-  switch (t->state) {
+  /* Call response handler or error handler, respectively. If not set,
+   * this is the initial transaction that will be handled manually. */
+  code = coap_get_response_code(received);
+  if (t->response_handler) {
+    dcaf_log(DCAF_LOG_DEBUG, "invoke response handler\n");
+    t->response_handler(dcaf_context, t, received);
+    dcaf_delete_transaction(dcaf_context, t);
+    return;
+  }
+
+  /* Reached only for responses that have no handler, i.e., the
+   * default behavior. */
+
+  if (!is_dcaf(coap_get_content_format(received))) {
+    dcaf_log(DCAF_LOG_INFO, "received non-dcaf response\n");
+    /* FIXME: application delivery */
+    dcaf_delete_transaction(dcaf_context, t);
+    return;
+  }
+
+  switch (t->state.act) {
   case DCAF_STATE_IDLE: {
     /* FIXME: check response code, handle DCAF SAM response
               deliver message in any other case */
-    if (is_dcaf(coap_get_content_format(received))) {
-      if (coap_get_response_code(received) == COAP_CODE_UNAUTHORIZED) {
-        uint8_t *sam_info;
-        size_t sam_info_len;
-        dcaf_log(DCAF_LOG_DEBUG, "pass DCAF Unauthorized response to AM\n");
-        coap_get_data(received, &sam_info_len, &sam_info);
-        /* pass SAM response to AM */
-        dcaf_send_request_uri(dcaf_context, COAP_REQUEST_POST,
-                          dcaf_context->am_uri,
-                          NULL /* optlist */,
-                          sam_info, sam_info_len,
-                          0);
-      }
-    } else {
-      deliver = 1;
+    if (code == COAP_CODE_UNAUTHORIZED) {
+      handle_unauthorized(dcaf_context, t, received);
+    } else {           /* handle final response for transaction t */
+      dcaf_log(DCAF_LOG_DEBUG, "received final response with code %u\n",
+               code);
+      return;
     }
     break;
   }
   case DCAF_STATE_ACCESS_REQUEST:
-    /* fall through */
+    /* Handle response to previous access request */
+
+    if (COAP_RESPONSE_CLASS(code) == 2) {
+      handle_ticket_transfer(dcaf_context, t, received);
+      t->state.act = DCAF_STATE_AUTHORIZED;
+      return;
+    } else {                  /* access request failed */
+      /* FIXME: signal error to application */
+      dcaf_log(DCAF_LOG_CRIT, "access request failed\n");
+      dcaf_delete_transaction(dcaf_context, t);
+      return;
+    }
+    break;
   case DCAF_STATE_TICKET_REQUEST:
     /* fall through */
   case DCAF_STATE_TICKET_GRANT:
@@ -503,19 +741,6 @@ dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key) {
       memcpy(key->data,obj->v.bytes,obj->length);
       key->length = obj->length;
     }
-  }
-}
-
-static inline const cn_cbor *
-get_cose_key(const cn_cbor *obj) {
-  assert(obj);
-
-  obj = cn_cbor_mapget_int(obj, CWT_CNF_COSE_KEY);
-
-  if (obj && (obj->type == CN_CBOR_TAG)) {
-    return (obj->v.uint == COSE_KEY) ? obj->first_child : NULL;
-  } else {
-    return obj;
   }
 }
 

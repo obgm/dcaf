@@ -564,7 +564,7 @@ main(int argc, char **argv) {
     dcaf_add_key(dcaf, dcaf_get_am_address(dcaf), k);
   }
 
-  if (dcaf_send_request(dcaf, method, uri, strlen(uri), optlist, payload.s, payload.length, 0) != DCAF_OK) {
+  if (!dcaf_send_request(dcaf, method, uri, strlen(uri), optlist, payload.s, payload.length, 0)) {
     dcaf_log(DCAF_LOG_EMERG, "cannot send request\n");
     exit(EXIT_FAILURE);
   }

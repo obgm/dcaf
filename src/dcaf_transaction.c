@@ -88,7 +88,7 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
   get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
   transaction->pdu = pdu;
 
-  transaction->state = DCAF_STATE_IDLE;
+  transaction->state.act = DCAF_STATE_IDLE;
 #if 0
   /* Select endpoint according to URI scheme and remote address. */
   transaction->local_interface =
@@ -174,6 +174,21 @@ dcaf_find_transaction(dcaf_context_t *dcaf_context,
   return transaction;
 }
 
+int
+dcaf_check_transaction(dcaf_context_t *dcaf_context,
+                       const dcaf_transaction_t *transaction) {
+  dcaf_transaction_t *t;
+
+  if (transaction) {
+    LL_FOREACH(dcaf_context->transactions, t) {
+      if (t == transaction) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
 dcaf_transaction_result_t
 dcaf_transaction_start(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *transaction) {
@@ -215,7 +230,7 @@ dcaf_transaction_start(dcaf_context_t *dcaf_context,
 #endif
 }
 
-dcaf_result_t
+dcaf_transaction_t *
 dcaf_send_request_uri(dcaf_context_t *dcaf_context,
                   int code,
                   const coap_uri_t *uri,
@@ -230,6 +245,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   coap_pdu_t *pdu;
   coap_session_t *session;
   uint8_t token[DCAF_DEFAULT_TOKEN_SIZE];
+  dcaf_transaction_t *t = NULL;
   (void)flags;
 
   assert(dcaf_context);
@@ -244,7 +260,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   if (result < 0) {
     dcaf_log(DCAF_LOG_ERR, "cannot resolve URI host '%.*s'\n",
              (int)uri->host.length, uri->host.s);
-    return DCAF_ERROR_BAD_REQUEST;
+    return NULL;
   }
 
   /* check if we have an ongoing session with this peer */
@@ -257,7 +273,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
       if (!k) {
         dcaf_log(DCAF_LOG_ERR, "cannot find credentials for %.*s\n",
                  (int)uri->host.length, uri->host.s);
-        return DCAF_ERROR_BAD_REQUEST;
+        return NULL;
       }
       if (k->kid_length > 0) {
         assert(sizeof(k->kid) < sizeof(identity));
@@ -274,13 +290,13 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   }
   if (!session) {
     dcaf_log(DCAF_LOG_ERR, "cannot create session\n");
-    return DCAF_ERROR_INTERNAL_ERROR;
+    return NULL;
   }
 
   pdu = coap_new_pdu(session);
   if (!pdu) {
     dcaf_log(DCAF_LOG_WARNING, "cannot create new PDU\n");
-    return DCAF_ERROR_OUT_OF_MEMORY;
+    return NULL;
   }
 
   pdu->type = COAP_MESSAGE_CON;
@@ -302,21 +318,21 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
       dcaf_log(DCAF_LOG_WARNING, "cannot set payload\n");
   }
 
-  if (!dcaf_create_transaction(dcaf_context, session, pdu)) {
+  t = dcaf_create_transaction(dcaf_context, session, pdu);
+  if (!t) {
     dcaf_log(DCAF_LOG_WARNING, "cannot create new transaction\n");
-    res = DCAF_ERROR_OUT_OF_MEMORY;
     goto error;
   }
 
   coap_send(session, pdu);
 
-  return DCAF_OK;
+  return t;
  error:
   coap_free(pdu);
-  return res;
+  return NULL;
 }
 
-dcaf_result_t
+dcaf_transaction_t *
 dcaf_send_request(dcaf_context_t *dcaf_context,
                   int code,
                   const char *uri_str,
@@ -333,7 +349,7 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
 
   if (coap_split_uri(buf, uri_len, &uri) < 0) {
     dcaf_log(DCAF_LOG_ERR, "cannot process request URI\n");
-    return DCAF_ERROR_BAD_REQUEST;
+    return NULL;
   }
 
   return dcaf_send_request_uri(dcaf_context, code, &uri, options,

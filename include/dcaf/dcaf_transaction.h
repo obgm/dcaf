@@ -67,6 +67,10 @@ dcaf_transaction_t *dcaf_find_transaction(dcaf_context_t *dcaf_context,
                                           const coap_session_t *session,
                                           const coap_pdu_t *pdu);
 
+/** Checks if @p transaction is valid. */
+int dcaf_check_transaction(dcaf_context_t *dcaf_context,
+                           const dcaf_transaction_t *transaction);
+
 dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
                                               dcaf_transaction_t *transaction);
 
@@ -74,8 +78,10 @@ dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
  * Sends a request with method @p code to the endpoint denoted by @p
  * uri. The options specified in @p options and the payload given as
  * @p data are added to the newly created CoAP message. This function
- * returns DCAF_OK if the request could be created and was passed to
- * the DCAF transaction layer. Otherwise, an error code is returned.
+ * returns a pointer to a newly created dcaf_transaction_t structure
+ * if the request could be created and was passed to the DCAF
+ * transaction layer. Otherwise, NULL is returned. The transaction
+ * object needs to be freed via dcaf_delete_transaction().
  *
  * @param dcaf_context  The DCAF context to use.
  * @param code          The CoAP method to use.
@@ -90,22 +96,24 @@ dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
  * @param flags         Optional flags. Should be set to 0
  *                      for now.
  *
- * @return DCAF_OK on success, an error code otherwise.
+ * @return A new transaction structure on success, or NULL otherwise.
  */
-dcaf_result_t dcaf_send_request_uri(dcaf_context_t *dcaf_context,
-                                int code,
-                                const coap_uri_t *uri,
-                                dcaf_optlist_t options,
-                                const uint8_t *data,
-                                size_t data_len,
-                                int flags);
+dcaf_transaction_t *dcaf_send_request_uri(dcaf_context_t *dcaf_context,
+                                          int code,
+                                          const coap_uri_t *uri,
+                                          dcaf_optlist_t options,
+                                          const uint8_t *data,
+                                          size_t data_len,
+                                          int flags);
 /**
  * Sends a request with method @p code to the endpoint denoted
  * by @p uri_str. The options specified in @p options and the
  * payload given as @p data are added to the newly created
- * CoAP message. This function returns DCAF_OK if the request
- * could be created and was passed to the DCAF transaction
- * layer. Otherwise, an error code is returned.
+ * CoAP message.  This function returns a pointer to a newly
+ * created dcaf_transaction_t structure if the request could be
+ * created and was passed to the DCAF transaction layer. Otherwise,
+ * NULL is returned. The transaction object needs to be freed via
+ * dcaf_delete_transaction().
  *
  * @param dcaf_context  The DCAF context to use.
  * @param code          The CoAP method to use.
@@ -121,15 +129,15 @@ dcaf_result_t dcaf_send_request_uri(dcaf_context_t *dcaf_context,
  * @param flags         Optional flags. Should be set to 0
  *                      for now.
  *
- * @return DCAF_OK on success, an error code otherwise.
+ * @return A new transaction structure on success, or NULL otherwise.
  */
-dcaf_result_t dcaf_send_request(dcaf_context_t *dcaf_context,
-                                int code,
-                                const char *uri_str,
-                                size_t uri_len,
-                                dcaf_optlist_t options,
-                                const uint8_t *data,
-                                size_t data_len,
-                                int flags);
+dcaf_transaction_t *dcaf_send_request(dcaf_context_t *dcaf_context,
+                                      int code,
+                                      const char *uri_str,
+                                      size_t uri_len,
+                                      dcaf_optlist_t options,
+                                      const uint8_t *data,
+                                      size_t data_len,
+                                      int flags);
 
 #endif /* _DCAF_TRANSACTION_H_ */

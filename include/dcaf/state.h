@@ -1,8 +1,8 @@
 /*
  * state.h -- dcaf transaction state
  *
- * Copyright (C) 2015-2016 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2016 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2019 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2019 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -18,6 +18,26 @@ typedef enum {
   DCAF_STATE_TICKET_REQUEST,
   DCAF_STATE_TICKET_GRANT,
   DCAF_STATE_AUTHORIZED
+} dcaf_transaction_state_t;
+
+typedef enum {
+  DCAF_TRANSACTION_USER,
+  DCAF_TRANSACTION_SYSTEM
+} dcaf_transaction_type_t;
+
+/** Definition of transaction state. */
+typedef struct{
+  dcaf_transaction_state_t act;
+  dcaf_transaction_type_t type;
+
+  /**
+   * Counts errors related to this transaction. If too many errors
+   * have occurred, the transaction fails.
+   */
+  unsigned short err_cnt;
+
+  /** The future transaction depends on this transaction's state. */
+  dcaf_transaction_t *future;
 } dcaf_state_t;
 
 #endif /* _DCAF_STATE_H_ */
