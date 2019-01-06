@@ -34,8 +34,7 @@ coap_ticks_to_rt(coap_tick_t t) {
 
 int
 coap_get_content_format(const coap_pdu_t *pdu) {
-  /* FIXME */
-  return -1;
+  return coap_get_content_type((coap_pdu_t *)pdu);
 }
 
 int
