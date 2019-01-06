@@ -82,7 +82,7 @@ handle_coap_response(struct coap_context_t *coap_context,
     /* FIXME: check response code, handle DCAF SAM response
               deliver message in any other case */
     if (is_dcaf(coap_get_content_format(received))) {
-      if (coap_get_response_code(received) == COAP_RESPONSE_CODE(401)) {
+      if (coap_get_response_code(received) == COAP_CODE_UNAUTHORIZED) {
         uint8_t *sam_info;
         size_t sam_info_len;
         dcaf_log(DCAF_LOG_DEBUG, "pass DCAF Unauthorized response to AM\n");
@@ -334,8 +334,9 @@ set_endpoint(const dcaf_context_t *dcaf_context,
 }
 
 dcaf_time_t dcaf_gettime(void) {
-  /* TODO: implement correct function */
-  return time(0);
+  coap_tick_t now;
+  coap_ticks(&now);
+  return coap_ticks_to_rt(now);
 }
 
 dcaf_nonce_t *dcaf_nonces = NULL;
@@ -350,7 +351,7 @@ dcaf_expiration(void) {
   dcaf_dep_ticket_t *dep_ticket=NULL, *tempp = NULL;
   dcaf_nonce_t *nonce=NULL, *temppp = NULL;
   /* search ticket list for expired tickets */
-  time_t now = dcaf_gettime();
+  dcaf_time_t now = dcaf_gettime();
   LL_FOREACH_SAFE(dcaf_tickets, ticket, temp){
     if ((ticket->ts+ticket->remaining_time)>now) {
       dcaf_remove_ticket(ticket);
@@ -619,7 +620,7 @@ dcaf_result_t
 dcaf_parse_ticket_face(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
                   dcaf_ticket_t **result) {
-  dcaf_result_t res = DCAF_ERROR_BAD_REQUEST;
+  dcaf_result_t res = DCAF_ERROR_UNAUTHORIZED;
   cn_cbor *bstr = NULL;
   cn_cbor *ticket_face = NULL;
   dcaf_ticket_t *ticket;
@@ -1159,7 +1160,7 @@ dcaf_set_sam_information(const coap_session_t *session,
    * SAM URI is set. */
   if (!dcaf_context->am_uri) {
     dcaf_log(DCAF_LOG_DEBUG, "no SAM URI\n");
-    response->code = COAP_RESPONSE_CODE(401);
+    coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);
     return DCAF_OK;
   }
 
@@ -1233,7 +1234,7 @@ dcaf_set_sam_information(const coap_session_t *session,
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
 
-  response->code = COAP_RESPONSE_CODE(401);
+  coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);
   return DCAF_OK;
 }
 
@@ -1246,7 +1247,7 @@ dcaf_set_error_response(const coap_session_t *session,
   (void)error;
 
   /* TODO: describe error, provide correct result */
-  response->code = COAP_RESPONSE_CODE(400);
+  coap_set_response_code(response, COAP_CODE_BAD_REQUEST);
   coap_add_option(response,
                   COAP_OPTION_CONTENT_FORMAT,
                   coap_encode_var_safe(buf, sizeof(buf),
