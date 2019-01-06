@@ -16,7 +16,10 @@
 #include "dcaf/dcaf_coap.h"
 
 #ifdef RIOT_VERSION
-#error need to define memory allocator
+/* FIXME: use static memory allocator */
+#define CHECK_AND_ALLOC(Type, Maxlen, Len)                              \
+  (((Maxlen) < (Len)) ? NULL : coap_malloc(sizeof(Type) + (Len)))
+#define FREE(Type, Pointer) coap_free(Pointer)
 #else /* RIOT_VERSION */
 #define CHECK_AND_ALLOC(Type, Maxlen, Len)                              \
   (((Maxlen) < (Len)) ? NULL : coap_malloc(sizeof(Type) + (Len)))

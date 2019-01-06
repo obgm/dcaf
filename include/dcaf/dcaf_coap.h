@@ -15,11 +15,31 @@
 #include <net/nanocoap_sock.h>
 #include <net/ipv6/addr.h>
 
+static inline void *coap_malloc(size_t size) {
+  return malloc(size);
+}
+
+static inline void coap_free(void *ptr) {
+   free(ptr);
+}
+
 struct coap_address_t {
   network_uint16_t port;
   ipv6_addr_t addr;
 };
 typedef struct coap_address_t coap_address_t;
+
+static inline void coap_address_copy(coap_address_t *dst,
+                                     const coap_address_t *src) {
+  dst->port = src->port;
+  dst->addr = src->addr;
+}
+
+static inline int coap_address_equals(coap_address_t *dst,
+                                      const coap_address_t *src) {
+  return (dst->port.u16 == src->port.u16)
+    && ipv6_addr_equal(&dst->addr, &src->addr);
+}
 
 typedef coap_block1_t coap_block_t;
 typedef uint32_t coap_tid_t;
@@ -46,6 +66,8 @@ coap_time_t coap_ticks_to_rt(coap_tick_t t);
 typedef struct coap_optlist_t coap_optlist_t;
 
 #define COAP_REQUEST_POST COAP_METHOD_POST
+
+#define COAP_RESPONSE_CLASS(C) (((C) >> 5) & 0xFF)
 
 int coap_get_data(coap_pdu_t *pkt,
                   size_t *len,
