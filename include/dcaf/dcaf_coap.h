@@ -10,80 +10,12 @@
 #ifndef _DCAF_COAP_H_
 #define _DCAF_COAP_H_ 1
 
-#ifdef RIOT_VERSION
-#include <net/nanocoap.h>
-#include <net/nanocoap_sock.h>
-#include <net/ipv6/addr.h>
-
-static inline void *coap_malloc(size_t size) {
-  return malloc(size);
-}
-
-static inline void coap_free(void *ptr) {
-   free(ptr);
-}
-
-struct coap_address_t {
-  network_uint16_t port;
-  ipv6_addr_t addr;
-};
-typedef struct coap_address_t coap_address_t;
-
-static inline void coap_address_copy(coap_address_t *dst,
-                                     const coap_address_t *src) {
-  dst->port = src->port;
-  dst->addr = src->addr;
-}
-
-static inline int coap_address_equals(coap_address_t *dst,
-                                      const coap_address_t *src) {
-  return (dst->port.u16 == src->port.u16)
-    && ipv6_addr_equal(&dst->addr, &src->addr);
-}
-
-typedef coap_block1_t coap_block_t;
-typedef uint32_t coap_tid_t;
-typedef void *coap_uri_t;
-typedef void *coap_context;
-typedef coap_pkt_t coap_pdu_t;
-
-struct coap_endpoint_t;
-typedef struct coap_endpoint_t coap_endpoint_t;
-struct coap_session_t;
-typedef struct coap_session_t coap_session_t;
-typedef enum {
-              COAP_PROTO_NONE=0,
-              COAP_PROTO_UDP=1,
-              COAP_PROTO_DTLS=2,
-} coap_proto_t;
-
-typedef uint64_t coap_tick_t;
-void coap_ticks(coap_tick_t *t);
-
-typedef uint64_t coap_time_t;
-coap_time_t coap_ticks_to_rt(coap_tick_t t);
-
-typedef struct coap_optlist_t coap_optlist_t;
-
-#define COAP_REQUEST_POST COAP_METHOD_POST
-
-#define COAP_RESPONSE_CLASS(C) (((C) >> 5) & 0xFF)
-
-int coap_get_data(coap_pdu_t *pkt,
-                  size_t *len,
-                  unsigned char **data);
-
-int coap_add_data(coap_pdu_t *pkt,
-                  unsigned int len,
-                  const unsigned char *data);
-
-#else  /* include libcoap headers */
-
 #include <coap/coap.h>
 
+#if !defined(RIOT_VERSION)
 #define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
 #define COAP_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
-#endif /* RIOT_VERSION */
+#endif /* RIOT_VERSION && !MODULE_LIBCOAP */
 
 /**
  * Returns the Content Format specified in @p pdu
@@ -128,11 +60,7 @@ static inline uint8_t coap_get_response_code(const coap_pdu_t *pdu) {
  */
 static inline void coap_set_response_code(coap_pdu_t *pdu,
                                           uint8_t code) {
-#ifdef RIOT_VERSION
-  coap_hdr_set_code(pdu->hdr, code);
-#else /* !RIOT_VERSION */
   pdu->code = code;
-#endif /* RIOT_VERSION */
 }
 
 /**
