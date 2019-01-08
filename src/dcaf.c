@@ -23,14 +23,12 @@
 #include "dcaf/aif.h"
 #include "dcaf/cwt.h"
 
-#ifndef RIOT_VERSION
 static inline uint8_t
 coap_get_token_len(coap_pdu_t *p) {
   return p->token_length;
 }
-#endif
 
- static inline int
+static inline int
 token_equals(coap_pdu_t *a, coap_pdu_t *b) {
   if (a && b) {
     unsigned atkl = coap_get_token_len(a);
@@ -41,47 +39,12 @@ token_equals(coap_pdu_t *a, coap_pdu_t *b) {
   return 0;
 }
 
-#ifdef RIOT_VERSION
-struct coap_session_t {
-  coap_address_t remote_addr;
-  struct coap_context_t *context;   /**< session's context */
-  uint8_t *psk_identity;
-  size_t psk_identity_len;
-  uint8_t *psk_key;
-  size_t psk_key_len;
-};
-
-/* FIXME */
-size_t coap_add_option(coap_pdu_t *pdu,
-                       uint16_t type,
-                       size_t len,
-                       const uint8_t *data) {
-  (void)pdu;
-  (void)type;
-  (void)len;
-  (void)data;
-  return 0;
-}
-
-/* FIXME */
-unsigned int coap_encode_var_safe(uint8_t *buf,
-                                  size_t length,
-                                  unsigned int value) {
-  (void)buf;
-  (void)length;
-  (void)value;
-  return 0;
-}
-#endif
-
 /* Returns true iff DCAF should be used. */
-#ifndef RIOT_VERSION
 static bool
 is_dcaf(int content_format) {
   return (content_format == -1)
     || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
 }
-#endif /* RIOT_VERSION */
 
 /**
  * Utility function to extract a COSE_Key from @p obj skipping the
@@ -102,7 +65,6 @@ get_cose_key(const cn_cbor *obj) {
   }
 }
 
-#ifndef RIOT_VERSION
 static dcaf_transaction_result_t
 access_response_handler(dcaf_context_t *dcaf_context,
                         dcaf_transaction_t *t,
@@ -122,9 +84,7 @@ access_response_handler(dcaf_context_t *dcaf_context,
   }
   return DCAF_TRANSACTION_OK;
 }
-#endif /* RIOT_VERSION */
 
-#ifndef RIOT_VERSION
 static void
 am_error_handler(dcaf_context_t *dcaf_context,
                  dcaf_transaction_t *t,
@@ -133,9 +93,7 @@ am_error_handler(dcaf_context_t *dcaf_context,
   (void)t;
   dcaf_log(DCAF_LOG_DEBUG, "AM error %d\n", error);
 }
-#endif /* RIOT_VERSION */
 
-#ifndef RIOT_VERSION
 static size_t
 make_ticket_request(const uint8_t *data, size_t data_len,
                     uint8_t *result, size_t max_result_len) {
@@ -165,9 +123,7 @@ make_ticket_request(const uint8_t *data, size_t data_len,
 
   return len;
 }
-#endif /* RIOT_VERSION */
 
-#ifndef RIOT_VERSION
 static void
 handle_unauthorized(dcaf_context_t *dcaf_context,
                     dcaf_transaction_t *t,
@@ -222,9 +178,7 @@ handle_unauthorized(dcaf_context_t *dcaf_context,
     dcaf_delete_transaction(dcaf_context, t);
   }
 }
-#endif /* RIOT_VERSION */
 
-#ifndef RIOT_VERSION
 static void
 handle_ticket_transfer(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *t,
@@ -304,9 +258,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
  finish:
   cn_cbor_free(cbor);
 }
-#endif /* RIOT_VERSION */
 
-#ifndef RIOT_VERSION
 static void
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
@@ -595,20 +547,12 @@ handle_coap_response(struct coap_context_t *coap_context,
   ready = coap_check_option(received, COAP_OPTION_SUBSCRIPTION, &opt_iter) == NULL;
 #endif
 }
-#endif /* RIOT_VERSION */
 
 static int
 set_endpoint(const dcaf_context_t *dcaf_context,
              const coap_address_t *addr,
              coap_proto_t proto) {
-#ifdef RIOT_VERSION
-  (void)dcaf_context;
-  (void)addr;
-  (void)proto;
-  return 0;  /* FIXME: RIOT */
-#else
   return coap_new_endpoint(dcaf_context->coap_context, addr, proto) != NULL;
-#endif
 }
 
 dcaf_time_t dcaf_gettime(void) {
@@ -870,15 +814,10 @@ maybe_cose(const uint8_t *data, size_t length) {
 
 static dcaf_context_t *
 get_dcaf_context_from_session(const coap_session_t *session) {
-#ifdef RIOT_VERSION
-  (void)session;
-  return NULL; /* FIXME: RIOT */
-#else
   if (session && session->context) {
     return dcaf_get_dcaf_context(session->context);
   }
   return NULL;
-#endif /* RIOT_VERSION */
 }
 
 dcaf_result_t
@@ -1072,7 +1011,6 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   return res;
 }
 
-#ifndef RIOT_VERSION
 static size_t
 dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
@@ -1111,9 +1049,7 @@ dcaf_get_server_psk(const coap_session_t *session,
   }
   return 0;
 }
-#endif /* RIOT_VERSION */
 
-#ifndef RIOT_VERSION
 static size_t
 dcaf_get_client_psk(const coap_session_t *session,
                     const uint8_t *hint, size_t hint_len,
@@ -1161,7 +1097,6 @@ dcaf_get_client_psk(const coap_session_t *session,
 
   return 0;
 }
-#endif /* RIOT_VERSION */
 
 dcaf_context_t *
 dcaf_new_context(const dcaf_config_t *config) {
@@ -1177,7 +1112,6 @@ dcaf_new_context(const dcaf_config_t *config) {
 
   memset(dcaf_context, 0, sizeof(dcaf_context_t));
 
-#ifndef RIOT_VERSION
   dcaf_context->coap_context = coap_new_context(NULL);
   if (dcaf_context->coap_context == NULL) {
     dcaf_log(DCAF_LOG_EMERG, "Cannot create new CoAP context.\n");
@@ -1190,7 +1124,6 @@ dcaf_new_context(const dcaf_config_t *config) {
   dcaf_context->coap_context->get_client_psk = dcaf_get_client_psk;
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
-#endif /* RIOT_VERSION */
 
   if (config) {
     if (config->host) {
@@ -1204,13 +1137,11 @@ dcaf_new_context(const dcaf_config_t *config) {
                                strlen(addr_str),
                                config->coap_port, &addr) == DCAF_OK)) {
       if (set_endpoint(dcaf_context, &addr, COAP_PROTO_UDP)) {
-#ifndef RIOT_VERSION
         unsigned char buf[INET6_ADDRSTRLEN + 8];
 
         if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
           dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
         }
-#endif /* RIOT_VERSION */
       }
     }
 
@@ -1221,13 +1152,11 @@ dcaf_new_context(const dcaf_config_t *config) {
                                strlen(addr_str),
                                config->coaps_port, &addr) == DCAF_OK)) {
       if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
-#ifndef RIOT_VERSION
         unsigned char buf[INET6_ADDRSTRLEN + 8];
 
         if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
           dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
         }
-#endif /* RIOT_VERSION */
       }
     }
 
@@ -1244,11 +1173,9 @@ dcaf_new_context(const dcaf_config_t *config) {
     }
   }
 
-#ifndef RIOT_VERSION
   coap_register_option(dcaf_context->coap_context, COAP_OPTION_BLOCK2);
   coap_register_response_handler(dcaf_context->coap_context,
                                  handle_coap_response);
-#endif /* RIOT_VERSION */
 
   return dcaf_context;
  error:
@@ -1259,9 +1186,7 @@ dcaf_new_context(const dcaf_config_t *config) {
 void dcaf_free_context(dcaf_context_t *context) {
   if (context) {
     dcaf_free_type(DCAF_STRING, context->am_uri);
-#ifndef RIOT_VERSION
     coap_free_context(context->coap_context);
-#endif /* RIOT_VERSION */
   }
   dcaf_free_type(DCAF_CONTEXT, context);
 }
@@ -1280,12 +1205,7 @@ dcaf_get_app_data(dcaf_context_t *dcaf_context) {
 
 dcaf_context_t *
 dcaf_get_dcaf_context(coap_context_t *coap_context) {
-#ifdef RIOT_VERSION
-  (void)coap_context;
-  return NULL; /* FIXME: RIOT */
-#else
   return (dcaf_context_t *)coap_get_app_data(coap_context);
-#endif /* RIOT_VERSION */
 }
 
 int
@@ -1293,16 +1213,6 @@ dcaf_set_am_uri(dcaf_context_t *context,
                 const unsigned char *uri,
                 size_t length) {
   assert(context);
-#ifdef RIOT_VERSION
-  (void)uri;
-  (void)length;
-  /* FIXME: RIOT */
-  const unsigned char host[] = "sam.example.com";
-  const size_t host_length = sizeof(host) - 1;
-  const uint16_t port = 7744;
-  return dcaf_set_coap_address(host, host_length, port,
-                               &context->am_address) == 0;
-#else
   coap_free(context->am_uri);
   context->am_uri = coap_new_uri(uri, length);
   return context->am_uri &&
@@ -1310,7 +1220,6 @@ dcaf_set_am_uri(dcaf_context_t *context,
                            context->am_uri->host.length,
                            context->am_uri->port,
                            &context->am_address) == 0);
-#endif /* RIOT_VERSION */
 }
 
 const coap_address_t *
@@ -1326,13 +1235,8 @@ dcaf_get_coap_context(dcaf_context_t *context) {
 
 static int
 is_secure(const coap_session_t *session) {
-#ifdef RIOT_VERSION
-  /* FIXME: RIOT */
-  return (session != NULL);
-#else
   return (session != NULL) &&
     ((session->proto & COAP_PROTO_DTLS) != 0);
-#endif /* RIOT_VERSION */
 }
 #if 0
 coap_endpoint_t *
@@ -1389,10 +1293,8 @@ dcaf_is_authorized(const coap_session_t *session,
       }
     }
     /* TODO cases where the ticket is transported in the psk_identity */
-#ifndef RIOT_VERSION
     dcaf_log(DCAF_LOG_DEBUG, "PSK identity is '%.*s':\n",
              (int)session->psk_identity_len, (char *)session->psk_identity);
-#endif /* RIOT_VERSION */
   }
   return result;
 }
