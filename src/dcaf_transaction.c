@@ -126,10 +126,12 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
 
   LL_PREPEND(dcaf_context->transactions, transaction);
   return transaction;
+#if 0
  error:
   dcaf_free_type(DCAF_TRANSACTION, transaction);
   coap_free(pdu);
   return NULL;
+#endif
 }
 
 void
@@ -240,7 +242,6 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
                   int flags) {
   coap_context_t *ctx;
   int result;
-  dcaf_result_t res = DCAF_ERROR_BAD_REQUEST;
   coap_address_t dst;
   coap_pdu_t *pdu;
   coap_session_t *session;
