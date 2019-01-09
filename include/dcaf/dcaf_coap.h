@@ -12,10 +12,8 @@
 
 #include <coap2/coap.h>
 
-#if !defined(RIOT_VERSION)
 #define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
 #define COAP_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
-#endif /* RIOT_VERSION && !MODULE_LIBCOAP */
 
 /**
  * Returns the Content Format specified in @p pdu
