@@ -15,6 +15,8 @@
 
 #include <cn-cbor/cn-cbor.h>
 
+#include "dcaf/utlist.h"
+
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_am.h"
@@ -351,6 +353,16 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   }
 
   ticket->seq = next_ticket_seq();
+
+  /* FIXME: set actual permissions */
+  dcaf_aif_t *aif = dcaf_alloc_type(DCAF_AIF);
+  if (aif) {
+    memset(aif, 0, sizeof(dcaf_aif_t));
+    aif->perm.resource_len = 11;
+    memcpy(aif->perm.resource, "/restricted", aif->perm.resource_len);
+    aif->perm.methods = 5;
+    LL_PREPEND(ticket->aif, aif);
+  }
 
   /* generate ticket grant depending on media type */
   body = cn_cbor_map_create(NULL);
