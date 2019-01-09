@@ -9,11 +9,10 @@
 
 #include <ctype.h>
 
-#include <cn-cbor/cn-cbor.h>
-
 #include "dcaf/dcaf_int.h"
 #include "dcaf/utlist.h"
 #include "dcaf/aif.h"
+#include "dcaf/dcaf_cbor.h"
 
 static dcaf_aif_t *
 dcaf_new_aif(void) {
@@ -190,30 +189,30 @@ dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
   cn_cbor *result;
   const dcaf_aif_t *tmp;
 
-  if (!aif || !(result = cn_cbor_array_create(NULL))) {
+  if (!aif || !(result = dcaf_cbor_array_create(NULL))) {
     return NULL;
   }
 
   LL_FOREACH(aif, tmp) {
     cn_cbor *resource, *methods;
-    resource = cn_cbor_string_create((const char *)tmp->perm.resource,
+    resource = dcaf_cbor_string_create((const char *)tmp->perm.resource,
                                    NULL);
-    methods =  cn_cbor_int_create(tmp->perm.methods, NULL);
+    methods =  dcaf_cbor_int_create(tmp->perm.methods, NULL);
 
     if (!resource || !methods) {
       dcaf_log(DCAF_LOG_DEBUG, "out of memory when creating AIF\n");
-      cn_cbor_free(resource);
-      cn_cbor_free(methods);
+      dcaf_cbor_free(resource);
+      dcaf_cbor_free(methods);
       break;
     }
 
-    cn_cbor_array_append(result, resource, NULL);
-    cn_cbor_array_append(result, methods, NULL);
+    dcaf_cbor_array_append(result, resource, NULL);
+    dcaf_cbor_array_append(result, methods, NULL);
   }
 
   if (result->length == 0) {
     /* we ran out of memory during AIF creation, so just give up */
-    cn_cbor_free(result);
+    dcaf_cbor_free(result);
     return NULL;
   } else {
     return result;
