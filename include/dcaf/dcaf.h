@@ -139,9 +139,6 @@ dcaf_context_t *dcaf_new_context(const dcaf_config_t *config);
 
 void dcaf_free_context(dcaf_context_t *context);
 
-struct coap_context_t;
-typedef struct coap_context_t coap_context_t;
-
 coap_context_t *dcaf_get_coap_context(dcaf_context_t *context);
 dcaf_context_t *dcaf_get_dcaf_context(coap_context_t *context);
 
