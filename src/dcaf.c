@@ -633,7 +633,7 @@ dcaf_find_ticket(const uint8_t *kid, size_t kid_length) {
 dcaf_ticket_t *
 dcaf_new_ticket(const dcaf_key_type key_type,
 		const unsigned long seq, const dcaf_time_t ts,
-		const uint remaining_time) {
+		const uint32_t remaining_time) {
 
   dcaf_ticket_t *ticket = (dcaf_ticket_t *)dcaf_alloc_type(DCAF_TICKET);
   if (ticket) {
@@ -649,7 +649,7 @@ dcaf_new_ticket(const dcaf_key_type key_type,
 
 dcaf_dep_ticket_t *
 dcaf_new_dep_ticket(const unsigned long seq, const dcaf_time_t ts,
-		    const uint remaining_time) {
+		    const uint32_t remaining_time) {
   dcaf_dep_ticket_t *ticket = (dcaf_dep_ticket_t*)dcaf_alloc_type(DCAF_DEP_TICKET);
   if (ticket) {
     memset(ticket, 0, sizeof(dcaf_dep_ticket_t));

@@ -86,7 +86,7 @@ struct dcaf_ticket_t {
   struct dcaf_ticket_t *next;
   unsigned long seq;
   dcaf_time_t ts;               /**< time stamp */
-  uint remaining_time;          /**< remaining ticket lifetime */
+  uint32_t remaining_time;      /**< remaining ticket lifetime */
   dcaf_aif_t *aif;              /**< authorization information */
   dcaf_key_t *key;              /**< key structure */
 };
@@ -97,7 +97,7 @@ struct dcaf_dep_ticket_t {
   unsigned long seq;           /**< The sequence number of the ticket. */
   dcaf_time_t ts;              /**< The timestamp to which the
 				  remaining time refers */
-  uint remaining_time;         /**< The time in seconds until the
+  uint32_t remaining_time;      /**< The time in seconds until the
 				  ticket becomes invalid */
 };
 
@@ -122,7 +122,7 @@ struct dcaf_nonce_t {
   }validity_type;
   union {
     dcaf_time_t dat; /* System time when SAM info message was sent. */
-    uint timer; /* Time in seconds. Must be incremented over time
+    uint32_t timer; /* Time in seconds. Must be incremented over time
 		   until a certain value is reached where the
 		   nonce+timer are removed. */
   }validity_value;

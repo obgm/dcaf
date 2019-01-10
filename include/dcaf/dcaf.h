@@ -261,11 +261,11 @@ dcaf_nonce_t *dcaf_new_nonce(size_t len);
 
 dcaf_dep_ticket_t *dcaf_new_dep_ticket(const unsigned long seq,
 				       const dcaf_time_t ts,
-				       const uint remaining_time);
+				       const uint32_t remaining_time);
 
 dcaf_ticket_t *dcaf_new_ticket(const dcaf_key_type key_type,
                                const unsigned long seq, const dcaf_time_t ts,
-			       const uint remaining_time);
+			       const uint32_t remaining_time);
 
 
 void dcaf_add_ticket(dcaf_ticket_t *ticket);
