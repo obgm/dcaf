@@ -63,3 +63,36 @@ dcaf_set_coap_address(const unsigned char *host, size_t host_len,
 }
 
 
+uint16_t
+dcaf_get_coap_port(const coap_address_t *address) {
+  uint16_t network_port = 0;
+  if (address) {
+    switch (address->addr.sa.sa_family) {
+    case AF_INET:
+      network_port = address->addr.sin.sin_port;
+      break;
+    case AF_INET6:
+      network_port = address->addr.sin6.sin6_port;
+      break;
+    default:
+    ;
+    }
+  }
+return ntohs(network_port);
+}
+
+void
+dcaf_set_coap_port(coap_address_t *address, uint16_t port) {
+  if (address) {
+    switch (address->addr.sa.sa_family) {
+    case AF_INET:
+      address->addr.sin.sin_port = htons(port);
+      break;
+    case AF_INET6:
+      address->addr.sin6.sin6_port = ntohs(port);
+      break;
+    default:
+      ;
+    }
+  }
+}

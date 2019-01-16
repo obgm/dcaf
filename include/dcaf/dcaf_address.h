@@ -30,4 +30,22 @@ dcaf_result_t dcaf_set_coap_address(const unsigned char *host,
                                     uint16_t port,
                                     coap_address_t *result);
 
+/**
+ * Returns the transport layer port of @address in
+ * host byte order. This function returns 0 in case of
+ * an error.
+ *
+ * @param address The CoAP address.
+ * @return The address's port in host byte order.
+ */
+uint16_t dcaf_get_coap_port(const coap_address_t *address);
+
+/**
+ * Set the transport layer port of @address to @port.
+ *
+ * @param address The CoAP address to modify.
+ * @param port    The new port number in host byte order.
+ */
+void dcaf_set_coap_port(coap_address_t *address, uint16_t port);
+
 #endif /* _DCAF_ADDRESS_H_ */
