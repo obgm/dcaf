@@ -46,11 +46,12 @@ usage( const char *program, const char *version) {
     program = ++p;
 
   fprintf( stderr, "%s v%s -- DCAF Authorization Server\n"
-           "(c) 2015-2018 Olaf Bergmann <bergmann@tzi.org>\n"
-           "(c) 2015-2018 Stefanie Gerdes <gerdes@tzi.org>\n\n"
-           "usage: %s [-A address] [-p port]\n\n"
+           "(c) 2015-2019 Olaf Bergmann <bergmann@tzi.org>\n"
+           "(c) 2015-2019 Stefanie Gerdes <gerdes@tzi.org>\n\n"
+           "usage: %s [-A address] [-a uri] [-C file] [-p port] [-v num]\n\n"
            "\t-A address\tinterface address to bind to\n"
            "\t-a URI\t\tauthorization manager (AM) URI (the \"token endpoint\")\n"
+           "\t-C file\t\tload configuration file\n"
            "\t-p port\t\tlisten on specified port\n"
            "\t-v num\t\tverbosity level (default: 3)\n",
     program, version, program );
@@ -160,9 +161,12 @@ rnd(uint8_t *out, size_t len) {
   using rand_t = uint32_t;
   static std::uniform_int_distribution<rand_t> rand;
 
-  for (; len; len -= sizeof(rand_t), out += sizeof(rand_t)) {
+  while (len) {
     rand_t v = rand(generate);
-    memcpy(out, &v, std::min(len, sizeof(rand_t)));
+    size_t count = std::min(len, sizeof(rand_t));
+    memcpy(out, &v, count);
+    len -= count;
+    out += count;
   }
 }
 
