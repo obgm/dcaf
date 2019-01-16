@@ -239,9 +239,10 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   }
 
   aud = cn_cbor_mapget_int(body, DCAF_TICKET_AUD);
-  if (!aud || (aud->type != CN_CBOR_TEXT)) {
-      dcaf_log(DCAF_LOG_WARNING, "invalid aud\n");
-      goto finish;
+  if (!aud ||
+      ((aud->type != CN_CBOR_TEXT) && (aud->type != CN_CBOR_BYTES))) {
+    dcaf_log(DCAF_LOG_WARNING, "invalid aud\n");
+    goto finish;
   } else {
     /* TODO: check if we know the server denoted by aud */
     dcaf_log(DCAF_LOG_INFO, "aud: \"%.*s\"\n", aud->length, aud->v.str);
