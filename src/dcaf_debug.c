@@ -1,7 +1,7 @@
 /*
  * dcaf_debug.c -- helper functions for debugging
  *
- * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2019 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -9,8 +9,12 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "dcaf/dcaf_debug.h"
+
+/* The external program used to output CBOR data in debug mode. */
+#define CBOR2PRETTY "cbor2pretty.rb"
 
 static dcaf_log_t maxlog = DCAF_LOG_WARNING; /* default maximum log level */
 
@@ -90,4 +94,20 @@ dcaf_debug_hexdump(const void *data, size_t len) {
 void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz) {
   (void)level;
   (void)authz;
+}
+
+void
+dcaf_show_cbor(const uint8_t *data, size_t len) {
+  /* call external program if not running as super user */
+  if (geteuid() != 0) {
+    /* open cbor2pretty.rb as pipe and suppress error output. */
+    FILE *pipe = popen(CBOR2PRETTY " 2>/dev/null", "w");
+    if (pipe) {
+      size_t written = fwrite((void *)data, 1, len, pipe);
+      if (written < len) {
+        fprintf(stdout, "error when writing to '" CBOR2PRETTY "'\n");
+      }
+      pclose(pipe);
+    }
+  }
 }

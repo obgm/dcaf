@@ -1,7 +1,7 @@
 /*
  * dcaf_debug.h -- helper functions for debugging
  *
- * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2019 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -47,6 +47,13 @@ void dcaf_debug_hexdump(const void *data, size_t len);
 struct dcaf_authz_t;
 
 void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz);
+
+/**
+ * Pretty-prints CBOR data by passing @len bytes of @data to
+ * cbor2pretty.rb (requires the cbor2pretty.rb from cbor-diag
+ * @sa https://github.com/cabo/cbor-diag)
+ */
+void dcaf_show_cbor(const uint8_t *data, size_t len);
 
 #endif /* _DCAF_DEBUG_H_ */
 
