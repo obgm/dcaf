@@ -45,6 +45,12 @@ struct dcaf_context_t {
   coap_uri_t *am_uri;
   void *app;
   int flags;
+
+  /** Wait time until a transaction is considered failed. This value
+   * is specified in milliseconds. A value of 0 means no timeout. The
+   * default value is 90000. */
+  unsigned int timeout_ms;
+
   dcaf_transaction_t *transactions;
   dcaf_keystore_t *keystore;
 };
@@ -65,6 +71,15 @@ struct dcaf_context_t {
 /** If set to 1, the ticket face will be encrypted */
 #define DCAF_AM_ENCRYPT_TICKET_FACE (1U)
 #endif /* DCAF_AM_ENCRYPT_TICKET_FACE */
+
+/**
+ * When DCAF_TEST_MODE_ACCEPT is set to a value != 0, SAM will accept
+ * all ticket requests. This mode is for testing only and therefore
+ * will usually be disabled.
+ */
+#ifndef DCAF_TEST_MODE_ACCEPT
+#define DCAF_TEST_MODE_ACCEPT (0U)
+#endif /* DCAF_TEST_MODE_ACCEPT */
 
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002
@@ -89,6 +104,11 @@ struct dcaf_ticket_t {
   uint32_t remaining_time;      /**< remaining ticket lifetime */
   dcaf_aif_t *aif;              /**< authorization information */
   dcaf_key_t *key;              /**< key structure */
+
+  /**
+   * If set, this field identifies the CoAP session this ticket is
+   * associated with. */
+  void *session;
 };
 
 /* deprecated tickets */
