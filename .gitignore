@@ -27,7 +27,6 @@ core
 .deps/
 .dirstamp
 
-doc/Doxyfile
 doc/Makefile.in
 doc/doxyfile.stamp
 doc/doxygen_sqlite3.db
