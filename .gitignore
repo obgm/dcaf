@@ -15,10 +15,14 @@ compile
 install-sh
 
 libdcaf.a
+
+include/dcaf/libdcaf.h
+
 *.o
 src/.dirstamp
 src/.libs/
 *~
+*.patch
 core
 .deps/
 .dirstamp
@@ -33,4 +37,8 @@ libtool
 ltmain.sh
 TAGS
 
+tests/testdriver
 am/dcaf-am
+**/am.config*
+examples/dcaf-client
+examples/s
