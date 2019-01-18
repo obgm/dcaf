@@ -74,6 +74,33 @@ int dcaf_check_transaction(dcaf_context_t *dcaf_context,
 dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
                                               dcaf_transaction_t *transaction);
 
+/** @defgroup transaction_flags Flags for transaction control
+ *
+ *  @{
+ */
+
+/**
+ * Return immediately after initiating a transaction.
+
+ * This flag tells transaction-initiating functions such as
+ * dcaf_send_request() and dcaf_send_request_uri() to return
+ * immediately without waiting for a response.  This flag must not be
+ * combined with DCAF_TRANSACTION_BLOCK.
+ */
+#define DCAF_TRANSACTION_NONBLOCK  0x00
+
+/**
+ * Wait until transaction has finished.
+ *
+ * Signals transaction-initiating functions such as
+ * dcaf_send_request() and dcaf_send_request_uri() to return only
+ * after the transaction has finished. This flag must not be
+ * combined with DCAF_TRANSACTION_NONBLOCK.
+ */
+#define DCAF_TRANSACTION_BLOCK     0x01
+
+/**@}*/
+
 /**
  * Sends a request with method @p code to the endpoint denoted by @p
  * uri. The options specified in @p options and the payload given as
