@@ -69,6 +69,42 @@ get_token_from_pdu(const coap_pdu_t *pdu, void *buf, size_t max_buf) {
   return 0;
 }
 
+/* Returns a deep copy of the given pdu */
+static coap_pdu_t *
+copy_pdu(coap_pdu_t *dst, const coap_pdu_t *src) {
+  if (dst && src) {
+    uint8_t *data;
+    size_t data_len;
+    coap_opt_t *opt;
+    coap_opt_iterator_t opt_iter;
+    uint16_t type = 0;
+
+    /* copy header data and token, if any */
+    dst->type = src->type;
+    dst->code = src->code;
+    dst->tid = src->tid;
+    if (src->token_length) {
+      coap_add_token(dst, src->token_length, src->token);
+    }
+
+    /* copy options */
+    coap_option_iterator_init(src, &opt_iter, COAP_OPT_ALL);
+    while ((opt = coap_option_next(&opt_iter))) {
+      coap_option_t parsed_option;
+      if (coap_opt_parse(opt, coap_opt_size(opt), &parsed_option)) {
+        type += parsed_option.delta;
+        coap_add_option(dst, type, parsed_option.length, parsed_option.value);
+      }
+    }
+
+    /* copy data, if any */
+    if (coap_get_data(src, &data_len, &data)) {
+      coap_add_data(dst, data_len, data);
+    }
+  }
+  return dst;
+}
+
 dcaf_transaction_t *
 dcaf_create_transaction(dcaf_context_t *dcaf_context,
                         coap_session_t *session,
@@ -86,7 +122,7 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
 
   memset(transaction, 0, sizeof(dcaf_transaction_t));
   get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
-  transaction->pdu = pdu;
+  transaction->pdu = copy_pdu(coap_new_pdu(session), pdu);
 
   transaction->state.act = DCAF_STATE_IDLE;
 #if 0
@@ -247,7 +283,6 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   coap_session_t *session;
   uint8_t token[DCAF_DEFAULT_TOKEN_SIZE];
   dcaf_transaction_t *t = NULL;
-  (void)flags;
 
   assert(dcaf_context);
   assert(uri);
@@ -325,7 +360,48 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     goto error;
   }
 
+  /* Store remote address in transaction object. We need to adjust the
+   * port to switch to DTLS later. */
+  coap_address_copy(&t->remote, &session->remote_addr);
+  if (!coap_uri_scheme_is_secure(uri)) {
+    uint16_t port = dcaf_get_coap_port(&t->remote);
+    dcaf_set_coap_port(&t->remote, port ? port + 1 : COAPS_DEFAULT_PORT);
+  }
+
   coap_send(session, pdu);
+
+  /* Wait until transaction has finished if DCAF_TRANSACTION_BLOCK
+   * flag is set. */
+  if (flags & DCAF_TRANSACTION_BLOCK) {
+    bool done = false;
+    unsigned int wait_ms = 0; /* TODO: set to global timeout option */
+    unsigned int time_spent = 0;
+    while (!(done && coap_can_exit(ctx))) {
+      unsigned int timeout = wait_ms == 0 ? 1000 : min(wait_ms, 1000);
+
+      /* coap_run_once() returns the time in milliseconds it has
+       * spent. We use this value to determine if we have run out of
+       * time. */
+      result = coap_run_once(ctx, timeout);
+      dcaf_log(DCAF_LOG_DEBUG, "coap_run_once returns %d\n", result);
+
+      if (result < 0) { /* error */
+        dcaf_log(DCAF_LOG_ERR, "CoAP error\n");
+        /* TODO: remove transaction */
+        break;
+      } else { /* check for potential timeout */
+        if (time_spent + result >= timeout) {
+          dcaf_log(DCAF_LOG_INFO, "timeout\n");
+          /* TODO: cancel transaction? */
+          break;
+        }
+        time_spent += result;
+        /* TODO: check done only if transaction has ended. */
+        done = true;
+        dcaf_log(DCAF_LOG_INFO, "DCAF transaction finished\n");
+      }
+    }
+  }
 
   return t;
  error:
