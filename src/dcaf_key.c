@@ -146,7 +146,7 @@ dcaf_find_key(dcaf_context_t *dcaf_context,
       /* Check kid only if peers match. Note that ks->peer is not
        * empty if peer_length == ks->peer_length is true. */
       if (coap_address_equals(&ks->peer, peer)) {
-        if (kid_matches(ks->key, kid, kid_length)) {
+        if (!kid || kid_matches(ks->key, kid, kid_length)) {
           return ks->key;
         }
       }
