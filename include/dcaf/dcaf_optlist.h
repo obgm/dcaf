@@ -13,6 +13,23 @@
 
 #define DCAF_MAX_OPT_SIZE 64
 
+/** DCAF options */
+
+typedef enum dcaf_option {
+  DCAF_OPTION_TIMEOUT = 0x01,
+} dcaf_option;
+
+typedef struct dcaf_option_t {
+  union {
+    unsigned int uint;
+  } v;
+} dcaf_option_t;
+
+struct dcaf_context_t;
+bool dcaf_set_option(struct dcaf_context_t *context,
+                     dcaf_option optnum,
+                     const dcaf_option_t *option);
+
 /** Sorted list of CoAP options. */
 typedef coap_optlist_t *dcaf_optlist_t;
 

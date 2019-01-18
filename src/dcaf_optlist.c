@@ -11,10 +11,30 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "dcaf/dcaf.h"
+#include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_coap.h"
 #include "dcaf/dcaf_optlist.h"
 #include "dcaf/dcaf_mem.h"
 #include "dcaf/utlist.h"
+
+bool
+dcaf_set_option(struct dcaf_context_t *context,
+                dcaf_option optnum,
+                const dcaf_option_t *option) {
+  if (context) {
+    switch (optnum) {
+    default: return false;
+    case DCAF_OPTION_TIMEOUT:
+      if (option) {
+        context->timeout_ms = option->v.uint;
+        return true;
+      }
+      break;
+    }
+  }
+  return false;
+}
 
 #if 0
 dcaf_option_t *
