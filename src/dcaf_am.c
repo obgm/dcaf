@@ -72,6 +72,7 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
   cn_cbor *map = cn_cbor_map_create(NULL);
   cn_cbor *aif, *cose_key;
   cn_cbor *aud = NULL;
+  cn_cbor *snc = NULL;
   assert(ticket != NULL);
 
   aif = dcaf_aif_to_cbor(ticket->aif);
@@ -83,11 +84,16 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
     return NULL;
   }
 
-  /* TODO: TS */
-  if (ticket_request && (ticket_request->aud)) {
+  if (ticket_request) {
     /* poor man's clone function */
     if (*ticket_request->aud) {
       aud = cn_cbor_string_create(ticket_request->aud, NULL);
+    }
+
+    if (ticket_request->snc_length > 0) {
+      snc = cn_cbor_data_create(ticket_request->snc,
+                                ticket_request->snc_length,
+                                NULL);
     }
   }
 
@@ -102,6 +108,16 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
                      cn_cbor_int_create(ticket->remaining_time, NULL),
                      NULL);
   cn_cbor_mapput_int(map, DCAF_TICKET_CNF, cose_key, NULL);
+
+  /* Use ticket time stamp as iat field.
+   * TODO: representation as ISO-8601? */
+  cn_cbor_mapput_int(map, DCAF_TICKET_IAT,
+                     cn_cbor_int_create(ticket->ts, NULL),
+                     NULL);
+  /* Add server nonce if provided in ticket request. */
+  if (snc) {
+    cn_cbor_mapput_int(map, DCAF_TICKET_SNC, snc, NULL);
+  }
 
   if (DCAF_AM_ENCRYPT_TICKET_FACE && aud) { /* encrypt ticket face*/
     cose_obj_t *cose;
@@ -214,6 +230,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   dcaf_aif_t *aif = NULL;
   cn_cbor *body = NULL;
   cn_cbor *aud = NULL;          /* holds the audience field */
+  cn_cbor *snc = NULL;          /* holds the server nonce */
   cn_cbor *obj;                 /* holds temporary cbor objects */
 
   assert(result);
@@ -278,20 +295,13 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   }
 #endif
 
-  obj = cn_cbor_mapget_int(body, DCAF_TICKET_SNC);
-  if (obj && ((obj->type == CN_CBOR_BYTES) || (obj->type == CN_CBOR_TEXT))) {
-    char printbuf[17];
-    const uint8_t *p = obj->v.bytes;
-    int n;
-
-    for (n = 0; n < obj->length; n++, p++) {
-      /* we can use sprintf() here because we check the bounds manually */
-      sprintf(printbuf + 2 * n, "%02x", *p);
-    }
-    printbuf[sizeof(printbuf) - 1] = '\0';
-
-    dcaf_log(DCAF_LOG_INFO, "snc: %s\n", printbuf);
-    /* TODO: store snc */
+  snc = cn_cbor_mapget_int(body, DCAF_TICKET_SNC);
+  if (snc && ((snc->type == CN_CBOR_BYTES) || (snc->type == CN_CBOR_TEXT))) {
+    dcaf_log(DCAF_LOG_WARNING, "invalid snc\n");
+    goto finish;
+  } else if (dcaf_get_log_level() >= DCAF_LOG_INFO) {
+    dcaf_log(DCAF_LOG_INFO, "snc:\n");
+    dcaf_debug_hexdump(aud->v.str, aud->length);
   }
   
   if (result_code == DCAF_OK) {
@@ -306,6 +316,16 @@ dcaf_parse_ticket_request(const coap_session_t *session,
           memcpy(treq->aud, aud->v.str, aud->length);
         } else {
           dcaf_log(DCAF_LOG_WARNING, "aud in ticket request too long\n");
+        }
+      }
+
+      if (snc) {
+        if (snc->length <= DCAF_MAX_NONCE_SIZE) {
+          memset(treq->snc, 0, DCAF_MAX_NONCE_SIZE);
+          memcpy(treq->snc, snc->v.str, snc->length);
+          treq->snc_length = snc->length;
+        } else {
+          dcaf_log(DCAF_LOG_WARNING, "snc in ticket request too long\n");
         }
       }
     } else {
