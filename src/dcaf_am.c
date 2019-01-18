@@ -380,14 +380,18 @@ dcaf_set_ticket_grant(const coap_session_t *session,
 
   ticket->seq = next_ticket_seq();
 
-  /* FIXME: set actual permissions */
-  dcaf_aif_t *aif = dcaf_alloc_type(DCAF_AIF);
-  if (aif) {
-    memset(aif, 0, sizeof(dcaf_aif_t));
-    aif->perm.resource_len = 11;
-    memcpy(aif->perm.resource, "/restricted", aif->perm.resource_len);
-    aif->perm.methods = 5;
-    LL_PREPEND(ticket->aif, aif);
+  /* DCAF_TEST_MODE_ACCEPT accepts all ticket requests automatically. */
+  if (DCAF_TEST_MODE_ACCEPT) {
+    /* We can move the aif elements from the request to the ticket. */
+    assert(ticket->aif == NULL);
+    ticket->aif = ticket_request->aif;
+
+    /* Cast needed to get rid of the const qualifier. */
+    ((dcaf_ticket_request_t *)ticket_request)->aif = NULL;
+  } else {
+    /* FIXME: set actual permissions. */
+    dcaf_log(DCAF_LOG_WARNING,
+             "set_ticket_grant: AIF not set (not implemented)\n");
   }
 
   /* generate ticket grant depending on media type */
