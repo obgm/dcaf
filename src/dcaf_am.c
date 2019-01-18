@@ -152,6 +152,7 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
 static cn_cbor *
 make_client_info(const dcaf_ticket_t *ticket) {
   cn_cbor *map = cn_cbor_map_create(NULL);
+  cn_cbor *cose_key;
 
   assert(ticket != NULL);
 
@@ -163,6 +164,10 @@ make_client_info(const dcaf_ticket_t *ticket) {
   cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
                      cn_cbor_int_create(ticket->seq, NULL),
                      NULL);
+  cose_key = make_cose_key(ticket->key);
+  if (cose_key) {
+    cn_cbor_mapput_int(map, DCAF_TICKET_CNF, cose_key, NULL);
+  }
   return map;
 }
 
