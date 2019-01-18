@@ -127,9 +127,9 @@ hnd_am_info_get(coap_context_t *ctx,
         coap_binary_t *token,
         coap_string_t *query,
         coap_pdu_t *response) {
-  unsigned char buf[3];
   (void)ctx;
   (void)resource;
+  (void)request;
   (void)token;
   (void)query;
 
