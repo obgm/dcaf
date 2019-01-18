@@ -101,6 +101,16 @@ if test "x$have_libcoap" != "xno"; then
    esac
 fi
 
+# __documentation__
+AC_ARG_ENABLE([documentation],
+              [AS_HELP_STRING([--enable-documentation],
+                              [Enable doxygen-generated documentation [default=yes]])],
+              [build_docs="yes"],
+              [build_docs="$enableval"])
+
+AC_CHECK_PROG([DOXYGEN], [doxygen])
+AM_CONDITIONAL(BUILD_DOCUMENTATION, [test "x$build_docs" != "xno"])
+
 # __tests__
 AC_ARG_ENABLE([tests],
               [AS_HELP_STRING([--enable-tests],
@@ -183,6 +193,7 @@ esac
 AC_SUBST(PLATFORM)
 
 AC_CONFIG_FILES([Makefile
+                 doc/Makefile
                  tests/Makefile
                  am/Makefile
                  examples/Makefile
