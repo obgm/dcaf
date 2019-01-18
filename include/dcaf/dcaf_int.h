@@ -101,15 +101,19 @@ struct dcaf_dep_ticket_t {
 				  ticket becomes invalid */
 };
 
+/** The maximum number of bytes in the audience field. */
 #define DCAF_MAX_AUDIENCE_SIZE DCAF_MAX_STRING
+
+/** The maximum number of bytes in a nonce. */
+#define DCAF_MAX_NONCE_SIZE 8
 
 /* Information received by a ticket request */
 struct dcaf_ticket_request_t {
   char aud[DCAF_MAX_AUDIENCE_SIZE + 1]; /**< addressed audience */
+  uint8_t snc[DCAF_MAX_NONCE_SIZE];     /**< server nonce */
+  size_t snc_length;
   dcaf_aif_t *aif;                  /**< requested permissions */
 };
-
-#define DCAF_MAX_NONCE_SIZE 8
 
 struct dcaf_nonce_t {
   uint8_t nonce[DCAF_MAX_NONCE_SIZE];
