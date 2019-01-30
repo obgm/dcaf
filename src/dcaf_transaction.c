@@ -69,42 +69,6 @@ get_token_from_pdu(const coap_pdu_t *pdu, void *buf, size_t max_buf) {
   return 0;
 }
 
-/* Returns a deep copy of the given pdu */
-static coap_pdu_t *
-copy_pdu(coap_pdu_t *dst, const coap_pdu_t *src) {
-  if (dst && src) {
-    uint8_t *data;
-    size_t data_len;
-    coap_opt_t *opt;
-    coap_opt_iterator_t opt_iter;
-    uint16_t type = 0;
-
-    /* copy header data and token, if any */
-    dst->type = src->type;
-    dst->code = src->code;
-    dst->tid = src->tid;
-    if (src->token_length) {
-      coap_add_token(dst, src->token_length, src->token);
-    }
-
-    /* copy options */
-    coap_option_iterator_init(src, &opt_iter, COAP_OPT_ALL);
-    while ((opt = coap_option_next(&opt_iter))) {
-      coap_option_t parsed_option;
-      if (coap_opt_parse(opt, coap_opt_size(opt), &parsed_option)) {
-        type += parsed_option.delta;
-        coap_add_option(dst, type, parsed_option.length, parsed_option.value);
-      }
-    }
-
-    /* copy data, if any */
-    if (coap_get_data(src, &data_len, &data)) {
-      coap_add_data(dst, data_len, data);
-    }
-  }
-  return dst;
-}
-
 dcaf_transaction_t *
 dcaf_create_transaction(dcaf_context_t *dcaf_context,
                         coap_session_t *session,
@@ -122,7 +86,7 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
 
   memset(transaction, 0, sizeof(dcaf_transaction_t));
   get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
-  transaction->pdu = copy_pdu(coap_new_pdu(session), pdu);
+  transaction->pdu = coap_pdu_copy(coap_new_pdu(session), pdu);
 
   transaction->state.act = DCAF_STATE_IDLE;
 #if 0

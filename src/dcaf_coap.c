@@ -77,3 +77,41 @@ coap_get_resource_uri(const coap_pdu_t *pdu,
   coap_delete_string(uri);
   return result;
 }
+
+/* Returns a deep copy of the given pdu */
+coap_pdu_t *
+coap_pdu_copy(coap_pdu_t *dst, const coap_pdu_t *src) {
+  uint8_t *data;
+  size_t data_len;
+  coap_opt_t *opt;
+  coap_opt_iterator_t opt_iter;
+  uint16_t type = 0;
+
+  if (!dst || !src) {
+    return NULL;
+  }
+
+  /* copy header data and token, if any */
+  dst->type = src->type;
+  dst->code = src->code;
+  dst->tid = src->tid;
+  if (src->token_length) {
+    coap_add_token(dst, src->token_length, src->token);
+  }
+
+  /* copy options */
+  coap_option_iterator_init(src, &opt_iter, COAP_OPT_ALL);
+  while ((opt = coap_option_next(&opt_iter))) {
+    coap_option_t parsed_option;
+    if (coap_opt_parse(opt, coap_opt_size(opt), &parsed_option)) {
+      type += parsed_option.delta;
+      coap_add_option(dst, type, parsed_option.length, parsed_option.value);
+    }
+  }
+
+  /* copy data, if any */
+  if (coap_get_data(src, &data_len, &data)) {
+    coap_add_data(dst, data_len, data);
+  }
+  return dst;
+}
