@@ -5,6 +5,8 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ * Extended by Sara Stadler 2018/2019.
  */
 
 #ifndef _DCAF_MEM_H_
@@ -16,10 +18,22 @@ typedef enum dcaf_object_type {
   DCAF_KEY,
   DCAF_AIF,  
   DCAF_STRING,
+  DCAF_VAR_STRING,
+  DCAF_STRING_STR,
   DCAF_DEP_TICKET,
   DCAF_TRANSACTION,
   DCAF_NONCE,
   DCAF_TICKET_REQUEST,
+  DCAF_ATTRIBUTE_REQUEST,
+  DCAF_RULE_LIST,
+  DCAF_AIF_PERMISSIONS,
+  DCAF_ATTRIBUTE_CONDITIONS,
+  DCAF_ATTRIBUTE_RULE_LIST,
+  DCAF_ATTRIBUTE_PERMISSION_LIST,
+  DCAF_ATTRIBUTE_LIST,
+  DCAF_CREDENTIAL_LIST,
+  DCAF_CREDENTIAL_STORE,
+  DCAF_ISSUER,
 } dcaf_object_type;
 
 /**

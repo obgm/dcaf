@@ -1,0 +1,12 @@
+{
+"issuer_path": "../config/issuers",
+"rule_path": "",
+"certificate_path": "",
+"private_key_path": "",
+"attribute_rule_path": "../config/attribute_ruleset.json",
+"trusted_certificates_path": "../config/trusted_certificates/cacert.pem",
+"credential_path": "../tests/credentials/",
+"abc_binary_path": "../go/irmatool",
+"abc_fifo_path": "../go/pipe"
+}
+

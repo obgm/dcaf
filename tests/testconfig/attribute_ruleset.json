@@ -1,0 +1,10 @@
+[{"id": 1,
+  "attribute_permissions": [{
+	"credential_id": 1845015144759184385,
+	"attributes": 7	
+	},
+  	{"credential_id": 1,
+         "attributes": 3	
+	}],
+  "certificate_condition": "7344849bce72811c2430bb77de3f42a342c5a19c"
+}]

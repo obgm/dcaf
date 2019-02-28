@@ -1,0 +1,12 @@
+{
+"issuer_path": "../config/issuers",
+"rule_path": "../config/ruleset.json",
+"certificate_path": "../tests/testkeys/garagexy-cert.pem",
+"private_key_path": "../tests/testkeys/garagexy-key.pem",
+"attribute_rule_path": "../config/attribute_ruleset.json",
+"trusted_certificates_path": "../config/trusted_certificates/cacert.pem",
+"credential_path": "../tests/credentials/",
+"abc_binary_path": "../go/irmatool",
+"abc_fifo_path": "../go/pipe"
+}
+

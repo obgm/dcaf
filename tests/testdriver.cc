@@ -10,7 +10,7 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 #include "test.hh"
-
+#include <random>
 #include "dcaf/dcaf.h"
 
 dcaf_context_t *
@@ -29,14 +29,18 @@ dcaf_context(void) {
   return theContext.get();
 }
 
-/* Generate deterministic "random" values. This function sets out to
- * the sequence 0, 1, 2, ... len-1.
- */
+/* Generate none deterministic "random" values.*/
 static void
-rand_func(uint8_t *out, size_t len) {
-  uint8_t n = 0;
-  while(len--) {
-    *out++ = n++;
+rnd(uint8_t *out, size_t len) {
+  static std::random_device rd;
+  static std::seed_seq seed{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
+  static std::mt19937 generate(seed);
+  using rand_t = uint16_t;
+  static std::uniform_int_distribution<rand_t> rand;
+
+  for (; len; len -= sizeof(rand_t), out += sizeof(rand_t)) {
+    rand_t v = rand(generate);
+    memcpy(out, &v, std::min(len, sizeof(rand_t)));
   }
 }
 
@@ -45,13 +49,12 @@ void test_log_off(void) {
 }
 
 void test_log_on(void) {
-  dcaf_set_log_level(DCAF_LOG_DEBUG);
+  dcaf_set_log_level(DCAF_LOG_INFO);
 }
 
 int main(int argc, char* argv[]) {
   test_log_on();
-  dcaf_set_prng(rand_func);
-
+  dcaf_set_prng(rnd);
   int result = Catch::Session().run( argc, argv );
 
   return result;

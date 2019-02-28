@@ -5,6 +5,8 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ * Extended by Sara Stadler 2018/2019
  */
 
 #ifdef COAP_DTLS_TINYDTLS
@@ -116,6 +118,17 @@ dcaf_hmac(const dcaf_crypto_param_t *params,
   }
   *max_result_len = num_bytes;
   return true;
+}
+
+/**
+ * Get the fingerprint from ASN1 certificate as hex string.
+ */
+char*
+get_fingerprint_from_cert(const uint8_t *asn1_public_cert,
+		size_t asn1_length) {
+	(void)asn1_public_cert;
+	(void) asn1_length;
+	/* FIXME */
 }
 #else /* !COAP_DTLS_TINYDTLS */
 /* make compilers happy that do not like empty modules */

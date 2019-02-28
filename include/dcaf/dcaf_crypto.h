@@ -5,6 +5,8 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ *Extended by Sara Stadler 2018/2019
  */
 
 #ifndef _DCAF_CRYPTO_H_
@@ -46,6 +48,15 @@ bool dcaf_decrypt(const dcaf_crypto_param_t *params,
 bool dcaf_hmac(const dcaf_crypto_param_t *params,
                const uint8_t *data, size_t data_len,
                uint8_t *result, size_t *max_result_len);
+
+/**
+ * Get the fingerprint from @p asn1_public_cert as hex string.
+ * @return The certificate fingerprint as hex string
+ * @param asn1_public_cert The certificate
+ * @param asn1_length The length of the certificate
+ */
+char* get_fingerprint_from_cert(const uint8_t *asn1_public_cert,
+		size_t asn1_length);
 
 #endif /* _DCAF_CRYPTO_H_ */
 

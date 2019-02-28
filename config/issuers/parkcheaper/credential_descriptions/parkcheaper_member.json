@@ -1,0 +1,31 @@
+{
+	"credential_id": 3778275304981589505,
+	"issuer":{
+		"issuer_id": 3778275304981589504,
+		"shortname": "parkcheaper",
+		"name": "Cheap parking company xy",
+		"public_key": "../config/issuers/parkcheaper/ipk_parkcheaper_2048.json",
+		"public_key_length": 2048
+	},
+	"available_attributes":[
+		{
+		"id": 1,
+		"description": "valid until",
+		"values": "Time"
+		},
+		{
+		"id": 2,
+		"description": "safe parking",
+		"values":[
+			"disabled",
+			"family",
+			"none"
+			]
+		},
+		{			
+		"id": 3,
+		"description": "power supply",
+		"values": "Boolean"
+		}
+	]
+}

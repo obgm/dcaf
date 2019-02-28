@@ -12,7 +12,7 @@ if BUILD_TESTS
 # picking up the default warning CFLAGS into AM_CXXFLAGS
 AM_CXXFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include $(WARNING_CXXFLAGS) -std=c++14
 AM_CPPFLAGS = @libcoap_CFLAGS@
-AM_LDFLAGS = -L$(top_builddir)
+AM_LDFLAGS = -L$(top_builddir) -ljansson
 libs = -ldcaf  @libcoap_LIBS@ @cn_cbor_LIBS@
 
 noinst_PROGRAMS = testdriver
@@ -21,11 +21,11 @@ testdriver_DEPENDENCIES = $(top_builddir)/libdcaf.a
 
 testdriver_SOURCES = \
  testdriver.cc \
- test_aif.cc  \
- test_crypto.cc  \
- test_cose.cc \
- test_keys.cc \
- test_ticket.cc
+ test_abc.cc\
+ test_abc_message.cc\
+ test_access_rules.cc\
+ test_configuration.cc
+ 
 
 testdriver_LDADD = $(libs)
 

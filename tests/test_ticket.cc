@@ -65,9 +65,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     coap_pdu.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
     REQUIRE(coap_pdu.get() != nullptr);
     WHEN("The request is parsed") {
-      coap_session_t session;
       dcaf_ticket_request_t *result;
-      session.context = dcaf_get_coap_context(dcaf_context());
 
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
                              coap_data, sizeof(coap_data),
@@ -75,7 +73,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 
       THEN("dcaf_parse_ticket_request() returns DCAF_OK") {
         dcaf_result_t res;
-        res = dcaf_parse_ticket_request(&session, coap_pdu.get(), &result);
+        res = dcaf_parse_ticket_request(coap_pdu.get(), &result);
         REQUIRE(res == DCAF_OK);
         REQUIRE(result != nullptr);
         treq.reset(result);
@@ -200,7 +198,6 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     }
 
     WHEN("The payload is comprised of invalid CBOR") {
-      coap_session_t session;
       dcaf_ticket_request_t *result;
 
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
@@ -213,7 +210,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         /* Switch off debug logs temporarily to avoid cluttering the
          * logs with forced error messages. */
         test_log_off();
-        res = dcaf_parse_ticket_request(&session, coap_pdu.get(), &result);
+        res = dcaf_parse_ticket_request(coap_pdu.get(), &result);
         test_log_on();
 
         REQUIRE(res == DCAF_OK);

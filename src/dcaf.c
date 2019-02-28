@@ -6,6 +6,8 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ * Extended and modified by Sara Stadler 2018/2019
  */
 
 #include <assert.h>
@@ -439,6 +441,8 @@ handle_coap_response(struct coap_context_t *coap_context,
     /* fall through */
   case DCAF_STATE_UNAUTHORIZED:
     /* fall through */
+  case DCAF_STATE_UNKNOWN:
+   /* fall through */
   default:
     dcaf_log(DCAF_LOG_ALERT, "unknown transaction state\n");
     return;
@@ -562,6 +566,8 @@ dcaf_new_dep_ticket(const unsigned long seq, const dcaf_time_t ts,
 
 dcaf_nonce_t *
 dcaf_new_nonce(size_t len) {
+  if(len > DCAF_MAX_NONCE_SIZE || len % 2 == 1)
+	  return NULL;
   dcaf_nonce_t *nonce = (dcaf_nonce_t*)dcaf_alloc_type(DCAF_NONCE);
   if (nonce) {
     memset(nonce, 0, sizeof(dcaf_nonce_t));
@@ -1015,6 +1021,7 @@ dcaf_new_context(const dcaf_config_t *config) {
         (dcaf_set_coap_address((const unsigned char *)addr_str,
                                strlen(addr_str),
                                config->coap_port, &addr) == DCAF_OK)) {
+      //UDP
       if (set_endpoint(dcaf_context, &addr, COAP_PROTO_UDP)) {
         unsigned char buf[INET6_ADDRSTRLEN + 8];
 
@@ -1022,6 +1029,18 @@ dcaf_new_context(const dcaf_config_t *config) {
           dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
         }
       }
+      //TCP
+      if (set_endpoint(dcaf_context, &addr, COAP_PROTO_TCP)) {
+      #ifndef RIOT_VERSION
+              unsigned char buf[INET6_ADDRSTRLEN + 8];
+
+              if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
+                dcaf_log(DCAF_LOG_INFO, "listen on address %s (TCP)\n", buf);
+              }
+      #endif /* RIOT_VERSION */
+            }
+
+
     }
 
     /* Bind address for secure communication if coaps_port was
@@ -1030,6 +1049,7 @@ dcaf_new_context(const dcaf_config_t *config) {
         (dcaf_set_coap_address((const unsigned char *)addr_str,
                                strlen(addr_str),
                                config->coaps_port, &addr) == DCAF_OK)) {
+      //DTLS
       if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
         unsigned char buf[INET6_ADDRSTRLEN + 8];
 
@@ -1037,6 +1057,16 @@ dcaf_new_context(const dcaf_config_t *config) {
           dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
         }
       }
+      //TLS
+      if (set_endpoint(dcaf_context, &addr, COAP_PROTO_TLS)) {
+     #ifndef RIOT_VERSION
+             unsigned char buf[INET6_ADDRSTRLEN + 8];
+
+             if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
+               dcaf_log(DCAF_LOG_INFO, "listen on address %s (TLS)\n", buf);
+             }
+     #endif /* RIOT_VERSION */
+           }
     }
 
     /* set am_uri from config->am_uri */
@@ -1112,10 +1142,10 @@ dcaf_get_coap_context(dcaf_context_t *context) {
   return context->coap_context;
 }
 
-static int
+int
 is_secure(const coap_session_t *session) {
   return (session != NULL) &&
-    ((session->proto & COAP_PROTO_DTLS) != 0);
+    ((session->proto & COAP_PROTO_DTLS) != 0 || (session->proto & COAP_PROTO_TLS) != 0);
 }
 #if 0
 coap_endpoint_t *
@@ -1279,24 +1309,65 @@ dcaf_set_sam_information(const coap_session_t *session,
   return DCAF_OK;
 }
 
+
+dcaf_result_t
+dcaf_set_error_response_msg(const coap_session_t *session,
+                        dcaf_result_t error,
+                        coap_pdu_t *response,
+						unsigned char *message) {
+	 unsigned char buf[4];
+	  (void)session;
+	  if(message == NULL)
+			 message = (unsigned char *)"error";
+
+	  /* TODO: describe error, provide correct result */
+	  switch(error){
+	  case DCAF_ERROR_BAD_REQUEST:
+		  coap_set_response_code(response, COAP_CODE_BAD_REQUEST);
+		  break;
+	  case DCAF_ERROR_UNAUTHORIZED:
+		  coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);
+		  break;
+	  case DCAF_ERROR_INTERNAL_ERROR:
+		  coap_set_response_code(response, COAP_RESPONSE_CODE(500));
+		  break;
+	  case DCAF_ERROR_NOT_IMPLEMENTED:
+		  coap_set_response_code(response, COAP_RESPONSE_CODE(501));
+		  break;
+	  case DCAF_ERROR_BUFFER_TOO_SMALL:
+		  /*Fallthrough*/
+	  case DCAF_ERROR_INVALID_TICKET:
+		  /*Fallthrough*/
+	  case DCAF_ERROR_OUT_OF_MEMORY:
+		  /*Fallthrough*/
+	  case DCAF_ERROR_UNAUTHORIZED_THRESHOLD:
+		  /*Fallthrough*/
+	  case DCAF_ERROR_UNSUPPORTED_KEY_TYPE:
+		  /*Fallthrough*/
+	  case DCAF_OK:
+	  		  /*Fallthrough*/
+	  default:
+		  coap_set_response_code(response, COAP_RESPONSE_CODE(500));
+		  break;
+
+	  }
+	  coap_add_option(response,
+	                  COAP_OPTION_CONTENT_FORMAT,
+	                  coap_encode_var_safe(buf, sizeof(buf),
+	                                       COAP_MEDIATYPE_TEXT_PLAIN),
+	                  buf);
+	  coap_add_data(response, strlen((char *)message) + 1, message);
+	  return DCAF_OK;
+
+}
+
 dcaf_result_t
 dcaf_set_error_response(const coap_session_t *session,
                         dcaf_result_t error,
                         coap_pdu_t *response) {
-  unsigned char buf[4];
-  (void)session;
-  (void)error;
-
-  /* TODO: describe error, provide correct result */
-  coap_set_response_code(response, COAP_CODE_BAD_REQUEST);
-  coap_add_option(response,
-                  COAP_OPTION_CONTENT_FORMAT,
-                  coap_encode_var_safe(buf, sizeof(buf),
-                                       COAP_MEDIATYPE_TEXT_PLAIN),
-                  buf);
-  coap_add_data(response, 20, (unsigned char *)"error");
-  return DCAF_OK;
+  return dcaf_set_error_response_msg(session, error, response, NULL);
 }
+
 
 
 

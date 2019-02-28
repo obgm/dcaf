@@ -1,0 +1,66 @@
+[{"id": 1,
+	"permission":
+		{
+			"resource": "127.0.0.1/family",
+			 "methods": 1
+		},
+
+	"attribute_conditions": {
+		"credential_id": 1845015144759184385,
+		"attributes":[
+				{
+				"id": 1,
+				"value":14126736806326323
+				},
+				{
+				"id": 2,
+				"value":112568633486457
+				}
+			]
+		
+		}
+	},
+{"id": 2,
+	"permission":
+		{
+			"resource": "127.0.0.1/factory-family-power",
+			 "methods": 1
+		},
+
+	"attribute_conditions": {
+		"credential_id": 1845015144759184386,
+		"attributes":[
+				{
+				"id": 1,
+				"value":14126740967075891
+				},
+				{
+				"id": 2,
+				"value":28817527407604345
+				},
+				{
+				"id": 3,
+				"value":112568633486457
+				},
+				{
+				"id": 4,
+				"value":0
+				}
+			]
+		
+		}
+	},
+{"id": 3,
+	"permission":
+		{
+			"resource": "127.0.0.1/general",
+			 "methods": 1
+		},
+
+	"attribute_conditions": {
+		"credential_id": 1845015144759184386,
+		"attributes":[]
+		
+		}
+	}
+]

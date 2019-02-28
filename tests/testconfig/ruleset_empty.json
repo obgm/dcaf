@@ -1,0 +1,14 @@
+[{"id": 1,
+	"permission":
+		{
+			"resource": "127.0.0.1/premium_family",
+			 "methods": 1
+		},
+
+	"attribute_conditions": {
+		"credential_id": 1845015144759184385,
+		"attributes":[]
+		
+		}
+	}
+]

@@ -80,6 +80,9 @@ void dcaf_transaction_update(dcaf_transaction_t *transaction,
 dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
                                               dcaf_transaction_t *transaction);
 
+coap_pdu_t *
+copy_pdu(coap_pdu_t *dst, const coap_pdu_t *src);
+
 /** @defgroup transaction_flags Flags for transaction control
  *
  *  @{

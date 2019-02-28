@@ -6,6 +6,8 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ * Extended and modified by Sara Stadler 2018/2019
  */
 
 #ifndef _DCAF_INT_H_
@@ -44,21 +46,13 @@ struct dcaf_transaction_t {
   dcaf_state_t state;
 };
 
-struct dcaf_context_t {
-  coap_context_t *coap_context;
-  coap_address_t am_address;
-  coap_uri_t *am_uri;
-  void *app;
-  int flags;
-
-  /** Wait time until a transaction is considered failed. This value
-   * is specified in milliseconds. A value of 0 means no timeout. The
-   * default value is 90000. */
-  unsigned int timeout_ms;
-
-  dcaf_transaction_t *transactions;
-  dcaf_keystore_t *keystore;
+/** Information received by an attribute info message */
+struct dcaf_attribute_request_t {
+	dcaf_nonce_t *n; //fresh random nonce
+	uint64_t cred_id; //unique identifier of the credential containing the attributes to disclose
+	int atributes; //flag specifying attributes to disclose
 };
+
 
 /**
  * The validity option supported by the DCAF server. Allowed values
@@ -74,7 +68,7 @@ struct dcaf_context_t {
 
 #ifndef DCAF_AM_ENCRYPT_TICKET_FACE
 /** If set to 1, the ticket face will be encrypted */
-#define DCAF_AM_ENCRYPT_TICKET_FACE (1U)
+#define DCAF_AM_ENCRYPT_TICKET_FACE (0U)
 #endif /* DCAF_AM_ENCRYPT_TICKET_FACE */
 
 /**
@@ -138,7 +132,7 @@ struct dcaf_dep_ticket_t {
 #define DCAF_MAX_AUDIENCE_SIZE DCAF_MAX_STRING
 
 /** The maximum number of bytes in a nonce. */
-#define DCAF_MAX_NONCE_SIZE 8
+#define DCAF_MAX_NONCE_SIZE 16
 
 /* Information received by a ticket request */
 struct dcaf_ticket_request_t {
@@ -164,6 +158,27 @@ struct dcaf_nonce_t {
 		   nonce+timer are removed. */
   }validity_value;
 };
+
+struct dcaf_context_t {
+  coap_context_t *coap_context;
+  coap_address_t am_address;
+  coap_uri_t *am_uri;
+  void *app;
+  int flags;
+
+  /** Wait time until a transaction is considered failed. This value
+   * is specified in milliseconds. A value of 0 means no timeout. The
+   * default value is 90000. */
+  unsigned int timeout_ms;
+
+
+  dcaf_transaction_t *transactions;
+  dcaf_keystore_t *keystore;
+  dcaf_nonce_t *session_nonce; //a random nonce send by the verifier in the attribute request
+  struct dcaf_ticket_request_t *treq;
+  char *root_ca_fp; //fingerprint of root certificate the peer authenticated with
+};
+
 
 #ifdef __cplusplus
 }

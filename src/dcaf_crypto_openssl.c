@@ -5,11 +5,15 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ * Extended by Sara Stadler 2018/2019
  */
 
 #ifdef COAP_DTLS_OPENSSL
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
 
 #include "dcaf/dcaf_crypto.h"
 #include "dcaf/dcaf_int.h"
@@ -168,3 +172,55 @@ dummy(void) {
 }
 #endif /* COAP_DTLS_OPENSSL */
 
+
+/*
+ * Encodes readbuf as hex string and stores it in writebuf.
+ * source: https://zakird.com/2013/10/13/certificate-parsing-with-openssl
+ */
+static void hex_encode(unsigned char* readbuf, char *writebuf, size_t len)
+{
+	for(size_t i=0; i < len; i++) {
+		char *l = (char*) (2*i + ((intptr_t) writebuf));
+		sprintf(l, "%02x", readbuf[i]);
+	}
+}
+
+/**
+ * Get the fingerprint from a X.509 certificate as hex string.
+ * source: https://zakird.com/2013/10/13/certificate-parsing-with-openssl
+ */
+static char*
+get_fingerprint_from_x509(X509* cert) {
+	size_t SHA1LEN = 20;
+	unsigned char *buf;
+	char * strbuf;
+	if((buf = dcaf_alloc_type_len(DCAF_VAR_STRING, SHA1LEN)) == NULL){
+		return NULL;
+	}
+	const EVP_MD *digest = EVP_sha1();
+	unsigned len;
+	int rc = X509_digest(cert, digest,  buf, &len);
+	if (rc == 0 || len != SHA1LEN) {
+		dcaf_free_type(DCAF_VAR_STRING, buf);
+		return NULL;
+	}
+	if((strbuf = dcaf_alloc_type_len(DCAF_VAR_STRING, 2*SHA1LEN+1)) == NULL){
+		dcaf_free_type(DCAF_VAR_STRING, buf);
+		return NULL;
+	}
+	hex_encode(buf, strbuf, SHA1LEN);
+	dcaf_free_type(DCAF_VAR_STRING, buf);
+	return strbuf;
+}
+
+
+char*
+get_fingerprint_from_cert(const uint8_t *asn1_public_cert,
+		size_t asn1_length) {
+	char *ret;
+	const unsigned char *c = (const unsigned char *)asn1_public_cert;
+	X509 *cert = d2i_X509(NULL, &c, asn1_length);
+	ret = get_fingerprint_from_x509(cert);
+	X509_free(cert);
+	return ret;
+}

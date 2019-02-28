@@ -1,0 +1,31 @@
+{
+	"credential_id": 1845015144759184385,
+	"issuer":{
+		"issuer_id": 1845015144759184384,
+		"shortname": "smartpark",
+		"name": "Smart parking company xy",
+		"public_key": "./ipk.json",
+		"public_key_length": 4096
+	},
+	"available_attributes":[
+		{
+		"id": 1,
+		"description": "valid until",
+		"values": "Time"
+		},
+		{
+		"id": 2,
+		"description": "safe parking",
+		"values":[
+			"disabled",
+			"family",
+			"none"
+			]
+		},
+		{			
+		"id": 3,
+		"description": "power supply",
+		"values": "Boolean"
+		}
+	]
+}

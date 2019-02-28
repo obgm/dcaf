@@ -6,6 +6,8 @@
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
+ *
+ * Extended by Sara Stadler 2018/2019
  */
 
 #ifndef _DCAF_H_
@@ -19,6 +21,10 @@ extern "C" {
 #endif
 
 #define DCAF_AM_DEFAULT_PATH "authorize"
+
+#define DCAF_AM_TREQ_PATH "ticket"
+
+#define DCAF_AM_ARES_PATH "proof"
 
 /** The default port for unencrypted DCAF traffic. */
 #define DCAF_DEFAULT_COAP_PORT      7743
@@ -41,7 +47,8 @@ typedef enum {
   DCAF_ERROR_BAD_REQUEST          = 0x10,
   DCAF_ERROR_UNAUTHORIZED         = 0x13,
   DCAF_ERROR_INVALID_TICKET       = 0x15,
-  DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16
+  DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16,
+  DCAF_ERROR_NOT_IMPLEMENTED = 0x17,
 } dcaf_result_t;
 
 #include "libdcaf.h"
@@ -88,6 +95,18 @@ enum dcaf_ticket_field {
    * numbers below 23. */
   DCAF_TICKET_FACE            = 17,
   DCAF_TICKET_CLIENTINFO      = 18,
+};
+
+enum dcaf_nonce_field {
+	DCAF_NONCE_N = 600,
+	DCAF_NONCE_LEN = 601,
+};
+
+enum dcaf_abc_fields {
+	DCAF_ATTRIBUTES = 900,
+	DCAF_ATTRIBUTE_PROOF = 901,
+	DCAF_ATTRIBUTE_PROOF_LEN = 902,
+	DCAF_CRED_ID = 903,
 };
 
 typedef enum {
@@ -156,6 +175,10 @@ coap_endpoint_t *dcaf_select_interface(dcaf_context_t *context,
 
 const coap_address_t *dcaf_get_am_address(dcaf_context_t *context);
 
+int
+is_secure(const coap_session_t *session);
+
+
 /**
  * Checks if the given @p pdu is authorized in the context
  * of @p session. This function returns 1 on successful
@@ -200,6 +223,13 @@ dcaf_result_t dcaf_set_sam_information(const coap_session_t *session,
 dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
                                       dcaf_result_t error,
                                       coap_pdu_t *response);
+
+/**Same as dcaf_set_error_response but with error message.*/
+dcaf_result_t
+dcaf_set_error_response_msg(const coap_session_t *session,
+                        dcaf_result_t error,
+                        coap_pdu_t *response,
+						unsigned char *error_message);
 
 void dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key);
 

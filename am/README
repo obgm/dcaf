@@ -1,0 +1,14 @@
+1. start first AM (CAM)
+$ cd am/
+$ ./dcaf-abc -c am_example_configuration_cam.json 
+
+
+2. start second AM (SAM) on another port
+$ cd am/
+ ./dcaf-abc -c am_example_configuration_sam.json -p 7755
+
+3. start a client that sends an Access Request to the  CAM
+$ cd am/
+$ ./dcaf-abc-client coap://localhost:7743/authorize -p 7766 -s coaps://localhost:7756
+
+

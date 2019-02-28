@@ -31,6 +31,7 @@ doc/Makefile.in
 doc/doxyfile.stamp
 doc/doxygen_sqlite3.db
 doc/html/
+doc/layout.xml
 
 libtool
 ltmain.sh
@@ -41,3 +42,16 @@ am/dcaf-am
 **/am.config*
 examples/dcaf-client
 examples/s
+am/dcaf-abc
+am/dcaf-abc-client
+
+.autotools
+.cprojec.idea/t
+.idea/
+.project
+.settings/
+.cproject
+variables.sh
+
+
+
