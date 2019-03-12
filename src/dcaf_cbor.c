@@ -26,6 +26,16 @@ static void cbor_free(void *ptr, void *memblock) {
   (void)memblock;
 }
 
+#ifdef NUM_CBOR_BLOCKS
+#define NUM_BLOCKS (NUM_CBOR_BLOCKS)
+#else
+#define NUM_BLOCKS (32U)
+#endif
+
+/* Memory area for cbor memory allocator */
+static cn_cbor block_storage_data[NUM_BLOCKS];
+static memarray_t storage;
+
 /* CN_CBOR block allocator context struct*/
 static cn_cbor_context cbor_context =
 {
@@ -33,11 +43,18 @@ static cn_cbor_context cbor_context =
     .free_func = cbor_free,
     .context = &storage,
 };
-#endif  /* USE_CBOR_CONTEXT */
+
+void
+dcaf_cbor_init(void) {
+    memarray_init(&storage, block_storage_data, sizeof(cn_cbor), NUM_BLOCKS);
+}
+
+#else  /* USE_CBOR_CONTEXT */
 
 void
 dcaf_cbor_init(void) {
 }
+#endif  /* USE_CBOR_CONTEXT */
 
 cn_cbor *
 dcaf_cbor_decode(const uint8_t *buf, size_t len, cn_cbor_errback *errp) {
