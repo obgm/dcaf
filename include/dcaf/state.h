@@ -26,7 +26,7 @@ typedef enum {
 } dcaf_transaction_type_t;
 
 /** Definition of transaction state. */
-typedef struct{
+typedef struct {
   dcaf_transaction_state_t act;
   dcaf_transaction_type_t type;
 
