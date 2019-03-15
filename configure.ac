@@ -78,12 +78,10 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset getrandom])
 
 PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
-PKG_CHECK_MODULES([libcoap], [libcoap-2-gnutls], [have_libcoap="libcoap-2-gnutls"],
- [PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
+PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
    [PKG_CHECK_MODULES([libcoap], [libcoap-2-tinydtls], [have_libcoap="libcoap-2-tinydtls"],
      [PKG_CHECK_MODULES([libcoap], [libcoap-2], [have_libcoap="libcoap-2"])]
    )]
- )]
 )
 
 if test "x$have_libcoap" != "xno"; then
