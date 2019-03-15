@@ -1,8 +1,8 @@
 /*
  * dcaf.c -- libdcaf core
  *
- * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2019 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2019 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -12,6 +12,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#ifdef RIOT_VERSION
+#include "libcoap_init.h"
+#endif /* RIOT_VERSION */
 
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
@@ -1178,7 +1182,11 @@ dcaf_new_context(const dcaf_config_t *config) {
 
   memset(dcaf_context, 0, sizeof(dcaf_context_t));
 
+#ifndef RIOT_VERSION
   dcaf_context->coap_context = coap_new_context(NULL);
+#else /* RIOT_VERSION */
+  dcaf_context->coap_context = coap_context;
+#endif /* RIOT_VERSION */
   if (dcaf_context->coap_context == NULL) {
     dcaf_log(DCAF_LOG_EMERG, "Cannot create new CoAP context.\n");
     goto error;
