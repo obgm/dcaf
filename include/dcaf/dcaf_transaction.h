@@ -45,13 +45,14 @@ typedef void (*dcaf_error_handler_t)(dcaf_context_t *,
 /**
  * Creates a new transaction object. When finished, the storage
  * allocated for this object must be released with
- * dcaf_transaction_free().
+ * dcaf_transaction_free(). The newly created transaction object
+ * stores a copy of the given @p pdu for later use.
  *
  * @return The created transaction object or NULL on error.
 */
 dcaf_transaction_t *dcaf_create_transaction(dcaf_context_t *dcaf_context,
                                             coap_session_t *session,
-                                            coap_pdu_t *pdu);
+                                            const coap_pdu_t *pdu);
 
 /** Releases the storage that was allocated for @p transaction. */
 void dcaf_delete_transaction(dcaf_context_t *dcaf_context,
@@ -70,6 +71,11 @@ dcaf_transaction_t *dcaf_find_transaction(dcaf_context_t *dcaf_context,
 /** Checks if @p transaction is valid. */
 int dcaf_check_transaction(dcaf_context_t *dcaf_context,
                            const dcaf_transaction_t *transaction);
+
+/** Updates the @p transaction according to @p session and @p pdu. */
+void dcaf_transaction_update(dcaf_transaction_t *transaction,
+                             const coap_session_t *session,
+                             const coap_pdu_t *pdu);
 
 dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,
                                               dcaf_transaction_t *transaction);

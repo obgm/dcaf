@@ -72,7 +72,7 @@ get_token_from_pdu(const coap_pdu_t *pdu, void *buf, size_t max_buf) {
 dcaf_transaction_t *
 dcaf_create_transaction(dcaf_context_t *dcaf_context,
                         coap_session_t *session,
-                        coap_pdu_t *pdu) {
+                        const coap_pdu_t *pdu) {
   dcaf_transaction_t *transaction;
   assert(dcaf_context);
   assert(session);
@@ -156,24 +156,44 @@ dcaf_transaction_set_error_handler(dcaf_transaction_t *transaction,
   transaction->error_handler = ehnd;
 }
 
+void
+dcaf_transaction_update(dcaf_transaction_t *transaction,
+                      const coap_session_t *session,
+                      const coap_pdu_t *pdu) {
+  /* TODO: set local_interface and remote according to session */
+  dcaf_log(DCAF_LOG_DEBUG, "update transaction %02x%02x%02x%02x\n",
+           transaction->tid[0], transaction->tid[1],
+           transaction->tid[2], transaction->tid[3]);
+
+  get_token_from_pdu(pdu, transaction->tid, sizeof(transaction->tid));
+  dcaf_log(DCAF_LOG_DEBUG, "to %02x%02x%02x%02x\n",
+           transaction->tid[0], transaction->tid[1],
+           transaction->tid[2], transaction->tid[3]);
+  coap_delete_pdu(transaction->pdu);
+  transaction->pdu = coap_new_pdu(session);
+  coap_pdu_copy(transaction->pdu, pdu);
+}
+
 dcaf_transaction_t *
 dcaf_find_transaction(dcaf_context_t *dcaf_context,
                       const coap_session_t *session,
                       const coap_pdu_t *pdu) {
-  coap_tid_t id;
+  dcaf_transaction_id_t id;
   dcaf_transaction_t *transaction;
   (void)session;
 
-  get_token_from_pdu(pdu, &id, sizeof(id));
+  get_token_from_pdu(pdu, id, sizeof(id));
 
-  LL_SEARCH_SCALAR(dcaf_context->transactions, transaction, tid, id);
-  if (!transaction) {
-    dcaf_log(DCAF_LOG_DEBUG, "transaction not found\n");
-    return NULL;
+  LL_FOREACH(dcaf_context->transactions, transaction) {
+    if (memcmp(transaction->tid, id, sizeof(id)) == 0) {
+      dcaf_log(DCAF_LOG_DEBUG, "found transaction %02x%02x%02x%02x\n",
+               id[0], id[1], id[2], id[3]);
+      return transaction;
+    }
   }
-
-  dcaf_log(DCAF_LOG_DEBUG, "found transaction %d\n", id);
-  return transaction;
+  dcaf_log(DCAF_LOG_DEBUG, "transaction %02x%02x%02x%02x not found\n",
+           id[0], id[1], id[2], id[3]);
+  return NULL;
 }
 
 int
@@ -323,6 +343,8 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     dcaf_log(DCAF_LOG_WARNING, "cannot create new transaction\n");
     goto error;
   }
+  dcaf_log(DCAF_LOG_DEBUG, "added transaction %02x%02x%02x%02x\n",
+           t->tid[0], t->tid[1], t->tid[2], t->tid[3]);
 
   /* Store remote address in transaction object. We need to adjust the
    * port to switch to DTLS later. */

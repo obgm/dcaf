@@ -26,6 +26,11 @@ extern "C" {
 
 #include <cn-cbor/cn-cbor.h>
 
+/**
+ * The type for the locally-generated unique transaction
+ * identifier. */
+typedef uint8_t dcaf_transaction_id_t[DCAF_DEFAULT_TOKEN_SIZE];
+
 struct dcaf_transaction_t {
   dcaf_transaction_t *next;
   coap_endpoint_t *local_interface;
@@ -34,7 +39,7 @@ struct dcaf_transaction_t {
   dcaf_response_handler_t response_handler;
   dcaf_error_handler_t error_handler;
   int flags;
-  coap_tid_t tid;
+  dcaf_transaction_id_t tid;
   coap_pdu_t *pdu;
   dcaf_state_t state;
 };
