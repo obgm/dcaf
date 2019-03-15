@@ -35,6 +35,7 @@ libdcaf_a_SOURCES = \
    src/aif.c \
    src/cose.c \
    src/dcaf.c \
+   src/dcaf_address.c \
    src/dcaf_am.c \
    src/dcaf_cbor.c \
    src/dcaf_coap.c \
@@ -45,8 +46,7 @@ libdcaf_a_SOURCES = \
    src/dcaf_mem.c \
    src/dcaf_optlist.c \
    src/dcaf_prng.c \
-   src/dcaf_transaction.c \
-   src/platform/@PLATFORM@/dcaf_address.c
+   src/dcaf_transaction.c
 
 ## Public header files and their installation location.
 libdcaf_includedir = $(includedir)/dcaf/
