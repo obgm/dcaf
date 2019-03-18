@@ -1,8 +1,8 @@
 /*
  * dcaf_address.c -- convenience functions for CoAP address handling
  *
- * Copyright (C) 2015-2017 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2017 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2019 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2019 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <netinet/in.h>
 
 #include "dcaf/dcaf_address.h"
 #include "dcaf/dcaf_int.h"
@@ -20,6 +21,62 @@
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
+
+#ifdef RIOT_VERSION
+#include <arpa/inet.h>
+#include "net/sock/dns.h"
+
+dcaf_result_t
+dcaf_set_coap_address(const unsigned char *host, size_t host_len,
+                      uint16_t port, coap_address_t *addr) {
+  dcaf_result_t res = DCAF_ERROR_INTERNAL_ERROR;
+  char addr_str[NI_MAXHOST + 1];
+#ifdef MODULE_SOCK_DNS
+  uint8_t buf[16] = {0};
+  int version;
+
+  assert(addr);
+  memset(addr_str, 0, sizeof(addr_str));
+  memcpy(addr_str, host, min(sizeof(addr_str) - 1, host_len));
+
+  version = sock_dns_query(addr_str, buf, AF_UNSPEC);
+  if (version > 0) {
+    if (version == 4) {             /* AF_INET */
+      addr->size = sizeof(struct sockaddr_in);
+      memcpy(&addr->addr.sin.sin_addr, buf, sizeof(struct in_addr));
+      addr->addr.sin.sin_port = htons(port);
+    } else {                    /* AF_INET6 */
+      addr->size = sizeof(struct sockaddr_in6);
+      memcpy(&addr->addr.sin6.sin6_addr, buf, sizeof(struct in6_addr));
+      addr->addr.sin6.sin6_port = htons(port);
+    }
+    res = DCAF_OK;
+  } else {
+    dcaf_log(DCAF_LOG_WARNING, "cannot resolve %s\n", addr_str);
+  }
+#else /* MODULE_SOCK_DNS */
+  assert(addr);
+  memset(addr_str, 0, sizeof(addr_str));
+  memcpy(addr_str, host, min(sizeof(addr_str) - 1, host_len));
+
+  if (inet_pton(AF_INET6, addr_str, &addr->addr.sin6.sin6_addr) == 0) {
+    addr->size = sizeof(struct sockaddr_in6);
+    addr->addr.sa.sa_family = AF_INET6;
+    addr->addr.sin6.sin6_port = htons(port);
+    res = DCAF_OK;
+  } else if (inet_pton(AF_INET, addr_str, &addr->addr.sin.sin_addr) == 0) {
+    addr->size = sizeof(struct sockaddr_in);
+    addr->addr.sa.sa_family = AF_INET;
+    addr->addr.sin.sin_port = htons(port);
+    res = DCAF_OK;
+  } else {
+    dcaf_log(DCAF_LOG_WARNING, "%s not resolved\n", addr_str);
+  }
+#endif /* MODULE_SOCK_DNS */
+  return res;
+}
+
+#else /* RIOT_VERSION */
 
 dcaf_result_t
 dcaf_set_coap_address(const unsigned char *host, size_t host_len,
@@ -61,7 +118,7 @@ dcaf_set_coap_address(const unsigned char *host, size_t host_len,
   freeaddrinfo(result);
   return res;
 }
-
+#endif /* RIOT_VERSION */
 
 uint16_t
 dcaf_get_coap_port(const coap_address_t *address) {
