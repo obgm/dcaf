@@ -12,7 +12,9 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#ifndef RIOT_VERSION
 #include <netdb.h>
+#endif /* RIOT_VERSION */
 #include <netinet/in.h>
 
 #include "dcaf/dcaf_address.h"
@@ -21,6 +23,10 @@
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
+
+#ifndef NI_MAXHOST
+#define NI_MAXHOST 64
+#endif /* NI_MAXHOST */
 
 #ifdef RIOT_VERSION
 #include <arpa/inet.h>
