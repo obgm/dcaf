@@ -99,6 +99,7 @@ void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz) {
 void
 dcaf_show_cbor(const uint8_t *data, size_t len) {
   /* call external program if not running as super user */
+#if DCAF_PRETTY_PRINT_CBOR
   if (geteuid() != 0) {
     /* open cbor2pretty.rb as pipe and suppress error output. */
     FILE *pipe = popen(CBOR2PRETTY " 2>/dev/null", "w");
@@ -110,4 +111,8 @@ dcaf_show_cbor(const uint8_t *data, size_t len) {
       pclose(pipe);
     }
   }
+#else /* DCAF_PRETTY_PRINT_CBOR */
+  (void)data;
+  (void)len;
+#endif /* DCAF_PRETTY_PRINT_CBOR */
 }

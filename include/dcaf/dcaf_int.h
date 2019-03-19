@@ -86,6 +86,14 @@ struct dcaf_context_t {
 #define DCAF_TEST_MODE_ACCEPT (0U)
 #endif /* DCAF_TEST_MODE_ACCEPT */
 
+/**
+ * When DCAF_PRETTY_PRINT_CBOR is set to 1, code for pretty-printing
+ * CBOR payloads will be included (requires cbor2pretty.rb in $PATH).
+ */
+#ifndef DCAF_PRETTY_PRINT_CBOR
+#define DCAF_PRETTY_PRINT_CBOR (1U)
+#endif /* DCAF_PRETTY_PRINT_CBOR */
+
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002
 
