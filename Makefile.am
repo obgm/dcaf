@@ -52,8 +52,7 @@ libdcaf_a_SOURCES = \
    src/dcaf_abc_json.c \
    src/dcaf_rules.c \
    src/dcaf_rules_json.c \
-   src/dcaf_directory_traverser.c \
-   src/platform/@PLATFORM@/dcaf_address.c
+   src/dcaf_directory_traverser.c 
 
 ## Public header files and their installation location.
 libdcaf_includedir = $(includedir)/dcaf/
