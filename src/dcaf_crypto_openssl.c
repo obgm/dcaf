@@ -10,6 +10,7 @@
  */
 
 #ifdef COAP_DTLS_OPENSSL
+#include <openssl/ssl.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/x509.h>
@@ -223,4 +224,13 @@ get_fingerprint_from_cert(const uint8_t *asn1_public_cert,
 	ret = get_fingerprint_from_x509(cert);
 	X509_free(cert);
 	return ret;
+}
+
+bool
+export_keying_material(coap_session_t *session, unsigned char *out, size_t out_len, const char *label, size_t label_len,
+		const unsigned char *context, size_t context_len){
+	SSL *ssl = (SSL *)session->tls;
+	if(SSL_export_keying_material(ssl,	out, out_len, label, label_len, context, context_len, 1))
+		return true;
+	return false;
 }

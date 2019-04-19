@@ -283,5 +283,23 @@ dcaf_result_t json_to_am_config(json_t *j, am_abc_configuration_st **config){
 	return DCAF_OK;
 }
 
+dcaf_result_t transform_nonce(dcaf_nonce_t **transformed_nonce,
+		size_t transformed_nonce_len, coap_session_t *session, dcaf_nonce_t *n) {
+	*transformed_nonce = dcaf_new_nonce(transformed_nonce_len);
+	if (!*transformed_nonce) {
+		dcaf_log(DCAF_LOG_ERR, "compute_random: memory allocation failure\n");
+		return DCAF_ERROR_INTERNAL_ERROR;
+	}
+	if (!export_keying_material(session,
+			(unsigned char *) (*transformed_nonce)->nonce, transformed_nonce_len,
+			"EXPERIMENTAL_ABC", 16, n->nonce, n->nonce_length)) {
+		dcaf_log(DCAF_LOG_ERR,
+				"compute_random: failed to export keying material\n");
+		return DCAF_ERROR_INTERNAL_ERROR;
+	}
+	return DCAF_OK;
+}
+
+
 
 

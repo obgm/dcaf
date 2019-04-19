@@ -711,7 +711,7 @@ dcaf_set_attribute_info(coap_pdu_t *response, uint64_t cred_id, uint attr,
 
 dcaf_result_t
 dcaf_set_disclosure_proof(
-                      const dcaf_attribute_request_t *attribute_request,
+                      int attributes, dcaf_nonce_t *transformed_nonce,
                       coap_pdu_t *payload, const char *credential_file, const char *public_key_file) {
 	str_st *proof = NULL;
 	cn_cbor *body = NULL;
@@ -725,8 +725,8 @@ dcaf_set_disclosure_proof(
 
 
 	//generate the proof
-	if (generate_proof(credential_file, public_key_file, attribute_request->n,
-			attribute_request->atributes, &proof) != DCAF_OK)
+	if (generate_proof(credential_file, public_key_file, transformed_nonce,
+			attributes, &proof) != DCAF_OK)
 		goto error;
 
 	// generate the proof message

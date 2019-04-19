@@ -130,6 +130,19 @@ get_fingerprint_from_cert(const uint8_t *asn1_public_cert,
 	(void) asn1_length;
 	/* FIXME */
 }
+bool
+export_keying_material(coap_session_t *session, unsigned char *out, size_t out_len, const char *label, size_t label_len,
+		const unsigned char *context, size_t context_len){
+		(void)session;
+		(void)out;
+		(void)out_len;
+		(void)label;
+		(void)label_len;
+		(void)context;
+		(void)context_len;
+		/*FIXME*/
+		return true;
+}
 #else /* !COAP_DTLS_TINYDTLS */
 /* make compilers happy that do not like empty modules */
 static inline void

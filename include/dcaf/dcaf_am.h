@@ -151,14 +151,15 @@ dcaf_set_attribute_info(coap_pdu_t *response, uint64_t cred_id, uint attr, dcaf_
  * Also sets media_type, max_age and uri_path option.
  * @return DCAF_OK if the payload is set to a valid disclosure proof message
  * 			and DCAF_ERROR_INTERNAL_ERROR otherwise
- * @param attribute_request The attribute info according to which the disclosure proof is generated
+ * @param attributes the attributes to be disclosed in the proof
+ * @param transformed_nonce the nonce to be used for the disclosure proof
  * @param response The message to fill
  * @param credential_file The path to the credential to be used for the selective disclosure
  * @param public_key_file The path to the file containing the credential issuer's public key
  * */
 dcaf_result_t
 dcaf_set_disclosure_proof(
-                      const dcaf_attribute_request_t *attribute_request,
+                      int attributes, dcaf_nonce_t *transformed_nonce,
                       coap_pdu_t *response, const char *credential_file, const char *public_key_file);
 
 /**

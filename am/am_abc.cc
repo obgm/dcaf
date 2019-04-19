@@ -21,11 +21,6 @@
 #include <jansson.h>
 #include <netdb.h>
 
-
-#include <coap2/coap.h>
-#include <coap2/coap_dtls.h>
-
-
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_am.h"
 #include "dcaf/dcaf_abc.h"
@@ -200,6 +195,7 @@ static int verify_cn_callback(const char *cn, const uint8_t *asn1_public_cert,
 }
 
 
+
 /*
  * Configures CAM with the root certificates in the certificate chain of the SAMs he trusts.
  * Additionally sets require_peer_cert and verify_peer_cert to 1.
@@ -231,7 +227,7 @@ setup_pki_cam(const char *root_ca_file, coap_context_t *ctx) {
 	dtls_pki.verify_peer_cert = 1;
 	dtls_pki.require_peer_cert = 1;
 	dtls_pki.allow_self_signed = 0;
-	dtls_pki.allow_expired_certs = 0;
+	dtls_pki.allow_expired_certs = 1;
 	dtls_pki.cert_chain_validation = 1;
 	dtls_pki.cert_chain_verify_depth = 1;
 	dtls_pki.check_cert_revocation = 1;
@@ -710,6 +706,8 @@ static void hnd_attribute_info(coap_context_t *ctx, coap_session_t *session,
 	char *cred_path = NULL;
 	attribute_permission_list_st *granted_permissions = NULL;
 	char *fingerprint = NULL;
+	dcaf_nonce_t *transformed_nonce = NULL;
+	size_t trnasformed_nonce_len;
 
 	dcaf_log(DCAF_LOG_INFO, "Entering hnd_attribute info\n");
 
@@ -816,8 +814,18 @@ static void hnd_attribute_info(coap_context_t *ctx, coap_session_t *session,
 		goto abort_protocol;
 
 	}
+	/*
+	 * Compute the nonce transformation to bind the disclosure proofs to the handshake.
+	 */
+	trnasformed_nonce_len = get_required_nonce_length_by_credential(credential_descriptions,
+			areq->cred_id);
+	if (transform_nonce(&transformed_nonce, trnasformed_nonce_len, session, areq->n) != DCAF_OK) {
+		error_response = generate_pdu(session);
+		(void) dcaf_set_error_response(session, DCAF_ERROR_INTERNAL_ERROR, error_response);
+		goto abort_protocol;
+	}
 
-	if((res = dcaf_set_disclosure_proof(areq, new_request, cred_path, iss->public_key))!= DCAF_OK)
+	if((res = dcaf_set_disclosure_proof(areq->atributes, transformed_nonce, new_request, cred_path, iss->public_key))!= DCAF_OK)
 	{
 		dcaf_log(DCAF_LOG_ERR,
 						"hnd_attribute info: Cannot generated attribute proof\n");
@@ -830,12 +838,16 @@ static void hnd_attribute_info(coap_context_t *ctx, coap_session_t *session,
 	coap_send(session, new_request);
 	if(areq != NULL)
 		dcaf_delete_attribute_request(areq);
+	if(transformed_nonce != NULL)
+			dcaf_free_type(DCAF_NONCE, transformed_nonce);
 	return;	//everything went well and we do not want to abort the protocol
 
 	abort_protocol:
 	dcaf_log(DCAF_LOG_INFO, "Aborting protocol due to error\n");
 	if(areq != NULL)
 		dcaf_delete_attribute_request(areq);
+	if(transformed_nonce != NULL)
+		dcaf_free_type(DCAF_NONCE, transformed_nonce);
 	session->app = error_response;
 	set_transaction_state(session, DCAF_STATE_UNAUTHORIZED);
 }
@@ -868,6 +880,8 @@ static void hnd_post_disclosure_proof(coap_context_t *ctx,
 	attribute_list_st *disclose_attributes = NULL;
 	uint64_t cred_id;
 	issuer_st *iss = NULL;
+	dcaf_nonce_t *transformed_nonce = NULL;
+	size_t transformed_nonce_len;
 
 	dcaf_log(DCAF_LOG_INFO, "Entering hnd_post_attribute_proof\n");
 
@@ -920,8 +934,18 @@ static void hnd_post_disclosure_proof(coap_context_t *ctx,
 				response);
 		goto finish;
 	}
+	/*
+	 * Compute the nonce transformation to bind the disclosure proofs to the handshake.
+	 */
+	transformed_nonce_len = get_required_nonce_length_by_credential(credential_descriptions,cred_id);
+	if (transform_nonce(&transformed_nonce, transformed_nonce_len, session, dcaf_ctx->session_nonce)
+			!= DCAF_OK) {
+		(void) dcaf_set_error_response(session, DCAF_ERROR_INTERNAL_ERROR,
+				response);
+		goto finish;
+	}
 
-	if ((res = verify_proof(iss->public_key, dcaf_ctx->session_nonce, proofstring)) != DCAF_OK) {
+	if ((res = verify_proof(iss->public_key, transformed_nonce, proofstring)) != DCAF_OK) {
 		dcaf_log(DCAF_LOG_ERR, "hnd_post_attribute_proof: attribute proof did not verify\n");
 		(void) dcaf_set_error_response(session, res, response);
 		goto finish;
@@ -934,6 +958,8 @@ static void hnd_post_disclosure_proof(coap_context_t *ctx,
 			dcaf_delete_str(proofstring);
 		if(disclose_attributes != NULL)
 			dcaf_delete_attribute_list(disclose_attributes);
+	if (transformed_nonce != NULL)
+		dcaf_free_type(DCAF_NONCE, transformed_nonce);
 }
 
 

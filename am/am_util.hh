@@ -4,12 +4,14 @@
 
 #ifndef AM_COAP_UTIL_HH_
 #define AM_COAP_UTIL_HH_
+
 #include <random>
 #include <jansson.h>
 #include <string.h>
 #include "dcaf/dcaf_int.h"
-#include <coap2/coap.h>
 #include "dcaf/dcaf.h"
+#include <coap2/coap.h>
+#include <coap2/coap_dtls.h>
 
 #ifndef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
@@ -88,6 +90,17 @@ dcaf_result_t resolve_address(const char *uristring, coap_address_t *dst);
  * @param config the resulting am configuration
  */
 dcaf_result_t json_to_am_config(json_t *j, am_abc_configuration_st **config);
+
+
+/*
+ * Transforms the given @p nonce to bind it to the TLS handshake. The transformation consists in the computation of PRF with the original nonce and TLS keying material as input.
+ @return DCAF_OK on success, DCAF_ERROR_INTERNAL_ERROR otherwise.
+ @param transformed_nonce The resulting transformed nonce
+ @param transformed_nonce_len The length of the transformed nonce
+ @param session COAP session containing information on the TLS connection
+ @param n The nonce to be transformed
+ */
+dcaf_result_t transform_nonce(dcaf_nonce_t **transformed_nonce, size_t transformed_nonce_len, coap_session_t *session, dcaf_nonce_t *n);
 
 
 #endif /* AM_COAP_UTIL_HH_ */

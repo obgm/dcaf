@@ -18,6 +18,8 @@
 
 #include "dcaf/dcaf_key.h"
 
+#include <coap2/coap_session.h>
+
 typedef dcaf_key_type dcaf_alg_t;
 
 typedef struct dcaf_aes_ccm_t {
@@ -57,6 +59,22 @@ bool dcaf_hmac(const dcaf_crypto_param_t *params,
  */
 char* get_fingerprint_from_cert(const uint8_t *asn1_public_cert,
 		size_t asn1_length);
+
+/*
+ * Obtain keying material depending on label, context and the SSL master secret.
+ * @param session COAP session containing the SSL connection information.
+ * @param out The keying material
+ * @param out_len The length of the keying material
+ * @param label An application label as defined by https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#exporter-labels
+ * or any label beginning with "EXPERIMENTAL"
+ * @param label_len The length of the label
+ * @param context Application specific context
+ * @param context_len The length of the context
+ * @return false on failure or true on success.
+ */
+bool export_keying_material(coap_session_t *session, unsigned char *out, size_t out_len, const char *label, size_t label_len,
+		const unsigned char *context, size_t context_len);
+
 
 #endif /* _DCAF_CRYPTO_H_ */
 

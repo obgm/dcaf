@@ -68,7 +68,7 @@ SCENARIO( "Generation and parsing of CBOR messages related to attribute based au
 		WHEN("When dcaf_set_disclosure_proof is called") {
 			dcaf_result_t res;
 			coap_response.reset(coap_pdu_init(0, 0, 5, 8192));
-			res = dcaf_set_disclosure_proof(areq.get(), coap_response.get(), "credentials/parksmart_member_credential.json","testkeys/ipk_parksmart_4096.json" );
+			res = dcaf_set_disclosure_proof(areq.get()->atributes, areq.get()->n, coap_response.get(), "credentials/parksmart_member_credential.json","testkeys/ipk_parksmart_4096.json" );
 			THEN("The response code is DCAF_OK and a COAP PDU with payload and with code COAP_REQUEST_POST is created") {
 				REQUIRE(res == DCAF_OK);
 				REQUIRE(coap_response.get()->code == COAP_REQUEST_POST);
