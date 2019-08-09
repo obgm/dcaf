@@ -1,3 +1,9 @@
+# DCAF ABC extensions #
+This branch provides an extension to the DCAF protocol, where the authentication and authorization of CAM is carried out by means of attribute-based credentials.
+For this the implementation uses the [Gabi](https://github.com/mhe/gabi) cryptographic library and an extended version of the of [mhe/irmatool](https://github.com/mhe/irmatool).
+Note that the implementation was provided as a Proof of Concept and is not ready for real-world applications.
+
+# DCAF #
 dcaf: Authenticated Authorization for the Internet of Things
 
 Copyright (c) 2015—2019 by Olaf Bergmann <bergmann@tzi.org>
