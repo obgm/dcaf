@@ -114,6 +114,15 @@ typedef struct dcaf_config_t {
 } dcaf_config_t;
 
 /**
+ * Initializes the DCAF engine. This function must be called once at
+ * startup (for RIOT, this is done during auto_init if available).
+ *
+ * When MODULE_PRNG is available in RIOT, this function also sets the
+ * dcaf_prng to random_bytes.
+ */
+void dcaf_init(void);
+
+/**
  * Sets a callback function that is invoked for each PDU to check
  * against a ticket's scope. If set to NULL, the library's default
  * scope check function is used. This function is set globally,

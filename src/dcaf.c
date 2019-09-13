@@ -15,6 +15,9 @@
 
 #ifdef RIOT_VERSION
 #include "libcoap_init.h"
+#ifdef MODULE_PRNG
+#include "random.h"
+#endif /* MODULE_PRNG */
 #endif /* RIOT_VERSION */
 
 #include "dcaf/dcaf.h"
@@ -25,6 +28,14 @@
 
 #include "dcaf/aif.h"
 #include "dcaf/cwt.h"
+
+void
+dcaf_init(void) {
+#if defined(RIOT_VERSION) && defined(MODULE_PRNG)
+  dcaf_set_prng(random_bytes);
+#endif /* RIOT_VERSION && MODULE_PRNG */
+  dcaf_cbor_init();
+}
 
 static inline uint8_t
 coap_get_token_len(coap_pdu_t *p) {
