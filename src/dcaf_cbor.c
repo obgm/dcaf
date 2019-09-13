@@ -9,23 +9,10 @@
 
 #include "dcaf/dcaf_cbor.h"
 
+#ifdef USE_CBOR_CONTEXT
+
 #ifdef RIOT_VERSION
 #include "memarray.h"
-#endif /* RIOT_VERSION */
-
-#ifdef USE_CBOR_CONTEXT
-/* calloc/free functions */
-static void *cbor_calloc(size_t count, size_t size, void *memblock) {
-  (void)count;
-  (void)size;
-  (void)memblock;
-  return NULL;
-}
-static void cbor_free(void *ptr, void *memblock) {
-  (void)ptr;
-  (void)memblock;
-}
-
 #ifdef NUM_CBOR_BLOCKS
 #define NUM_BLOCKS (NUM_CBOR_BLOCKS)
 #else
@@ -35,6 +22,24 @@ static void cbor_free(void *ptr, void *memblock) {
 /* Memory area for cbor memory allocator */
 static cn_cbor block_storage_data[NUM_BLOCKS];
 static memarray_t storage;
+
+#include <string.h>
+
+/* calloc/free functions; memblock is the contents of the field
+ * .context in the cbor_context. */
+static void *cbor_calloc(size_t count, size_t size, void *memblock) {
+  void *result = NULL;
+  if (count * size <= sizeof(block_storage_data[0])) {
+    result = memarray_alloc((memarray_t *)memblock);
+    if (result) {
+      memset(result, 0, sizeof(block_storage_data[0]));
+    }
+  }
+  return result;
+}
+static void cbor_free(void *ptr, void *memblock) {
+  memarray_free((memarray_t *)memblock, ptr);
+}
 
 /* CN_CBOR block allocator context struct*/
 static cn_cbor_context cbor_context =
@@ -46,9 +51,32 @@ static cn_cbor_context cbor_context =
 
 void
 dcaf_cbor_init(void) {
-    memarray_init(&storage, block_storage_data, sizeof(cn_cbor), NUM_BLOCKS);
+  memarray_init(&storage, block_storage_data, sizeof(cn_cbor), NUM_BLOCKS);
 }
 
+#else /* !RIOT_VERSION */
+
+static void *cbor_calloc(size_t count, size_t size, void *memblock) {
+  (void)memblock;
+  void *result = coap_malloc(count * size);
+  if (result) {
+    memset(result, 0, count * size);
+  }
+  return result;
+}
+static void cbor_free(void *ptr, void *memblock) {
+  (void)memblock;
+  coap_free(ptr);
+}
+
+/* CN_CBOR block allocator context struct*/
+static cn_cbor_context cbor_context =
+{
+    .calloc_func = cbor_calloc,
+    .free_func = cbor_free,
+    .context = NULL,
+};
+#endif /* !RIOT_VERSION */
 #else  /* USE_CBOR_CONTEXT */
 
 void
