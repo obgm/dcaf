@@ -1,5 +1,9 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * dcaf_directory_traverser.h -- functions to traverse config directories
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
 
 #ifndef _DCAF_DCAF_DIRECTORY_TRAVERSER_H_

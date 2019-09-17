@@ -1,5 +1,9 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * test_abc_messages.cc -- test parsing of messages related to attribute based authorization
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
 #include <stdio.h>
 #include <string.h>

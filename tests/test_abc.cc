@@ -1,5 +1,9 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * test_abc.cc -- test generation and verification of selective disclosure proofs on attribute based credentials
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
 #include <stdio.h>
 #include <string.h>

@@ -1,7 +1,10 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * test_access_rules.cc -- test parsing of rules
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
-
 #include <jansson.h>
 #include <string.h>
 #include "test.hh"

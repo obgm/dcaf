@@ -1,13 +1,12 @@
-# DCAF ABC extensions #
-This branch provides an extension to the DCAF protocol, where the authentication and authorization of CAM is carried out by means of attribute-based credentials.
-For this the implementation uses the [Gabi](https://github.com/mhe/gabi) cryptographic library and an extended version of the of [mhe/irmatool](https://github.com/mhe/irmatool).
-Note that the implementation was provided as a Proof of Concept and is not ready for real-world applications.
-
 # DCAF #
 dcaf: Authenticated Authorization for the Internet of Things
 
 Copyright (c) 2015—2019 by Olaf Bergmann <bergmann@tzi.org>
               2015—2019 by Stefanie Gerdes <gerdes@tzi.org>
+
+dcaf abc extensions:
+
+Copyright (c) 2018—2019 by Sara Stadler <stadlers@tzi.org>
 
 ABOUT DCAF
 ==========
@@ -34,6 +33,25 @@ PACKAGE CONTENTS
 
 This library contains a protocol parser and basic handling functions
 for integration with libcoap.
+
+## DCAF ABC extensions
+
+This branch provides an extension to the DCAF protocol, where the
+authentication and authorization of CAM is carried out by means of
+attribute-based credentials (ABCs).
+
+The implementation uses the
+[Gabi](https://github.com/privacybydesign/gabi) cryptographic
+library and the corresponding CLI
+[irmatool](https://gitlab.informatik.uni-bremen.de/stadlers/irmatool).
+
+Note that the implementation was provided as a Proof of Concept and
+is not ready for real-world applications.
+
+We also provide example configuration files. Their content is
+fictional and possible overlaps with real-world entities are
+unintended.
+
 
 LICENSE INFORMATION
 ===================
