@@ -1,5 +1,9 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * dcaf_abc.h -- functions related to attribute-based credentials
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
 
 #ifndef _DCAF_DCAF_ABC_H_

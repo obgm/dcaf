@@ -1,6 +1,11 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * dcaf_directory_traverser.c -- functions to traverse config directories
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
+
 #include "dcaf/dcaf_directory_traverser.h"
 
 credential_list_st *tmp_credential_descriptios;

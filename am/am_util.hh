@@ -1,7 +1,14 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * am_util.hh -- utility functions for DCAF authorization managers
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
+ * for terms of use.
+ *
+ * Parts of the code are taken from the libcoap client and server examples.
+ * Parts of the code are taken from the dcaf am example.
  */
-
 #ifndef AM_COAP_UTIL_HH_
 #define AM_COAP_UTIL_HH_
 

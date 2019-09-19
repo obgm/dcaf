@@ -1,5 +1,9 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * dcaf_abc_json.h -- functions for json parsing
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
 
 #ifndef _DCAF_DCAF_ABC_JSON_H_

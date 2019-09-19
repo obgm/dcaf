@@ -1,5 +1,9 @@
 /*
- * Created by Sara Stadler 2018/2019
+ * dcaf_rules.c -- rule sets for DCAF authorization managers using attribute-based credentials
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
  */
 
 #include "dcaf/dcaf_rules.h"

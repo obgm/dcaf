@@ -1,7 +1,11 @@
- /*
-  * Created by Sara Stadler 2018/2019
-  *
-  *  Parts of the code are taken from the dcaf_client.
+/*
+ * dcaf_am_test_client.cc -- test client for the DCAF authorization manager using attribute-based credentials
+ *
+ * Copyright (C) 2018-2019 Sara Stadler
+ *
+ * This file is part of the DCAF library libdcaf. Please see README
+ *
+ *  Parts of the code are taken from the dcaf_client.
  */
 
 #include <string.h>
