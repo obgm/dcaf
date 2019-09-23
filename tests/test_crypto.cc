@@ -21,6 +21,69 @@
 #include "test.hh"
 #include "catch.hpp"
 
+/* Include test vectors from RFC 3610 as C structs. */
+#include "ccm-testdata.c"
+
+/* Set up test parameters for RFC 3610 test vectors from
+   ccm-testdata.c. */
+static const dcaf_crypto_param_t *get_params(const struct test_vector *v) {
+  static dcaf_crypto_param_t params;
+  static dcaf_key_t key;
+
+  memset(&params, 0, sizeof(params));
+  memset(&key, 0, sizeof(key));
+  key.type = (dcaf_key_type)COSE_AES_CCM_16_64_128;
+  if (!dcaf_set_key(&key, v->key, sizeof(v->key))) {
+    return nullptr;
+  }
+  params.alg = DCAF_AES_128;
+  params.params.aes.key = &key;
+  params.params.aes.nonce = const_cast<uint8_t *>(v->nonce);
+  params.params.aes.tag_len = v->M;
+  params.params.aes.l = v->L;
+  return &params;
+}
+
+/* Runs test vector n from RFC3610, counting from 0. */
+template<unsigned int n> void do_rfc3610(void) {
+  GIVEN("RFC 3610 test vector #" + std::to_string(n + 1)) {
+    const uint8_t *msg = rfc3610_data[n].msg + rfc3610_data[n].la;
+    const size_t msglen = rfc3610_data[n].lm - rfc3610_data[n].la;
+    const uint8_t *aad = rfc3610_data[n].msg;
+    const size_t aadlen = rfc3610_data[n].la;
+
+    WHEN("dcaf_encrypt() is called") {
+      uint8_t buf[1024];
+      size_t buflen = sizeof(buf);
+      const dcaf_crypto_param_t *params = get_params(&rfc3610_data[n]);
+
+      REQUIRE(params != nullptr);
+      REQUIRE(dcaf_encrypt(params, msg, msglen,
+                           aad, aadlen, buf, &buflen));
+
+      THEN("The message is encrypted") {
+        dcaf_debug_hexdump(buf, buflen);
+        REQUIRE(buflen == rfc3610_data[n].r_lm - rfc3610_data[n].la);
+        REQUIRE(memcmp(buf, rfc3610_data[n].result + rfc3610_data[n].la, buflen) == 0);
+      }
+    }
+  }
+}
+
+/* The following two template functions are used to generate a series
+ * of subsequently numbered test runs for the RFC 3610 vectors. Call
+ * with any n >= 0.
+ */
+template<unsigned int n> void generate_rfc3610_test(void) {
+  generate_rfc3610_test<n - 1>();
+  do_rfc3610<n>();
+}
+
+template<> void generate_rfc3610_test<0>(void) {
+  do_rfc3610<0>();
+}
+
+
 SCENARIO( "AEAD decrypt", "[aead]" ) {
 
   GIVEN("An encrypted message, aad and a key") {
@@ -77,4 +140,6 @@ SCENARIO( "AEAD decrypt", "[aead]" ) {
       }
     }
   }
+
+  generate_rfc3610_test<31>();
 }
