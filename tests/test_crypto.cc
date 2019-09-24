@@ -47,24 +47,41 @@ static const dcaf_crypto_param_t *get_params(const struct test_vector *v) {
 /* Runs test vector n from RFC3610, counting from 0. */
 template<unsigned int n> void do_rfc3610(void) {
   GIVEN("RFC 3610 test vector #" + std::to_string(n + 1)) {
-    const uint8_t *msg = rfc3610_data[n].msg + rfc3610_data[n].la;
-    const size_t msglen = rfc3610_data[n].lm - rfc3610_data[n].la;
-    const uint8_t *aad = rfc3610_data[n].msg;
-    const size_t aadlen = rfc3610_data[n].la;
+    const struct test_vector &v = rfc3610_data[n];
+    const dcaf_crypto_param_t *params = get_params(&v);
+
+    REQUIRE(params != nullptr);
 
     WHEN("dcaf_encrypt() is called") {
+      const uint8_t *msg = v.msg + v.la;
+      const size_t msglen = v.lm - v.la;
+      const uint8_t *aad = v.msg;
+      const size_t aadlen = v.la;
       uint8_t buf[1024];
       size_t buflen = sizeof(buf);
-      const dcaf_crypto_param_t *params = get_params(&rfc3610_data[n]);
 
-      REQUIRE(params != nullptr);
       REQUIRE(dcaf_encrypt(params, msg, msglen,
                            aad, aadlen, buf, &buflen));
 
       THEN("The message is encrypted") {
-        dcaf_debug_hexdump(buf, buflen);
-        REQUIRE(buflen == rfc3610_data[n].r_lm - rfc3610_data[n].la);
-        REQUIRE(memcmp(buf, rfc3610_data[n].result + rfc3610_data[n].la, buflen) == 0);
+        REQUIRE(buflen == v.r_lm - v.la);
+        REQUIRE(memcmp(buf, v.result + v.la, buflen) == 0);
+      }
+    }
+
+    WHEN("dcaf_decrypt() is called") {
+      const uint8_t *msg = v.result + v.la;
+      const size_t msglen = v.r_lm - v.la;
+      const uint8_t *aad = v.result;
+      const size_t aadlen = v.la;
+      uint8_t buf[1024];
+      size_t buflen = sizeof(buf);
+      REQUIRE(dcaf_decrypt(params, msg, msglen,
+                           aad, aadlen, buf, &buflen));
+
+      THEN("The message is decrypted") {
+        REQUIRE(buflen == v.lm - v.la);
+        REQUIRE(memcmp(buf, v.msg + v.la, buflen) == 0);
       }
     }
   }
@@ -135,7 +152,6 @@ SCENARIO( "AEAD decrypt", "[aead]" ) {
                            aad, sizeof(aad), buf, &buflen));
 
       THEN("The ciphertext is decrypted") {
-        dcaf_debug_hexdump(buf, buflen);
         REQUIRE(true);
       }
     }
