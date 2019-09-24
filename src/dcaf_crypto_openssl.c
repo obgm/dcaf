@@ -73,6 +73,7 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
   }
   C(EVP_EncryptUpdate(ctx, result, &result_len, data, data_len));
   /* C(EVP_EncryptFinal_ex(ctx, result + result_len, &tmp)); */
+  tmp = result_len;
   C(EVP_EncryptFinal_ex(ctx, result + result_len, &tmp));
   result_len += tmp;
 
@@ -118,7 +119,6 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
 
   C(EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL));
   C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, 15 - ccm->l, NULL));
-  dcaf_debug_hexdump(tag, ccm->tag_len);
   C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, ccm->tag_len, (void *)tag));
   C(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_L, ccm->l, NULL));
   /* C(EVP_CIPHER_CTX_set_padding(ctx, 0)); */
@@ -129,13 +129,13 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
     C(EVP_DecryptUpdate(ctx, NULL, &len, aad, aad_len));
   }
   tmp = EVP_DecryptUpdate(ctx, result, &len, data, data_len);
-  if (tmp > 0) {
-    *max_result_len = len;
-  } else {
-    *max_result_len = 0;
-  }
   EVP_CIPHER_CTX_free(ctx);
-  return *max_result_len > 0;
+  if (tmp <= 0) {
+    *max_result_len = 0;
+    return false;
+  }
+  *max_result_len = len;
+  return true;
 }
 
 bool
