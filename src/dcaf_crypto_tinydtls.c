@@ -20,7 +20,7 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
              uint8_t *result, size_t *max_result_len) {
   int num_bytes;
   const dcaf_aes_ccm_t *ccm;
-
+  dtls_ccm_params_t dtls_params;
   assert(params);
 
   if (params->alg != DCAF_AES_128) {
@@ -37,10 +37,15 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
     return false;
   }
 
-  num_bytes = dtls_encrypt(data, data_len,
-                           result, ccm->nonce,
-                           ccm->key->data, ccm->key->length,
-                           aad, aad_len);
+  dtls_params.nonce = ccm->nonce;
+  dtls_params.tag_length = ccm->tag_len;
+  dtls_params.l = ccm->l;
+
+  num_bytes = dtls_encrypt_params(&dtls_params,
+                                  data, data_len,
+                                  result,
+                                  ccm->key->data, ccm->key->length,
+                                  aad, aad_len);
   if (num_bytes < 0) {
     return false;
   }
@@ -55,6 +60,7 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
 	     uint8_t *result, size_t *max_result_len) {
   int num_bytes;
   const dcaf_aes_ccm_t *ccm;
+  dtls_ccm_params_t dtls_params;
 
   assert(params);
 
@@ -73,10 +79,15 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
     return false;
   }
 
-  num_bytes = dtls_decrypt(data, data_len,
-                           result, ccm->nonce,
-                           ccm->key->data, ccm->key->length,
-                           aad, aad_len);
+  dtls_params.nonce = ccm->nonce;
+  dtls_params.tag_length = ccm->tag_len;
+  dtls_params.l = ccm->l;
+
+  num_bytes = dtls_decrypt_params(&dtls_params,
+                                  data, data_len,
+                                  result,
+                                  ccm->key->data, ccm->key->length,
+                                  aad, aad_len);
   if (num_bytes < 0) {
     return false;
   }
