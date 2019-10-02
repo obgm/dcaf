@@ -96,6 +96,10 @@ if test "x$have_libcoap" != "xno"; then
       libcoap_CFLAGS="$libcoap_CFLAGS $OpenSSL_CFLAGS -DCOAP_DTLS_OPENSSL"
       libcoap_LIBS="$libcoap_LIBS $OpenSSL_LIBS"
       ;;
+       *-tinydtls)
+      libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_TINYDTLS"
+      libcoap_LIBS="$libcoap_LIBS -ltinydtls"
+      ;;
    esac
 fi
 
