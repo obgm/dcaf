@@ -170,7 +170,7 @@ rnd(uint8_t *out, size_t len) {
   }
 }
 
-constexpr static const uint8_t *cast(const char *p) {
+static const uint8_t *cast(const char *p) {
   static_assert(std::is_same<unsigned char, uint8_t>::value, "uint8_t is not unsigned char");
   return reinterpret_cast<const uint8_t *>(p);
 }
