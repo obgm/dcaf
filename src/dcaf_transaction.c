@@ -1,8 +1,8 @@
 /*
  * dcaf_transaction.c -- DCAF transaction store
  *
- * Copyright (C) 2015-2016 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2016 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -365,10 +365,10 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     while (!(done && coap_can_exit(ctx))) {
       unsigned int timeout = wait_ms == 0 ? 1000 : min(wait_ms, 1000);
 
-      /* coap_run_once() returns the time in milliseconds it has
+      /* coap_io_process() returns the time in milliseconds it has
        * spent. We use this value to determine if we have run out of
        * time. */
-      result = coap_run_once(ctx, timeout);
+      result = coap_io_process(ctx, timeout);
       dcaf_log(DCAF_LOG_DEBUG, "coap_run_once returns %d\n", result);
 
       if (result < 0) { /* error */

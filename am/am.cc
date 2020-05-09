@@ -1,8 +1,8 @@
 /*
  * am.cc -- DCAF authorization manager
  *
- * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -280,7 +280,7 @@ main(int argc, char **argv) {
   wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
 
   while (!quit) {
-    int result = coap_run_once(ctx, wait_ms);
+    int result = coap_io_process(ctx, wait_ms);
     if ( result < 0 ) {
       break;
     } else if ((unsigned)result < wait_ms) {

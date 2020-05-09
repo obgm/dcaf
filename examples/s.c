@@ -1,7 +1,7 @@
 /* s -- CoAP resource server with authenticated authorization
  *
- * Copyright (c) 2016-2017 Olaf Bergmann <bergmann@tzi.org>
- *               2016-2017 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (c) 2016-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2016-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -290,7 +290,7 @@ main(int argc, char **argv) {
   init_resources(ctx);
 
   while (true) {
-    coap_run_once(ctx, 0);
+    coap_io_process(ctx, COAP_IO_WAIT);
     /* regularly check tickets, deprecated tickets and nonces if they
        are expired */
     dcaf_expiration();

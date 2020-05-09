@@ -1,8 +1,8 @@
 /*
  * dcaf.c -- libdcaf core
  *
- * Copyright (C) 2015-2019 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2019 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -345,7 +345,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
       dcaf_transaction_update(t->state.future, session, pdu);
       coap_send(session, pdu);
       while (!done) {
-        coap_run_once(ctx, 0);
+        coap_io_process(ctx, COAP_IO_WAIT);
         done = dcaf_check_transaction(dcaf_context, t->state.future)
           && (t->state.future->state.act == DCAF_STATE_IDLE);
       }
