@@ -1,7 +1,7 @@
 dcaf: Authenticated Authorization for the Internet of Things
 
-Copyright (c) 2015—2019 by Olaf Bergmann <bergmann@tzi.org>
-              2015—2019 by Stefanie Gerdes <gerdes@tzi.org>
+Copyright (c) 2015—2020 by Olaf Bergmann <bergmann@tzi.org>
+              2015—2020 by Stefanie Gerdes <gerdes@tzi.org>
 
 ABOUT DCAF
 ==========
@@ -21,7 +21,7 @@ information to a trusted host with less severe limitations regarding
 processing power and memory.
 
 More information on DCAF is available at
-https://tools.ietf.org/html/draft-gerdes-ace-dcaf-authorize
+https://dcaf.science
 
 PACKAGE CONTENTS
 ================
