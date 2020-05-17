@@ -40,6 +40,7 @@ libdcaf_a_SOURCES = \
    src/dcaf_cbor.c \
    src/dcaf_coap.c \
    src/dcaf_crypto_openssl.c \
+   src/dcaf_crypto_mbedtls.c \
    src/dcaf_crypto_tinydtls.c \
    src/dcaf_debug.c \
    src/dcaf_key.c \
