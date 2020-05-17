@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 #
-# Copyright (c) 2016 Olaf Bergmann (TZI)
+# Copyright (c) 2016-2020 Olaf Bergmann (TZI)
 
 AC_PREREQ([2.64])
 AC_INIT([dcaf], [0.1.0])
@@ -78,9 +78,11 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset getrandom])
 
 PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
-PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
-   [PKG_CHECK_MODULES([libcoap], [libcoap-2-tinydtls], [have_libcoap="libcoap-2-tinydtls"],
-     [PKG_CHECK_MODULES([libcoap], [libcoap-2], [have_libcoap="libcoap-2"])]
+PKG_CHECK_MODULES([libcoap], [libcoap-2-mbedtls], [have_libcoap="libcoap-2-mbedtls"],
+   [PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
+      [PKG_CHECK_MODULES([libcoap], [libcoap-2-tinydtls], [have_libcoap="libcoap-2-tinydtls"],
+        [PKG_CHECK_MODULES([libcoap], [libcoap-2], [have_libcoap="libcoap-2"])]
+      )]
    )]
 )
 
@@ -95,6 +97,13 @@ if test "x$have_libcoap" != "xno"; then
       PKG_CHECK_MODULES([OpenSSL], [openssl])
       libcoap_CFLAGS="$libcoap_CFLAGS $OpenSSL_CFLAGS -DCOAP_DTLS_OPENSSL"
       libcoap_LIBS="$libcoap_LIBS $OpenSSL_LIBS"
+      ;;
+       *-mbedtls)
+      # There is no pkgconfig for MbedTLS hence we use the default installation
+      MbedTLS_CFLAGS=""
+      MbedTLS_LIBS="-lmbedtls -lmbedcrypto -lmbedx509"
+      libcoap_CFLAGS="$libcoap_CFLAGS $MbedTLS_CFLAGS -DCOAP_DTLS_MBEDTLS"
+      libcoap_LIBS="$libcoap_LIBS $MbedTLS_LIBS"
       ;;
        *-tinydtls)
       libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_TINYDTLS"
