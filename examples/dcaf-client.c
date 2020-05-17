@@ -2,8 +2,8 @@
  *
  * This code has been adapted from libcoap/examples/client.c
  *
- * Copyright (C) 2018-2019 Olaf Bergmann <bergmann@tzi.org>
- *               2018-2019 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2018-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2018-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -33,10 +33,6 @@
 
 #include "dcaf/dcaf.h"
 
-#ifndef dcaf_log
-#define dcaf_log coap_log
-#endif
-
 #undef VERSION
 #define VERSION "1.0"
 
@@ -62,7 +58,10 @@ dcaf_config_t config = {
 };
 
 /* The log level (may be changed with option '-v' on the command line. */
-dcaf_log_t log_level = DCAF_LOG_WARNING;
+union {
+  coap_log_t coap;
+  dcaf_log_t dcaf;
+} log_level = { .dcaf = DCAF_LOG_WARNING };
 
 int flags = 0;
 
@@ -135,7 +134,7 @@ usage( const char *program, const char *version) {
      "\t-v num \t\tVerbosity level (default: %d)\n"
      "\t-a CAM\t\tURI of the client authorization manager\n"
      "\n"
-           ,program, version, program, log_level);
+           ,program, version, program, log_level.dcaf);
 }
 
 typedef struct {
@@ -236,7 +235,7 @@ main(int argc, char **argv) {
         user[user_length] = 0;
       break;
     case 'v':
-      log_level = strtol(optarg, NULL, 10);
+      log_level.dcaf = strtol(optarg, NULL, 10);
       break;
     default:
       usage(argv[0], VERSION);
@@ -245,9 +244,9 @@ main(int argc, char **argv) {
   }
 
   coap_startup();
-  coap_dtls_set_log_level(log_level);
-  coap_set_log_level(log_level);
-  dcaf_set_log_level(log_level);
+  coap_dtls_set_log_level(log_level.coap);
+  coap_set_log_level(log_level.coap);
+  dcaf_set_log_level(log_level.dcaf);
 
   if ((optind < argc) && ((method = cmdline_method(argv[optind])) > 0)) {
     optind++;

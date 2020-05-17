@@ -31,10 +31,6 @@
 
 #include "dcaf/dcaf.h"
 
-#ifndef dcaf_log
-#define dcaf_log coap_log
-#endif
-
 #undef VERSION
 #define VERSION "1.0"
 
@@ -223,7 +219,10 @@ main(int argc, char **argv) {
   coap_context_t  *ctx;
   char addr_str[NI_MAXHOST] = "::";
   int opt, result = 0;
-  coap_log_t log_level = LOG_WARNING;
+  union {
+    coap_log_t coap;
+    dcaf_log_t dcaf;
+  } log_level = { .dcaf = DCAF_LOG_WARNING };
   dcaf_config_t config;
   unsigned char key[MAX_KEY];
   ssize_t key_length = 0;
@@ -251,7 +250,7 @@ main(int argc, char **argv) {
       config.coaps_port = config.coap_port + 1;
       break;
     case 'v' :
-      log_level = strtol(optarg, NULL, 10);
+      log_level.dcaf = strtol(optarg, NULL, 10);
       break;
     default:
       usage(argv[0], VERSION);
@@ -260,9 +259,9 @@ main(int argc, char **argv) {
   }
 
   coap_startup();
-  coap_dtls_set_log_level(log_level);
-  coap_set_log_level(log_level);
-  dcaf_set_log_level(log_level);
+  coap_dtls_set_log_level(log_level.coap);
+  coap_set_log_level(log_level.coap);
+  dcaf_set_log_level(log_level.dcaf);
 
   /* set random number generator function for DCAF library */
   dcaf_set_prng(rnd);
