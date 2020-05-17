@@ -29,28 +29,42 @@ enum ace_profile {
   ACE_PROFILE_OSCORE = 2        /* draft-ietf-ace-oscore-profile */
 };
 
-enum ace_claim {
-  ACE_CLAIM_AUD               = 3,
-  ACE_CLAIM_CLIENT_ID         = 8,
-  ACE_CLAIM_CLIENT_SECRET     = 9,
-  ACE_CLAIM_RESPONSE_TYPE     = 10,
-  ACE_CLAIM_REDIRECT_URI      = 11,
-  ACE_CLAIM_SCOPE             = 12,
-  ACE_CLAIM_STATE             = 13,
-  ACE_CLAIM_CODE              = 14,
-  ACE_CLAIM_ERROR             = 15,
-  ACE_CLAIM_ERROR_DESCRIPTION = 16,
-  ACE_CLAIM_ERROR_URI         = 17,
-  ACE_CLAIM_GRANT_TYPE        = 18,
-  ACE_CLAIM_ACCESS_TOKEN      = 19,
-  ACE_CLAIM_TOKEN_TYPE        = 20,
-  ACE_CLAIM_EXPIRES_IN        = 21,
-  ACE_CLAIM_USERNAME          = 22,
-  ACE_CLAIM_PASSWORD          = 23,
-  ACE_CLAIM_REFRESH_TOKEN     = 24,
-  ACE_CLAIM_CNF               = 25,
-  ACE_CLAIM_PROFILE           = 26,
-  ACE_CLAIM_RS_CNF            = 31
+/* CBOR mappings for token request and response fields according to
+ * draft-ietf-ace-oauth-authz-33
+ */
+
+enum ace_msg {
+  ACE_MSG_ACCESS_TOKEN      = 1,
+  ACE_MSG_EXPIRES_IN        = 2,
+  ACE_MSG_AUDIENCE          = 3,
+  ACE_MSG_SCOPE             = 9,
+  ACE_MSG_CLIENT_ID         = 24,
+  ACE_MSG_CLIENT_SECRET     = 25,
+  ACE_MSG_RESPONSE_TYPE     = 26,
+  ACE_MSG_REDIRECT_URI      = 27,
+  ACE_MSG_STATE             = 28,
+  ACE_MSG_CODE              = 29,
+  ACE_MSG_ERROR             = 30,
+  ACE_MSG_ERROR_DESCRIPTION = 31,
+  ACE_MSG_ERROR_URI         = 32,
+  ACE_MSG_GRANT_TYPE        = 33,
+  ACE_MSG_TOKEN_TYPE        = 34,
+  ACE_MSG_USERNAME          = 35,
+  ACE_MSG_PASSWORD          = 36,
+  ACE_MSG_REFRESH_TOKEN     = 37,
+  ACE_MSG_PROFILE           = 38,
+  ACE_MSG_CNONCE            = 39
+};
+
+/* CBOR values for ACE AS Request Creation Hints according to
+ * draft-ietf-ace-oauth-authz-33:
+ */
+enum ace_req_creation_hints {
+  ACE_REQ_HINT_AS     = 1,
+  ACE_REQ_HINT_KID    = 2,
+  ACE_REQ_HINT_AUD    = 5,
+  ACE_REQ_HINT_SCOPE  = 9,
+  ACE_REQ_HINT_CNONCE = 39
 };
 
 /** Error codes from ACE framework */
