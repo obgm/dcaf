@@ -105,7 +105,11 @@ dcaf_set_coap_address(const unsigned char *host, size_t host_len,
 
   s = getaddrinfo(addr_str, port_str, &hints, &result);
   if (s != 0) {
+#ifdef HAVE_GAI_STRERROR
     dcaf_log(DCAF_LOG_CRIT, "getaddrinfo: %s\n", gai_strerror(s));
+#else /* !HAVE_GAI_STRERROR */
+    dcaf_log(DCAF_LOG_CRIT, "getaddrinfo: error %d\n", s);
+#endif /* !HAVE_GAI_STRERROR */
     return DCAF_ERROR_INTERNAL_ERROR;
   }
 
