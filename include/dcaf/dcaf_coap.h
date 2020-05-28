@@ -1,7 +1,7 @@
 /*
  * dcaf_coap.h -- CoAP compatibility wrapper libdcaf
  *
- * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2020 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -10,7 +10,17 @@
 #ifndef _DCAF_COAP_H_
 #define _DCAF_COAP_H_ 1
 
+/*
+ * The auto-generated file coap.h usually resides in the coap2 include
+ * path. As the ESP-IDF does not generate the file and comes with a
+ * custom coap.h that lives in port/coap we need to change the include
+ * path accordingly.
+ */
+#ifdef ESP_PLATFORM
+#include <coap.h>
+#else /* !ESP_PLATFORM */
 #include <coap2/coap.h>
+#endif /* !ESP_PLATFORM */
 
 #define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
 #define COAP_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
