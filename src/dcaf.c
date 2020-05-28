@@ -345,7 +345,11 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
       dcaf_transaction_update(t->state.future, session, pdu);
       coap_send(session, pdu);
       while (!done) {
+#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
+        coap_run_once(ctx, 0);
+#else /* LIBCOAP_VERSION >= 4003000 */
         coap_io_process(ctx, COAP_IO_WAIT);
+#endif  /* LIBCOAP_VERSION >= 4003000 */
         done = dcaf_check_transaction(dcaf_context, t->state.future)
           && (t->state.future->state.act == DCAF_STATE_IDLE);
       }
