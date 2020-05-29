@@ -1,14 +1,15 @@
 /*
  * dcaf_address.c -- convenience functions for CoAP address handling
  *
- * Copyright (C) 2015-2019 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2019 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -84,6 +85,37 @@ dcaf_set_coap_address(const unsigned char *host, size_t host_len,
 
 #else /* RIOT_VERSION */
 
+static const char *
+dcaf_gai_strerror(int error_number) {
+#ifdef HAVE_GAI_STRERROR
+  return gai_strerror(error_number);
+#else /* !HAVE_GAI_STRERROR */
+  static struct {
+    int eai;
+    const char *msg;
+  } const eai_msgs[] = {
+                        { EAI_BADFLAGS, "Invalid flags"},
+                        { EAI_NONAME, "Name or service unknown" },
+                        { EAI_AGAIN, "Temporary failure" },
+                        { EAI_FAIL, "Permanent failure" },
+                        { EAI_FAMILY, "Address family not supported" },
+                        { EAI_SOCKTYPE, "Socket type not supported." },
+                        { EAI_SERVICE, "Service not supported for socket" },
+                        { EAI_MEMORY, "Insufficient memory" },
+                        { EAI_OVERFLOW, "Argument buffer overflow" }
+  };
+  unsigned int idx;
+  if (error_number == EAI_SYSTEM) {
+    return strerror(errno);
+  }
+  for (idx = 0; idx < sizeof(eai_msgs)/sizeof(eai_msgs[0]); idx++) {
+    if (eai_msgs[idx].eai == error_number)
+      return eai_msgs[idx].msg;
+  }
+  return "Unknown";
+#endif /* !HAVE_GAI_STRERROR */
+}
+
 dcaf_result_t
 dcaf_set_coap_address(const unsigned char *host, size_t host_len,
                       uint16_t port, coap_address_t *addr) {
@@ -105,11 +137,7 @@ dcaf_set_coap_address(const unsigned char *host, size_t host_len,
 
   s = getaddrinfo(addr_str, port_str, &hints, &result);
   if (s != 0) {
-#ifdef HAVE_GAI_STRERROR
-    dcaf_log(DCAF_LOG_CRIT, "getaddrinfo: %s\n", gai_strerror(s));
-#else /* !HAVE_GAI_STRERROR */
-    dcaf_log(DCAF_LOG_CRIT, "getaddrinfo: error %d\n", s);
-#endif /* !HAVE_GAI_STRERROR */
+    dcaf_log(DCAF_LOG_CRIT, "getaddrinfo: %s\n", dcaf_gai_strerror(s));
     return DCAF_ERROR_INTERNAL_ERROR;
   }
 
