@@ -102,12 +102,16 @@ dcaf_gai_strerror(int error_number) {
                         { EAI_SOCKTYPE, "Socket type not supported." },
                         { EAI_SERVICE, "Service not supported for socket" },
                         { EAI_MEMORY, "Insufficient memory" },
-                        { EAI_OVERFLOW, "Argument buffer overflow" }
+#ifdef EAI_OVERFLOW
+                        { EAI_OVERFLOW, "Argument buffer overflow" },
+#endif /* EAI_OVERFLOW */
   };
   unsigned int idx;
+#ifdef EAI_SYSTEM
   if (error_number == EAI_SYSTEM) {
     return strerror(errno);
   }
+#endif /* EAI_SYSTEM */
   for (idx = 0; idx < sizeof(eai_msgs)/sizeof(eai_msgs[0]); idx++) {
     if (eai_msgs[idx].eai == error_number)
       return eai_msgs[idx].msg;
