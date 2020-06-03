@@ -58,10 +58,15 @@ dcaf_config_t config = {
 };
 
 /* The log level (may be changed with option '-v' on the command line. */
-union {
+struct {
+  coap_log_t dtls;
   coap_log_t coap;
   dcaf_log_t dcaf;
-} log_level = { .dcaf = DCAF_LOG_WARNING };
+} log_level = {
+               .dtls = LOG_ERR,
+               .coap = LOG_WARNING,
+               .dcaf = DCAF_LOG_WARNING
+};
 
 int flags = 0;
 
@@ -117,10 +122,10 @@ usage( const char *program, const char *version) {
     program = ++p;
 
   fprintf( stderr, "%s v%s -- DCAF example client\n"
-     "Copyright (C) 2018-2019 Olaf Bergmann <bergmann@tzi.org>\n"
-     "              2018-2019 Stefanie Gerdes <gerdes@tzi.org>\n\n"
+     "Copyright (C) 2018-2020 Olaf Bergmann <bergmann@tzi.org>\n"
+     "              2018-2020 Stefanie Gerdes <gerdes@tzi.org>\n\n"
      "Usage: %s [-A address] [-a URI] [-k key] [-p port] \n"
-     "\t\t [-u user] [-v verbosity] [method] URI\n\n"
+     "\t\t [-u user] [-v dcaf[,coap[,dtls]]] [method] URI\n\n"
      "\tURI can be an absolute URI or a URI prefixed with scheme and host.\n\n"
      "\tMethod can be any of GET|PUT|POST|DELETE|FETCH|PATCH|IPATCH. If no\n"
      "\tmethod was specified the default is GET.\n\n"
@@ -131,10 +136,14 @@ usage( const char *program, const char *version) {
      "\t-p port\t\tListen on specified port\n"
      "\t-u user\t\tUser identity for pre-shared key mode. This argument\n"
      "\t       \t\trequires (D)TLS with PSK to be available\n"
-     "\t-v num \t\tVerbosity level (default: %d)\n"
+     "\t-v num[,num[,num]] \tVerbosity level.\n"
+     "\t       \t\tThe first number denotes the DCAF log level, the\n"
+     "\t       \t\tsecond number the CoAP log level, and the third\n"
+     "\t       \t\tnumber is the DTLS log level. Default is %d,%d,%d.\n"
      "\t-a CAM\t\tURI of the client authorization manager\n"
      "\n"
-           ,program, version, program, log_level.dcaf);
+           ,program, version, program,
+           log_level.dcaf, log_level.coap, log_level.dtls);
 }
 
 typedef struct {
@@ -234,9 +243,17 @@ main(int argc, char **argv) {
       if (user_length >= 0)
         user[user_length] = 0;
       break;
-    case 'v':
-      log_level.dcaf = strtol(optarg, NULL, 10);
+    case 'v': {
+      char *endptr;
+      log_level.dcaf = strtol(optarg, &endptr, 10);
+      if (*endptr == ',') {     /* read CoAP log level */
+        log_level.coap = strtol(endptr + 1, &endptr, 10);
+        if (*endptr == ',') {   /* read DTLS log level */
+          log_level.dtls = strtol(endptr + 1, &endptr, 10);
+        }
+      }
       break;
+    }
     default:
       usage(argv[0], VERSION);
       exit(EXIT_FAILURE);
@@ -244,7 +261,7 @@ main(int argc, char **argv) {
   }
 
   coap_startup();
-  coap_dtls_set_log_level(log_level.coap);
+  coap_dtls_set_log_level(log_level.dtls);
   coap_set_log_level(log_level.coap);
   dcaf_set_log_level(log_level.dcaf);
 
