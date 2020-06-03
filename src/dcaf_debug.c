@@ -1,7 +1,7 @@
 /*
  * dcaf_debug.c -- helper functions for debugging
  *
- * Copyright (C) 2018-2019 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2020 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_debug.h"
 
 /* The external program used to output CBOR data in debug mode. */
