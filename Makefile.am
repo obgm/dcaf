@@ -37,6 +37,7 @@ libdcaf_a_SOURCES = \
    src/dcaf.c \
    src/dcaf_address.c \
    src/dcaf_am.c \
+   src/dcaf_base64.c \
    src/dcaf_cbor.c \
    src/dcaf_coap.c \
    src/dcaf_crypto_openssl.c \
@@ -58,6 +59,7 @@ libdcaf_include_HEADERS = \
    $(top_srcdir)/include/dcaf/cose_types.h \
    $(top_srcdir)/include/dcaf/dcaf.h \
    $(top_srcdir)/include/dcaf/dcaf_am.h \
+   $(top_srcdir)/include/dcaf/dcaf_base64.h \
    $(top_srcdir)/include/dcaf/dcaf_cbor.h \
    $(top_srcdir)/include/dcaf/dcaf_coap.h \
    $(top_srcdir)/include/dcaf/dcaf_crypto.h \

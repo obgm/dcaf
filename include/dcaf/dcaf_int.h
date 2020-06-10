@@ -20,6 +20,7 @@ extern "C" {
 
 #include "aif.h"
 #include "dcaf.h"
+#include "dcaf_base64.h"
 #include "dcaf_mem.h"
 #include "dcaf_coap.h"
 #include "state.h"

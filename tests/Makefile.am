@@ -1,6 +1,6 @@
 # tests/Makefile.am
 #
-# Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+# Copyright (C) 2018-2020 Olaf Bergmann <bergmann@tzi.org>
 #
 # This file is part of dcaf. Please see README and COPYING for terms
 # of use.
@@ -22,6 +22,7 @@ testdriver_DEPENDENCIES = $(top_builddir)/libdcaf.a
 testdriver_SOURCES = \
  testdriver.cc \
  test_aif.cc  \
+ test_base64.cc  \
  test_crypto.cc  \
  test_cose.cc \
  test_keys.cc \
