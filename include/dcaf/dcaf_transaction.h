@@ -42,6 +42,10 @@ typedef void (*dcaf_error_handler_t)(dcaf_context_t *,
                                      dcaf_transaction_t *,
                                      int error);
 
+typedef void (*dcaf_application_handler_t)(dcaf_context_t *,
+                                           dcaf_transaction_t *,
+                                           coap_pdu_t *);
+
 /**
  * Creates a new transaction object. When finished, the storage
  * allocated for this object must be released with
@@ -137,6 +141,7 @@ dcaf_transaction_t *dcaf_send_request_uri(dcaf_context_t *dcaf_context,
                                           dcaf_optlist_t options,
                                           const uint8_t *data,
                                           size_t data_len,
+                                          dcaf_application_handler_t app_hnd,
                                           int flags);
 /**
  * Sends a request with method @p code to the endpoint denoted
@@ -171,6 +176,7 @@ dcaf_transaction_t *dcaf_send_request(dcaf_context_t *dcaf_context,
                                       dcaf_optlist_t options,
                                       const uint8_t *data,
                                       size_t data_len,
+                                      dcaf_application_handler_t app_hnd,
                                       int flags);
 
 #endif /* _DCAF_TRANSACTION_H_ */

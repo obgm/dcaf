@@ -38,6 +38,7 @@ struct dcaf_transaction_t {
   coap_block_t block;
   dcaf_response_handler_t response_handler;
   dcaf_error_handler_t error_handler;
+  dcaf_application_handler_t application_handler;
   int flags;
   dcaf_transaction_id_t tid;
   coap_pdu_t *pdu;

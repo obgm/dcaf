@@ -254,12 +254,13 @@ dcaf_transaction_start(dcaf_context_t *dcaf_context,
 
 dcaf_transaction_t *
 dcaf_send_request_uri(dcaf_context_t *dcaf_context,
-                  int code,
-                  const coap_uri_t *uri,
-                  dcaf_optlist_t options,
-                  const uint8_t *data,
-                  size_t data_len,
-                  int flags) {
+                      int code,
+                      const coap_uri_t *uri,
+                      dcaf_optlist_t options,
+                      const uint8_t *data,
+                      size_t data_len,
+                      dcaf_application_handler_t app_hnd,
+                      int flags) {
   coap_context_t *ctx;
   int result;
   coap_address_t dst;
@@ -343,6 +344,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     dcaf_log(DCAF_LOG_WARNING, "cannot create new transaction\n");
     goto error;
   }
+  t->application_handler = app_hnd;
   dcaf_log(DCAF_LOG_DEBUG, "added transaction %02x%02x%02x%02x\n",
            t->tid[0], t->tid[1], t->tid[2], t->tid[3]);
 
@@ -367,7 +369,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     unsigned int wait_ms = 0; /* TODO: set to global timeout option */
     unsigned int time_spent = 0;
     while (!(done && coap_can_exit(ctx))) {
-      unsigned int timeout = wait_ms == 0 ? 1000 : min(wait_ms, 1000);
+      unsigned int timeout = wait_ms == 0 ? 5000 : min(wait_ms, 5000);
 
       /* coap_io_process() returns the time in milliseconds it has
        * spent. We use this value to determine if we have run out of
@@ -411,6 +413,7 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
                   dcaf_optlist_t options,
                   const uint8_t *data,
                   size_t data_len,
+                  dcaf_application_handler_t app_hnd,
                   int flags) {
   unsigned char buf[uri_len];
   coap_uri_t uri;
@@ -424,6 +427,6 @@ dcaf_send_request(dcaf_context_t *dcaf_context,
   }
 
   return dcaf_send_request_uri(dcaf_context, code, &uri, options,
-                               data, data_len, flags);
+                               data, data_len, app_hnd, flags);
 }
 #undef min

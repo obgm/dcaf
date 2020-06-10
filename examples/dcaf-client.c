@@ -211,6 +211,16 @@ rnd(uint8_t *out, size_t len) {
 #endif /* HAVE_GETRANDOM */
 }
 
+static void
+response_handler(struct dcaf_context_t *dcaf_context,
+                 dcaf_transaction_t *transaction,
+                 coap_pdu_t *received) {
+  (void)dcaf_context;
+  (void)transaction;
+  dcaf_log(DCAF_LOG_INFO, "got response: \n");
+  coap_show_pdu(LOG_INFO, received);
+}
+
 int
 main(int argc, char **argv) {
   dcaf_context_t *dcaf = NULL;
@@ -261,9 +271,9 @@ main(int argc, char **argv) {
   }
 
   coap_startup();
-  coap_dtls_set_log_level(log_level.dtls);
-  coap_set_log_level(log_level.coap);
   dcaf_set_log_level(log_level.dcaf);
+  coap_set_log_level(log_level.coap);
+  coap_dtls_set_log_level(log_level.dtls);
 
   if ((optind < argc) && ((method = cmdline_method(argv[optind])) > 0)) {
     optind++;
@@ -311,6 +321,7 @@ main(int argc, char **argv) {
   }
   if (!dcaf_send_request(dcaf, method, uri, strlen(uri),
                          optlist, payload.s, payload.length,
+                         response_handler,
                          DCAF_TRANSACTION_BLOCK)) {
     dcaf_log(DCAF_LOG_EMERG, "cannot send request\n");
     exit(EXIT_FAILURE);
