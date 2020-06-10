@@ -354,7 +354,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     session = coap_new_client_session_psk(ctx, NULL,
                                           &t->state.future->remote,
                                           COAP_PROTO_DTLS,
-                                          identity,
+                                          (const char *)identity,
                                           cinfo->key->data,
                                           cinfo->key->length);
 #else /* LIBCOAP_VERSION >= 4003000 */
