@@ -325,7 +325,9 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
      * as PSK.
      */
     /* FIXME: encapsulate in dcaf_send...something() */
+#if LIBCOAP_VERSION >= 4003000U
     coap_dtls_cpsk_t setup_data;
+#endif /* LIBCOAP_VERSION >= 4003000 */
     uint8_t identity[DCAF_MAX_PSK_IDENTITY];
     size_t identity_len;
     coap_session_t *session;
@@ -333,9 +335,6 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
     ctx = dcaf_get_coap_context(dcaf_context);
     assert(ctx);
-
-    memset(&setup_data, 0, sizeof(setup_data));
-    setup_data.version = COAP_DTLS_CPSK_SETUP_VERSION;
 
 #ifdef DCAF_BASE64ENCODE_PSKIDENTITY
     /* write tag 34 (base64-encoded) */
@@ -351,6 +350,17 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     memcpy(identity, ticket_face->v.bytes, identity_len);
 #endif /* !DCAF_BASE64ENCODE_PSKIDENTITY */
 
+#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
+    session = coap_new_client_session_psk(ctx, NULL,
+                                          &t->state.future->remote,
+                                          COAP_PROTO_DTLS,
+                                          identity,
+                                          cinfo->key->data,
+                                          cinfo->key->length);
+#else /* LIBCOAP_VERSION >= 4003000 */
+    memset(&setup_data, 0, sizeof(setup_data));
+    setup_data.version = COAP_DTLS_CPSK_SETUP_VERSION;
+
     COAP_SET_STR(&setup_data.psk_info.identity, identity_len, identity);
     COAP_SET_STR(&setup_data.psk_info.key, cinfo->key->length, cinfo->key->data);
     dcaf_log(DCAF_LOG_INFO, "Set key to:\n");
@@ -360,6 +370,8 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
                                            &t->state.future->remote,
                                            COAP_PROTO_DTLS,
                                            &setup_data);
+#endif /* LIBCOAP_VERSION >= 4003000 */
+
     /* TODO: dcaf_create_transaction... */
     assert(session);
     if (session) {
