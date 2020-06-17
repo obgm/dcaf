@@ -75,6 +75,9 @@ setup_cipher_context(mbedtls_cipher_context_t *ctx,
                      mbedtls_operation_t mode) {
   const mbedtls_cipher_info_t *cipher_info;
   int tmp;
+  uint8_t key[DCAF_MAX_KEY_SIZE]; /* buffer for normalizing the key according to its key length */
+  int klen;
+  memset(key, 0, sizeof(key));
 
   tmp = get_alg(dcaf_alg);
       
@@ -87,7 +90,13 @@ setup_cipher_context(mbedtls_cipher_context_t *ctx,
   }
 
   C(mbedtls_cipher_setup(ctx, cipher_info));
-  C(mbedtls_cipher_setkey(ctx, key_data, 8 * key_length, mode));
+  klen = mbedtls_cipher_get_key_bitlen(ctx);
+  if ((klen > (int)(sizeof(key) * 8)) || (key_length > sizeof(key))) {
+    dcaf_log(DCAF_LOG_CRIT, "dcaf_crypto: cannot set key\n");
+    goto error;
+  }
+  memcpy(key, key_data, key_length);
+  C(mbedtls_cipher_setkey(ctx, key, klen, mode));
                                                                                    
   /* On success, the cipher context is released by the caller. */
   return true;
