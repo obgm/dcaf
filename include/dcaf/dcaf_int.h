@@ -32,8 +32,16 @@ extern "C" {
  * identifier. */
 typedef uint8_t dcaf_transaction_id_t[DCAF_DEFAULT_TOKEN_SIZE];
 
+typedef struct dcaf_host_t dcaf_host_t;
+
+struct dcaf_host_t {
+  char *s;
+  size_t length;
+};
+
 struct dcaf_transaction_t {
   dcaf_transaction_t *next;
+  dcaf_host_t aud;              /* contents of the audience parameter */
   coap_endpoint_t *local_interface;
   coap_address_t remote;
   coap_block_t block;

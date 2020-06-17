@@ -140,7 +140,8 @@ dcaf_delete_transaction(dcaf_context_t *dcaf_context,
   if (transaction) {
     LL_DELETE(dcaf_context->transactions, transaction);
     coap_delete_pdu(transaction->pdu);
-    coap_free(transaction);
+    dcaf_free_type(DCAF_STRING, transaction->aud.s);
+    dcaf_free_type(DCAF_TRANSACTION, transaction);
   }
 }
 
@@ -343,6 +344,18 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   if (!t) {
     dcaf_log(DCAF_LOG_WARNING, "cannot create new transaction\n");
     goto error;
+  }
+  {
+    const char aud_prefix[] = { 'c', 'o', 'a', 'p', 's', ':', '/', '/' };
+    t->aud.s = dcaf_alloc_type_len(DCAF_STRING, uri->host.length + sizeof(aud_prefix));
+    if (t->aud.s) {
+      t->aud.length = uri->host.length + sizeof(aud_prefix);
+      memcpy(t->aud.s, aud_prefix, sizeof(aud_prefix));
+      memcpy(t->aud.s + sizeof(aud_prefix), uri->host.s, uri->host.length);
+    } else {
+      memset(&t->aud, 0, sizeof(t->aud));
+      dcaf_log(DCAF_LOG_WARNING, "cannot store aud info: buffer too small.\n");
+    }
   }
   t->application_handler = app_hnd;
   dcaf_log(DCAF_LOG_DEBUG, "added transaction %02x%02x%02x%02x\n",

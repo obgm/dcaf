@@ -120,14 +120,12 @@ am_error_handler(dcaf_context_t *dcaf_context,
 #endif
 
 static size_t
-make_ticket_request(dcaf_context_t *dcaf_context,
-                    const dcaf_transaction_t *transaction,
+make_ticket_request(const dcaf_transaction_t *transaction,
                     const uint8_t *data, size_t data_len,
                     uint8_t *result, size_t max_result_len) {
   cn_cbor *req = dcaf_cbor_decode(data, data_len, NULL);
   cn_cbor *scope;
   size_t len;
-  dcaf_key_t *key;
   uint8_t buf[DCAF_MAX_RESOURCE_LEN+1];
   size_t length = sizeof(buf);
 
@@ -135,14 +133,14 @@ make_ticket_request(dcaf_context_t *dcaf_context,
     return 0;
   }
 
-  key = dcaf_find_key(dcaf_context, &dcaf_context->am_address, NULL, 0);
-  if (key) {
+  if (transaction->aud.length > 0) {
+    assert(transaction->aud.s);
     dcaf_cbor_mapput_int(req, DCAF_TICKET_AUD,
-              dcaf_cbor_data_create(key->kid, key->kid_length, NULL),
+             dcaf_cbor_data_create((uint8_t *)transaction->aud.s, transaction->aud.length, NULL),
                          NULL);
   } else {
     dcaf_log(DCAF_LOG_WARNING,
-             "cannot set aud parameter (AM key not found)\n");
+             "cannot set aud parameter\n");
   }
 
   /* create scope from initial request data */
@@ -198,8 +196,7 @@ handle_unauthorized(dcaf_context_t *dcaf_context,
     uint8_t ticket_req[512];
     size_t len;
 
-    len = make_ticket_request(dcaf_context, t,
-                              data, data_len,
+    len = make_ticket_request(t, data, data_len,
                               ticket_req, sizeof(ticket_req));
     if (len > 0) {
       /* FIXME: Set Content-Format to DCAF_MEDIATYPE_DCAF_CBOR */
