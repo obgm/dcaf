@@ -107,8 +107,14 @@ struct dcaf_context_t {
 #define DCAF_KEY_STATIC    0x0001
 #define DCAF_KEY_HAS_DATA  0x0002
 
-#define DCAF_MAX_KID_SIZE  8
-#define DCAF_MAX_KEY_SIZE  32
+#ifndef DCAF_MAX_KID_SIZE
+#define DCAF_MAX_KID_SIZE  (32)
+#endif /* DCAF_MAX_KID_SIZE */
+
+#ifndef DCAF_MAX_KEY_SIZE
+#define DCAF_MAX_KEY_SIZE  (32)
+#endif /* DCAF_MAX_KEY_SIZE */
+
 struct dcaf_key_t {
   dcaf_key_type type;
   uint8_t kid[DCAF_MAX_KID_SIZE]; /**< The key id as known by our AM. */
@@ -118,7 +124,9 @@ struct dcaf_key_t {
   size_t length;             /**< The key length in bytes. */
 };
 
-#define DCAF_MAX_STRING    128
+#ifndef DCAF_MAX_STRING
+#define DCAF_MAX_STRING    (128)
+#endif /* DCAF_MAX_STRING */
 
 struct dcaf_ticket_t {
   struct dcaf_ticket_t *next;
