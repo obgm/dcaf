@@ -13,31 +13,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define DCAF_BASE64ENCODE_PSKIDENTITY 1
+#define DCAF_UTF8ENCODE_PSKIDENTITY 1
 #define DCAF_MAX_PSK_IDENTITY 256
-
-#define DCAF_CBOR_MAJOR_TYPE_BASE64 34
-
-static size_t encode_tag(int type, uint8_t *buf) {
-  /* TODO: handle multiple bytes other than 24..255 */
-  buf[0] = (6 << 5) + 24;
-  buf[1] = type;
-  return 2;
-}
-
-static int64_t decode_tag(const uint8_t *data, size_t datalen) {
-  if (datalen > 0 && (data[0] >> 5) == 6) { /* found tag */
-    uint8_t val = data[0] & 0x1f;
-    /* TODO: handle multiple bytes other than 24..65535 */
-    if (val < 24)
-      return val;
-    else if (val == 24)
-      return datalen > 1 ? data[1] : -1;
-    else if (val == 25)
-      return datalen > 2 ? ((data[1] << 8) + data[2]) : -1;
-  }
-  return -1;
-}
 
 #ifdef RIOT_VERSION
 #include "libcoap_init.h"
@@ -51,6 +28,10 @@ static int64_t decode_tag(const uint8_t *data, size_t datalen) {
 #include "dcaf/state.h"
 #include "dcaf/utlist.h"
 #include "dcaf/dcaf_cbor.h"
+
+#if DCAF_UTF8ENCODE_PSKIDENTITY
+#include "dcaf/dcaf_utf8.h"
+#endif
 
 #include "dcaf/aif.h"
 #include "dcaf/cwt.h"
@@ -336,19 +317,18 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     ctx = dcaf_get_coap_context(dcaf_context);
     assert(ctx);
 
-#ifdef DCAF_BASE64ENCODE_PSKIDENTITY
+#if DCAF_UTF8ENCODE_PSKIDENTITY
     /* write tag 34 (base64-encoded) */
-    encode_tag(DCAF_CBOR_MAJOR_TYPE_BASE64, identity);
-    identity_len = sizeof(identity) - 2;
-    if (!dcaf_base64_encode(identity + 2, &identity_len, ticket_face->v.bytes, ticket_face->length)) {
-      dcaf_log(DCAF_LOG_WARNING, "Cannot Base64-encode ticket face. Sending raw.");
+    identity_len = sizeof(identity);
+    if (!uint8_to_utf8((char *)identity, &identity_len, ticket_face->v.bytes, ticket_face->length)) {
+      dcaf_log(DCAF_LOG_WARNING, "Cannot encode ticket face. Sending raw.");
       identity_len = ticket_face->length;
       memcpy(identity, ticket_face->v.bytes, identity_len);
     }
-#else /* !DCAF_BASE64ENCODE_PSKIDENTITY */
+#else /* !DCAF_UTF8ENCODE_PSKIDENTITY */
     identity_len = ticket_face->length;
     memcpy(identity, ticket_face->v.bytes, identity_len);
-#endif /* !DCAF_BASE64ENCODE_PSKIDENTITY */
+#endif /* !DCAF_UTF8ENCODE_PSKIDENTITY */
 
 #if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
     session = coap_new_client_session_psk(ctx, NULL,
@@ -363,8 +343,6 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
     COAP_SET_STR(&setup_data.psk_info.identity, identity_len, identity);
     COAP_SET_STR(&setup_data.psk_info.key, cinfo->key->length, cinfo->key->data);
-    dcaf_log(DCAF_LOG_INFO, "Set key to:\n");
-    dcaf_debug_hexdump(setup_data.psk_info.key.s, setup_data.psk_info.key.length);
 
     session = coap_new_client_session_psk2(ctx, NULL,
                                            &t->state.future->remote,
@@ -1017,21 +995,16 @@ dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
                     uint8_t *psk, size_t max_psk_len) {
   dcaf_ticket_t *t = NULL;
-#ifdef DCAF_BASE64ENCODE_PSKIDENTITY
+#if DCAF_UTF8ENCODE_PSKIDENTITY
   static uint8_t identity_buf[DCAF_MAX_PSK_IDENTITY];
-  if (decode_tag(identity, identity_len) == DCAF_CBOR_MAJOR_TYPE_BASE64) {
-    size_t identity_buflen = sizeof(identity_buf);
-    if (!dcaf_base64_decode(identity_buf, &identity_buflen, identity + 2, identity_len - 2)) {
-      dcaf_log(DCAF_LOG_WARNING, "Cannot Base64-decode ticket face. Parsing raw data.\n");
-    } else {
-      identity = identity_buf;
-      identity_len = identity_buflen;
-    }
+  size_t identity_buflen = sizeof(identity_buf);
+  if (!utf8_to_uint8(identity_buf, &identity_buflen, (const char *)identity, identity_len)) {
+    dcaf_log(DCAF_LOG_WARNING, "Cannot decode ticket face. Parsing raw data.\n");
+  } else {
+    identity = identity_buf;
+    identity_len = identity_buflen;
   }
-#endif /* DCAF_BASE64ENCODE_PSKIDENTITY */
-  dcaf_log(DCAF_LOG_DEBUG, "Trying to parse ticket:\n");
-  dcaf_debug_hexdump(identity, identity_len);
-
+#endif /* DCAF_UTF8ENCODE_PSKIDENTITY */
   if (dcaf_parse_ticket_face(session, identity, identity_len, &t) == DCAF_OK){
     /* got a new ticket; just store it and continue */
     dcaf_add_ticket(t);

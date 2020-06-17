@@ -48,7 +48,8 @@ libdcaf_a_SOURCES = \
    src/dcaf_mem.c \
    src/dcaf_optlist.c \
    src/dcaf_prng.c \
-   src/dcaf_transaction.c
+   src/dcaf_transaction.c \
+   src/dcaf_utf8.c
 
 ## Public header files and their installation location.
 libdcaf_includedir = $(includedir)/dcaf/
@@ -71,6 +72,7 @@ libdcaf_include_HEADERS = \
    $(top_srcdir)/include/dcaf/dcaf_prng.h \
    $(top_srcdir)/include/dcaf/dcaf_transaction.h \
    $(top_srcdir)/include/dcaf/dcaf_address.h \
+   $(top_srcdir)/include/dcaf/dcaf_utf8.h \
    $(top_builddir)/include/dcaf/dcaf.h
 
 ## Include autogen.sh in distribution but do not install it.
