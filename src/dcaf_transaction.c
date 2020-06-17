@@ -366,10 +366,10 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
    * flag is set. */
   if (flags & DCAF_TRANSACTION_BLOCK) {
     bool done = false;
-    unsigned int wait_ms = 0; /* TODO: set to global timeout option */
+    unsigned int wait_ms = dcaf_context->timeout_ms; /* set to global timeout */
     unsigned int time_spent = 0;
     while (!(done && coap_can_exit(ctx))) {
-      unsigned int timeout = wait_ms == 0 ? 5000 : min(wait_ms, 5000);
+      unsigned int timeout = wait_ms == 0 ? 5000 : wait_ms;
 
       /* coap_io_process() returns the time in milliseconds it has
        * spent. We use this value to determine if we have run out of
