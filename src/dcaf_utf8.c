@@ -12,6 +12,16 @@
 #define CHECK_PTR(Current, End, Count)                  \
   if ((End) < ((Current) + (Count))) { goto finish; }
 
+size_t utf8_length(const uint8_t *src, size_t srclen) {
+  size_t n = srclen;
+  while (srclen--) {
+    /* traverse string and add 1 for each character above 127 */
+    if (*src++ > 127)
+      n++;
+  }
+  return n;
+}
+
 bool uint8_to_utf8(char *dst, size_t *dstlen,
                    const uint8_t *src, size_t srclen) {
   char *p = dst;

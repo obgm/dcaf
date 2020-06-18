@@ -15,6 +15,18 @@
 #include <stdint.h>
 
 /**
+ * Calculates the number of bytes the string @p src of length
+ * @p srclen would take when encoded as UTF8. This function
+ * considers only 8-bit values, i.e., code points between 0 and 255.
+ *
+ * @param src    The source to be encoded.
+ * @param srclen The size of @p src in bytes.
+ *
+ * @return The number of bytes the UTF8-encoded string would take.
+ */
+size_t utf8_length(const uint8_t *src, size_t srclen);
+
+/**
  * UTF8-encodes @p srclen bytes from @p src into the buffer @p
  * dst. @p *dstlen specifies the size of @p dst and is overwritten
  * with the number of bytes written. In case of error, the value of @p
