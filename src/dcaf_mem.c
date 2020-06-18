@@ -1,8 +1,8 @@
 /*
  * dcaf_mem.c -- DCAF memory management
  *
- * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -35,7 +35,7 @@ dcaf_alloc_type_len(dcaf_object_type obj, size_t len) {
   case DCAF_TICKET: return CHECK_AND_ALLOC(dcaf_ticket_t, 0, len);
   case DCAF_KEY: return CHECK_AND_ALLOC(dcaf_key_t, DCAF_MAX_KEY_SIZE, len);
   case DCAF_AIF: return CHECK_AND_ALLOC(dcaf_aif_t, 0, len);
-  case DCAF_STRING: return CHECK_AND_ALLOC(char[DCAF_MAX_STRING], DCAF_MAX_STRING, len);
+  case DCAF_STRING: return coap_malloc(len);
   case DCAF_DEP_TICKET: return CHECK_AND_ALLOC(dcaf_dep_ticket_t, 0, len);
   case DCAF_TRANSACTION: return CHECK_AND_ALLOC(dcaf_transaction_t, 0, len);
   case DCAF_NONCE: return CHECK_AND_ALLOC(dcaf_nonce_t, 0, len); /* TODO: check */
