@@ -660,14 +660,13 @@ cose_decrypt(cose_obj_t *obj,
                    obj->buckets[COSE_DATA]->length,
                    p, len,
                    data, &buflen)) {
-    fprintf(stdout, "decrypt successful!\n");
-    fprintf(stdout, "result %zu bytes:\n", buflen);
+    dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: successfully decrypted %zu bytes:\n", buflen);
     *data_len = buflen;
     dcaf_debug_hexdump(data, *data_len);
     return COSE_OK;
   }
 
-  fprintf(stderr, "decrypt failed\n");
+  dcaf_log(DCAF_LOG_DEBUG, "cose_decrypt: decrypt failed\n");
   return COSE_DECRYPT_ERROR;
 }
 
