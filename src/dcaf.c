@@ -236,7 +236,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   cn_cbor *cbor;
   cn_cbor *ticket_face, *client_information, *cnf;
   const cn_cbor *cose_key = NULL;
-  dcaf_ticket_t *cinfo;
+  dcaf_ticket_t *cinfo = NULL;
   dcaf_key_type key_type = DCAF_NONE;
 
   (void)received;
@@ -391,6 +391,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   }
  finish:
   dcaf_cbor_free(cbor);
+  dcaf_free_ticket(cinfo);
 }
 
 static void
