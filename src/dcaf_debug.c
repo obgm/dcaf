@@ -14,6 +14,8 @@
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_debug.h"
 
+#define DCAF_DEBUG 1
+
 /* The external program used to output CBOR data in debug mode. */
 #define CBOR2PRETTY "cbor2pretty.rb"
 
@@ -41,6 +43,7 @@ void dcaf_set_log_handler(dcaf_log_handler_t handler) {
 }
 
 void dcaf_log(dcaf_log_t level, const char *format, ...) {
+#if DCAF_DEBUG
   if (maxlog < level)
     return;
 
@@ -71,10 +74,15 @@ void dcaf_log(dcaf_log_t level, const char *format, ...) {
     va_end(ap);
     fflush(log_fd);
   }
+#else /* !DCAF_DEBUG */
+  (void)level;
+  (void)format;
+#endif /* !DCAF_DEBUG */
 }
 
 void
 dcaf_debug_hexdump(const void *data, size_t len) {
+#if DCAF_DEBUG
   const uint8_t *p = (const uint8_t *)data;
   size_t n;
 
@@ -90,6 +98,10 @@ dcaf_debug_hexdump(const void *data, size_t len) {
     }
   }
   fprintf(stdout, "\n");
+#else /* !DCAF_DEBUG */
+  (void)data;
+  (void)len;
+#endif /* !DCAF_DEBUG */
 }
 
 void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz) {
@@ -100,7 +112,7 @@ void dcaf_show_ticket(dcaf_log_t level, const struct dcaf_authz_t *authz) {
 void
 dcaf_show_cbor(const uint8_t *data, size_t len) {
   /* call external program if not running as super user */
-#if DCAF_PRETTY_PRINT_CBOR
+#if DCAF_DEBUG && DCAF_PRETTY_PRINT_CBOR
   if (geteuid() != 0) {
     /* open cbor2pretty.rb as pipe and suppress error output. */
     FILE *pipe = popen(CBOR2PRETTY " 2>/dev/null", "w");
