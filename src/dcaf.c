@@ -306,7 +306,8 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 #if LIBCOAP_VERSION >= 4003000U
     coap_dtls_cpsk_t setup_data;
 #endif /* LIBCOAP_VERSION >= 4003000 */
-    uint8_t identity[DCAF_MAX_PSK_IDENTITY];
+    const uint8_t *raw_identity = NULL;
+    uint8_t *identity = NULL;
     size_t identity_len;
     coap_session_t *session;
     coap_context_t *ctx;
@@ -315,30 +316,31 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     assert(ctx);
 
 #if DCAF_UTF8ENCODE_PSKIDENTITY
-    /* write tag 34 (base64-encoded) */
-    identity_len = sizeof(identity);
-    if (!uint8_to_utf8((char *)identity, &identity_len, ticket_face->v.bytes, ticket_face->length)) {
+    identity_len = utf8_length(ticket_face->v.bytes, ticket_face->length);
+    identity = dcaf_alloc_type_len(DCAF_STRING, identity_len);
+    if (!identity || !uint8_to_utf8((char *)identity, &identity_len,
+                                    ticket_face->v.bytes, ticket_face->length)) {
       dcaf_log(DCAF_LOG_WARNING, "Cannot encode ticket face. Sending raw.");
       identity_len = ticket_face->length;
-      memcpy(identity, ticket_face->v.bytes, identity_len);
+      raw_identity = ticket_face->v.bytes;
     }
 #else /* !DCAF_UTF8ENCODE_PSKIDENTITY */
     identity_len = ticket_face->length;
-    memcpy(identity, ticket_face->v.bytes, identity_len);
+    raw_identity = ticket_face->v.bytes;
 #endif /* !DCAF_UTF8ENCODE_PSKIDENTITY */
 
 #if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
     session = coap_new_client_session_psk(ctx, NULL,
                                           &t->state.future->remote,
                                           COAP_PROTO_DTLS,
-                                          (const char *)identity,
+                                          (const char *)(identity ? identity : raw_identity),
                                           cinfo->key->data,
                                           cinfo->key->length);
 #else /* LIBCOAP_VERSION >= 4003000 */
     memset(&setup_data, 0, sizeof(setup_data));
     setup_data.version = COAP_DTLS_CPSK_SETUP_VERSION;
 
-    COAP_SET_STR(&setup_data.psk_info.identity, identity_len, identity);
+    COAP_SET_STR(&setup_data.psk_info.identity, identity_len, identity ? identity : raw_identity);
     COAP_SET_STR(&setup_data.psk_info.key, cinfo->key->length, cinfo->key->data);
 
     session = coap_new_client_session_psk2(ctx, NULL,
@@ -346,6 +348,8 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
                                            COAP_PROTO_DTLS,
                                            &setup_data);
 #endif /* LIBCOAP_VERSION >= 4003000 */
+    assert(DCAF_UTF8ENCODE_PSKIDENTITY || identity == NULL);    
+    dcaf_free_type(DCAF_STRING, identity);
 
     /* TODO: dcaf_create_transaction... */
     assert(session);
@@ -993,10 +997,12 @@ dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
                     uint8_t *psk, size_t max_psk_len) {
   dcaf_ticket_t *t = NULL;
+  size_t result = 0;
 #if DCAF_UTF8ENCODE_PSKIDENTITY
-  static uint8_t identity_buf[DCAF_MAX_PSK_IDENTITY];
-  size_t identity_buflen = sizeof(identity_buf);
-  if (!utf8_to_uint8(identity_buf, &identity_buflen, (const char *)identity, identity_len)) {
+  size_t identity_buflen = identity_len;
+  uint8_t *identity_buf = dcaf_alloc_type_len(DCAF_STRING, identity_len);
+  if (!identity_buf ||
+      !utf8_to_uint8(identity_buf, &identity_buflen, (const char *)identity, identity_len)) {
     dcaf_log(DCAF_LOG_WARNING, "Cannot decode ticket face. Parsing raw data.\n");
   } else {
     identity = identity_buf;
@@ -1011,7 +1017,8 @@ dcaf_get_server_psk(const coap_session_t *session,
       /* TODO check if key is a psk and return 0 otherwise */
       memcpy(psk, t->key->data, t->key->length);
       /* return length of key */
-      return t->key->length;
+      result = t->key->length;
+      goto finish;
     }
   } else {
     dcaf_context_t *dcaf_context;
@@ -1029,11 +1036,14 @@ dcaf_get_server_psk(const coap_session_t *session,
         dcaf_log(DCAF_LOG_DEBUG, "found psk for %.*s\n",
                  (int)identity_len, identity);
         memcpy(psk, key->data, key->length);
-        return key->length;
+        result = key->length;
+        goto finish;
       }
     }
   }
-  return 0;
+ finish:
+  dcaf_free_type(DCAF_STRING, identity_buf);
+  return result;
 }
 
 dcaf_context_t *
