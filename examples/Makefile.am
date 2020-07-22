@@ -11,7 +11,7 @@ AM_CPPFLAGS = @libcoap_CFLAGS@
 
 AM_LDFLAGS = -L@top_builddir@
 
-libs = $(top_builddir)/libdcaf.a @libcoap_LIBS@ @cn_cbor_LIBS@
+libs = $(top_builddir)/libdcaf.a @libcoap_LIBS@ @cbor_LIBS@
 bin_PROGRAMS = s dcaf-client
 
 s_SOURCES = s.c

@@ -21,7 +21,7 @@ EXTRA_DIST = \
   tests/catch.hpp \
   tests/test.hh
 
-AM_CPPFLAGS = @libcoap_CFLAGS@ @cn_cbor_CFLAGS@
+AM_CPPFLAGS = @libcoap_CFLAGS@ @cbor_CFLAGS@
 AM_CPPFLAGS += -DDCAF_TEST_MODE_ACCEPT=1
 
 SUBDIRS = $(subdirs) . tests @am_DIR@ examples
