@@ -1,7 +1,7 @@
 /*
  * cose_int.h -- internal COSE API (required for testing)
  *
- * Copyright (C) 2017-2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2017-2020 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -23,10 +23,17 @@ typedef struct cose_encrypt0_scratch_t {
   uint8_t *buf;
 } cose_encrypt0_scratch_t;
 
+struct cose_bucket_t {
+  const uint8_t *data;
+  size_t length;
+};
+
 struct cose_obj_t {
   unsigned int type;
   unsigned int flags;
-  cn_cbor *buckets[4];
+  /* The message underlying this COSE object must be valid as long
+   * as the buckets are in use. */
+  cose_bucket_t buckets[4];
 
   /** Scratch pad for intermediary structures. */
   union {

@@ -10,7 +10,10 @@
 #ifndef TEST_HH_
 #define TEST_HH_
 
+#include <cn-cbor/cn-cbor.h>
+
 #include "dcaf/aif.h"
+#include "dcaf/anybor.h"
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_am.h"
@@ -33,6 +36,8 @@ struct Deleter {
   /* objects from external libraries used for testing */
   void operator()(cn_cbor *p) { cn_cbor_free(p); }
   void operator()(coap_pdu_t *p) { coap_delete_pdu(p); }
+  void operator()(abor_encoder_t *p) { abor_encode_finish(p); }
+  void operator()(abor_decoder_t *p) { abor_decode_finish(p); }
 };
 
 void test_log_off(void);

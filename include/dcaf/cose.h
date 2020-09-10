@@ -13,14 +13,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <cn-cbor/cn-cbor.h>
+#include "anybor.h"
 
 #include "dcaf/dcaf_debug.h"
 #include "dcaf/cose_types.h"
 #include "dcaf/dcaf_crypto.h"
 
-struct cose_obj_t;
 typedef struct cose_obj_t cose_obj_t;
+typedef struct cose_bucket_t cose_bucket_t;
 
 /**
  * Result types for public COSE-related functions.
@@ -110,24 +110,34 @@ typedef enum cose_bucket_type {
  * @param cbor  The CBOR data to put into the bucket @p type. If
  *              @p cbor is NULL, the bucket will be cleared.
  */
-void cose_set_bucket(cose_obj_t *obj, cose_bucket_type type, cn_cbor *cbor);
+void cose_set_bucket(cose_obj_t *obj, cose_bucket_type type, abor_decoder_t *cbor);
 
 /**
- * Returns the contents of the specified @p bucket from @p obj. The
+ * Returns a pointer to the specified @p bucket from @p obj. The
  * ownership of the bucket's contents remains at @p obj.
  *
  * @param obj    The COSE object to read from.
  * @param bucket The requested bucket type.
  *
- * @param The bucket's contents or NULL if empty.
+ * @param A pointer to the respective @p bucket contents or NULL if not present.
  */
-const cn_cbor *cose_get_bucket(cose_obj_t *obj, cose_bucket_type bucket);
+const cose_bucket_t *cose_get_bucket(cose_obj_t *obj, cose_bucket_type bucket);
 
 /** Flags to control cose_serialize(). */
 typedef enum {
   COSE_UNTAGGED = 0,            /**< untagged COSE object */
   COSE_TAGGED,                  /**< output a tagged COSE object */
 } cose_serialize_flags;
+
+/* COSE tags according to Table 1 in RFC 8152. */
+typedef enum {
+              COSE_TAG_ENCRYPT0 = 16,
+              COSE_TAG_MAC0     = 17,
+              COSE_TAG_SIGN1    = 18,
+              COSE_TAG_ENCRYPT  = 96,
+              COSE_TAG_MAC      = 97,
+              COSE_TAG_SIGN     = 98,
+} cose_tag_t;
 
 /**
  * Serializes the COSE object @p obj into the buffer provided in @p

@@ -41,17 +41,35 @@ test_option_eq(const coap_pdu_t *pdu, unsigned int option, long value) {
 SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<dcaf_ticket_t, Deleter> ticket;
   static std::unique_ptr<dcaf_ticket_request_t, Deleter> treq;
-  static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu;
-  static std::unique_ptr<coap_pdu_t, Deleter> coap_response;
-  static std::unique_ptr<cn_cbor, Deleter> claim;
+  static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu{coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU)};
+  static std::unique_ptr<coap_pdu_t, Deleter> coap_response{coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU)};
   static std::unique_ptr<cose_obj_t, Deleter> object;
-  static cn_cbor *ticket_face = nullptr;
-  static cn_cbor *cinfo = nullptr;
+  static std::unique_ptr<abor_decoder_t, Deleter> ticket_face;
+  static std::unique_ptr<abor_decoder_t, Deleter> claim;
+  static std::unique_ptr<abor_decoder_t, Deleter> cinfo;
   static std::unique_ptr<dcaf_aif_t, Deleter> aif;
+  static std::unique_ptr<dcaf_key_t, Deleter> s_key;
 
-  coap_response.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
+  static const dcaf_key_t rs_key = {
+    (dcaf_key_type)COSE_AES_CCM_16_64_128,
+    {}, 0,
+    0, /* flags */
+    { 0x52, 0x53, 0x27, 0x73, 0x20, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x32, 0x33, 0x34, 0x35, 0x36 },
+    16
+  };
 
-  GIVEN("A ticket request") {
+  static uint8_t buf[1024];
+  static size_t buflen = sizeof(buf);
+  
+  GIVEN("A shared secret and a ticket request") {
+    const uint8_t kid_data[] = { 'b', 'a', 'r' };
+  
+    s_key.reset(dcaf_new_key(DCAF_AES_128));
+    REQUIRE(s_key != nullptr);
+    REQUIRE(dcaf_set_key(s_key.get(), rs_key.data, rs_key.length));
+    REQUIRE(dcaf_set_kid(s_key.get(), kid_data, sizeof(kid_data)));
+    dcaf_add_key(dcaf_context(), NULL, s_key.get());
+
     static uint8_t coap_data[] = {
       (COAP_DEFAULT_VERSION << 6) | (COAP_MESSAGE_NON << 4), /* TKL == 0 */
       COAP_REQUEST_POST, 0x12, 0x34, /* arbitray mid */
@@ -62,13 +80,13 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
       0x05, 0x18, 0X7D, 0x48, 0x41, 0x42, 0x43, 0x44,
       0x45, 0x46, 0x47, 0x48
     };
-    coap_pdu.reset(coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU));
-    REQUIRE(coap_pdu.get() != nullptr);
+
     WHEN("The request is parsed") {
       coap_session_t session;
       dcaf_ticket_request_t *result;
       session.context = dcaf_get_coap_context(dcaf_context());
 
+      REQUIRE(coap_pdu.get() != nullptr);
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
                              coap_data, sizeof(coap_data),
                              coap_pdu.get()) > 0);
@@ -102,100 +120,135 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         unsigned char *databuf;
         cn_cbor *data;
         REQUIRE(coap_get_data(coap_response.get(), &databuf_len, &databuf));
-
         data = cn_cbor_decode(databuf, databuf_len, nullptr);
         REQUIRE(data != nullptr);
-
-        claim.reset(data);
       }
     }
 
     WHEN("A ticket grant was created") {
-      REQUIRE(claim.get() != nullptr);
+      size_t databuf_len;
+      unsigned char *databuf;
+      REQUIRE(coap_get_data(coap_response.get(), &databuf_len, &databuf));
+
+      REQUIRE(databuf != nullptr);
 
       THEN("The grant must contain a ticket face") {
         /* The ticket face is part of claim and thus must not be deleted. */
-        ticket_face = cn_cbor_mapget_int(claim.get(), DCAF_TICKET_FACE);
-        REQUIRE(ticket_face != nullptr);
-        REQUIRE(ticket_face->type == CN_CBOR_MAP);
-      }
+        claim.reset(abor_decode_start(databuf, databuf_len));
 
-      THEN("The grant must contain client information") {
-        cinfo = cn_cbor_mapget_int(claim.get(), DCAF_TICKET_CLIENTINFO);
-        REQUIRE(cinfo != nullptr);
-        REQUIRE(cinfo->type == CN_CBOR_MAP);
+        REQUIRE(claim != nullptr);
+        ticket_face.reset(abor_mapget_int(claim.get(), DCAF_TICKET_FACE));
+        REQUIRE(ticket_face != nullptr);
       }
     }
 
-    WHEN("A ticket grant with a ticket face is present") {
-      REQUIRE(claim.get() != nullptr);
-      REQUIRE(ticket_face != nullptr);
+    WHEN("A ticket grant with client information is present") {
+      cinfo.reset(abor_mapget_int(claim.get(), DCAF_TICKET_CLIENTINFO));
+      REQUIRE(cinfo != nullptr);
+      REQUIRE(abor_check_type(cinfo.get(), ABOR_MAP));
 
-      THEN("The grant must contain a cnf claim with a symmetric key") {
-        cn_cbor *cnf = cn_cbor_mapget_int(claim.get(), DCAF_TICKET_CNF);
+      THEN("The client information must contain a cnf claim with a symmetric key") {
+        std::unique_ptr<abor_decoder_t, Deleter> cnf;
+        std::unique_ptr<abor_decoder_t, Deleter> cwt_key, kty, k;
+        cnf.reset(abor_mapget_int(cinfo.get(), DCAF_TICKET_CNF));
         REQUIRE(cnf != nullptr);
-        REQUIRE(cnf->type == CN_CBOR_MAP);
+        REQUIRE(abor_check_type(cnf.get(), ABOR_MAP));
 
-        cn_cbor *cwt_key = cn_cbor_mapget_int(cnf, CWT_COSE_KEY);
+        cwt_key.reset(abor_mapget_int(cnf.get(), CWT_COSE_KEY));
         REQUIRE(cwt_key != nullptr);
-        REQUIRE(cwt_key->type == CN_CBOR_MAP);
+        REQUIRE(abor_check_type(cwt_key.get(), ABOR_MAP));
 
-        cn_cbor *kty = cn_cbor_mapget_int(cwt_key, COSE_KEY_KTY);
+        kty.reset(abor_mapget_int(cwt_key.get(), COSE_KEY_KTY));
         REQUIRE(kty != nullptr);
-        REQUIRE(kty->type == CN_CBOR_UINT);
-        REQUIRE(kty->v.uint == COSE_KEY_KTY_SYMMETRIC);
+        REQUIRE(abor_check_type(kty.get(), ABOR_UINT));
 
-        cn_cbor *k = cn_cbor_mapget_int(cwt_key, COSE_KEY_K);
+        uint64_t num;
+        REQUIRE(abor_get_uint(kty.get(), &num));
+        REQUIRE(num == COSE_KEY_KTY_SYMMETRIC);
+
+        k.reset(abor_mapget_int(cwt_key.get(), COSE_KEY_K));
         REQUIRE(k != nullptr);
-        REQUIRE(k->type == CN_CBOR_BYTES);
+        REQUIRE(abor_check_type(k.get(), ABOR_BSTR));
 
         /* use the same not-so-random key sequence */
         uint8_t key[16];
         dcaf_prng(key, sizeof(key));
 
-        REQUIRE(k->length == sizeof(key));
-        REQUIRE(memcmp(k->v.bytes, key, k->length) == 0);
+        REQUIRE(abor_get_sequence_length(k.get()) == sizeof(key));
+        REQUIRE(memcmp(abor_get_bytes(k.get()), key, sizeof(key)) == 0);
       }
     }
 
-    WHEN("The ticket face contains an array as scope") {
-      REQUIRE(claim.get() != nullptr);
+    WHEN("A ticket grant with an encrypted ticket face is present") {
+      const uint8_t t_face[] = { 
+        0x58, 0x5c, 0x83, 0x43, 0xa1, 0x01, 0x0a, 0xa1,
+        0x05, 0x4d, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+        0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x58,
+        0x45, 0xdc, 0x17, 0xc0, 0xea, 0x0c, 0x69, 0x04,
+        0x94, 0x53, 0x3c, 0x58, 0x6f, 0x1f, 0x92, 0x89,
+        0x5e, 0xbb, 0x4b, 0xfb, 0xab, 0x62, 0xec, 0x95,
+        0x04, 0x15, 0x11, 0x75, 0xcb, 0x7f, 0xec, 0xef,
+        0xc1, 0x8f, 0xd2, 0xa3, 0xe8, 0x22, 0x5a, 0x07,
+        0x4b, 0xf9, 0x66, 0x99, 0xb4, 0xe6, 0xcc, 0xaf,
+        0x25, 0x10, 0xef, 0x71, 0xf7, 0xc2, 0xa5, 0x39,
+        0xc8, 0xdb, 0x02, 0x41, 0x2f, 0x34, 0xef, 0x6f,
+        0x51, 0x22, 0x19, 0xce, 0xc6, 0xa3
+      };
+      const uint8_t decrypted_t_face[] = { 
+        0xa7, 0x03, 0x63, 0x62, 0x61, 0x72, 0x09, 0x82,
+        0x62, 0x2f, 0x72, 0x05, 0x18, 0x7e, 0x01, 0x18,
+        0x20, 0x19, 0x0e, 0x10, 0x08, 0xa1, 0x01, 0xa2,
+        0x01, 0x04, 0x20, 0x50, 0x00, 0x01, 0x02, 0x03,
+        0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+        0x0c, 0x0d, 0x0e, 0x0f, 0x06, 0x1a, 0x5f, 0x5a,
+        0x3e, 0x13, 0x18, 0x7d, 0x48, 0x41, 0x42, 0x43,
+        0x44, 0x45, 0x46, 0x47, 0x48
+      };
+
+      ticket_face.reset(abor_decode_start(t_face, sizeof(t_face)));
       REQUIRE(ticket_face != nullptr);
+      REQUIRE(abor_check_type(ticket_face.get(), ABOR_BSTR));
 
-      cn_cbor *scope = cn_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
-      REQUIRE(scope != nullptr);
-      REQUIRE(scope->type == CN_CBOR_ARRAY);
+      THEN("it can be parsed as COSE structure and decrypted") {
+        cose_obj_t *result;
+        const uint8_t *raw = abor_get_bytes(ticket_face.get());
+        size_t raw_len = abor_get_sequence_length(ticket_face.get());
 
-      THEN("It can be parsed as AIF") {
-        dcaf_aif_t *result;
-        REQUIRE(dcaf_aif_parse_string(scope, &result) == DCAF_OK);
+        REQUIRE(cose_parse(raw, raw_len, &result) == COSE_OK);
         REQUIRE(result != nullptr);
-        aif.reset(result);
-      }
-    }
+        object.reset(result);
 
-    WHEN("An encrypted COSE_Key structure is contained in grant") {
-      REQUIRE(object.get() != nullptr);
+        REQUIRE(object->buckets[COSE_UNPROTECTED].length == 16);
+        REQUIRE(memcmp(object->buckets[COSE_UNPROTECTED].data, t_face + 7, 16) == 0);
 
-      /* the decrypted key must be the same as the key in the ticket face */
-      THEN("It can be decrypted with RS's key") {
-        uint8_t buf[1024];
-        size_t buflen = sizeof(buf);
         cose_result_t res =
           cose_decrypt(object.get(), nullptr, 0, buf, &buflen,
                        [](const char *, size_t, cose_mode_t, void *) {
-                         static const dcaf_key_t key = {
-                           (dcaf_key_type)COSE_AES_CCM_16_64_128,
-			   {}, 0,
-			   0, /* flags */
-                           { 0x52, 0x53, 0x27, 0x73, 0x20, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x32, 0x33, 0x34, 0x35, 0x36 },
-			   16
-                         };
-                         return &key;
+                         return &rs_key;
                        },
                        nullptr);
 
         REQUIRE(res == COSE_OK);
+        REQUIRE(buflen == sizeof(decrypted_t_face));
+        REQUIRE(memcmp(buf, decrypted_t_face, buflen) == 0);
+      }
+    }
+
+    WHEN("The ticket face contains an array as scope") {
+      ticket_face.reset(abor_decode_start(buf, buflen));
+      REQUIRE(ticket_face != nullptr);
+      REQUIRE(abor_check_type(ticket_face.get(), ABOR_MAP));
+
+      std::unique_ptr<abor_decoder_t, Deleter> scope;
+      scope.reset(abor_mapget_int(ticket_face.get(), DCAF_TICKET_SCOPE));
+      REQUIRE(scope != nullptr);
+      REQUIRE(abor_check_type(scope.get(), ABOR_ARRAY));
+
+      THEN("It can be parsed as AIF") {
+        dcaf_aif_t *result;
+        REQUIRE(dcaf_aif_parse(scope.get(), &result) == DCAF_OK);
+        REQUIRE(result != nullptr);
+        aif.reset(result);
       }
     }
 

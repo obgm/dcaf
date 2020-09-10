@@ -17,25 +17,22 @@
 #include "test.hh"
 #include "catch.hpp"
 
-#define AIF_METHOD "GET"
-#define AIF_RESOURCE "/something"
-
 SCENARIO( "Parse textual AIF representation", "[scope]" ) {
   static std::unique_ptr<dcaf_aif_t, Deleter> aif;
-  static std::unique_ptr<cn_cbor, Deleter> cbor;
+  static std::unique_ptr<abor_decoder_t, Deleter> abd;
 
   GIVEN("A CBOR string with method and resource") {
-    cn_cbor *cbor_str =
-      cn_cbor_string_create(AIF_METHOD " " AIF_RESOURCE, NULL);
+    const uint8_t cbor_str[] = { 0x6e, 'G', 'E', 'T', ' ', '/', 's', 'o',
+                                 'm', 'e', 't', 'h', 'i', 'n', 'g' };
+    abd.reset(abor_decode_start(cbor_str, sizeof(cbor_str)));
 
-    REQUIRE(cbor_str != nullptr);
-    cbor.reset(cbor_str);
+    REQUIRE(abd != nullptr);
 
     WHEN("The string is parsed as AIF") {
       dcaf_result_t res;
       dcaf_aif_t *result;
 
-      res = dcaf_aif_parse_string(cbor.get(), &result);
+      res = dcaf_aif_parse_string(abd.get(), &result);
       aif.reset(result);
 
       THEN("the result is DCAF_OK and a valid AIF object is created") {
@@ -43,9 +40,9 @@ SCENARIO( "Parse textual AIF representation", "[scope]" ) {
         REQUIRE(res == DCAF_OK);
         REQUIRE(aif.get() != nullptr);
         REQUIRE(aif.get()->perm.methods == 0x01);
-        REQUIRE(aif.get()->perm.resource_len == strlen(AIF_RESOURCE));
+        REQUIRE(aif.get()->perm.resource_len == strlen("/something"));
         REQUIRE(memcmp(aif.get()->perm.resource,
-                       AIF_RESOURCE,
+                       "/something",
                        aif.get()->perm.resource_len) == 0);
       }
     }
@@ -54,27 +51,23 @@ SCENARIO( "Parse textual AIF representation", "[scope]" ) {
 
 SCENARIO( "Parse cbor AIF representation", "[aif]" ) {
   static std::unique_ptr<dcaf_aif_t, Deleter> aif;
-  static std::unique_ptr<cn_cbor, Deleter> cbor, cbor_aif;
+  static std::unique_ptr<abor_encoder_t, Deleter> abc;
+  static std::unique_ptr<abor_decoder_t, Deleter> abd;
 
+  static const uint8_t cbor_arr[] = { 0x82, 0x6a, '/', 's', 'o', 'm', 'e', 't',
+                                      'h', 'i', 'n', 'g', 0x01 };
+  
   GIVEN("A CBOR AIF representation") {
-    cn_cbor *cbor_arr = cn_cbor_array_create(NULL);
 
-    REQUIRE(cbor_arr != nullptr);
-    cbor.reset(cbor_arr);
+    abd.reset(abor_decode_start(cbor_arr, sizeof(cbor_arr)));
 
-    cn_cbor_array_append(cbor.get(),
-                         cn_cbor_string_create(AIF_RESOURCE, nullptr),
-                         nullptr);
-
-    cn_cbor_array_append(cbor.get(),
-                         cn_cbor_int_create(0x01, nullptr),
-                         nullptr);
+    REQUIRE(abd != nullptr);
 
     WHEN("The string is parsed as AIF") {
       dcaf_result_t res;
       dcaf_aif_t *result;
 
-      res = dcaf_aif_parse(cbor.get(), &result);
+      res = dcaf_aif_parse(abd.get(), &result);
       aif.reset(result);
 
       THEN("the result is DCAF_OK and a valid AIF object is created") {
@@ -82,35 +75,29 @@ SCENARIO( "Parse cbor AIF representation", "[aif]" ) {
         REQUIRE(res == DCAF_OK);
         REQUIRE(aif.get() != nullptr);
         REQUIRE(aif.get()->perm.methods == 0x01);
-        REQUIRE(aif.get()->perm.resource_len == strlen(AIF_RESOURCE));
+        REQUIRE(aif.get()->perm.resource_len == strlen("/something"));
         REQUIRE(memcmp(aif.get()->perm.resource,
-                       AIF_RESOURCE,
+                       "/something",
                        aif.get()->perm.resource_len) == 0);
       }
     }
 
     WHEN("The parsed AIF is converted to CBOR") {
-      cn_cbor *c;
-
+      uint8_t buf[1024];
       REQUIRE(aif.get() != nullptr);
-      c = dcaf_aif_to_cbor(aif.get());
+
+      abc.reset(abor_encode_start(buf, sizeof(buf)));
+      REQUIRE(abc != nullptr);
 
       THEN("This should result in a CBOR AIF representation") {
-        REQUIRE(c != nullptr);
-        cbor_aif.reset(c);
+        size_t length;
+        REQUIRE(dcaf_aif_to_cbor(aif.get(), abc.get()));
 
-        REQUIRE(cbor_aif.get()->type == CN_CBOR_ARRAY);
+        length = abor_encode_finish(abc.get());
+        abc.release();
 
-        c = cn_cbor_index(cbor_aif.get(), 0);
-        REQUIRE(c != nullptr);
-        REQUIRE(c->type == CN_CBOR_BYTES);
-        REQUIRE(c->length == strlen(AIF_RESOURCE));
-        REQUIRE(memcmp(c->v.bytes, AIF_RESOURCE, c->length) == 0);
-
-        c = cn_cbor_index(cbor_aif.get(), 1);
-        REQUIRE(c != nullptr);
-        REQUIRE(c->type == CN_CBOR_UINT);
-        REQUIRE(c->v.uint == 0x01);
+        REQUIRE(length == sizeof(cbor_arr));
+        REQUIRE(memcmp(buf, cbor_arr, length) == 0);
       }
     }
   }

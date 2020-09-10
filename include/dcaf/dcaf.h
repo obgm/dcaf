@@ -44,6 +44,8 @@ typedef enum {
   DCAF_ERROR_UNSUPPORTED_KEY_TYPE = 0x16
 } dcaf_result_t;
 
+#include "dcaf/anybor.h"
+
 #include "libdcaf.h"
 #include "dcaf_coap.h"
 #include "dcaf_address.h"
@@ -210,7 +212,7 @@ dcaf_result_t dcaf_set_error_response(const coap_session_t *session,
                                       dcaf_result_t error,
                                       coap_pdu_t *response);
 
-void dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key);
+void dcaf_parse_dcaf_key(dcaf_key_t *key, const abor_decoder_t* cose_key);
 
 
 struct dcaf_ticket_t;

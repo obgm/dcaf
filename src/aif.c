@@ -12,7 +12,6 @@
 #include "dcaf/dcaf_int.h"
 #include "dcaf/utlist.h"
 #include "dcaf/aif.h"
-#include "dcaf/dcaf_cbor.h"
 
 static dcaf_aif_t *
 dcaf_new_aif(void) {
@@ -48,7 +47,7 @@ get_method(const char *s, size_t len) {
 }
 
 dcaf_result_t
-dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
+dcaf_aif_parse_string(const abor_decoder_t *cbor, dcaf_aif_t **result) {
   dcaf_result_t res = DCAF_ERROR_INVALID_TICKET;
   dcaf_aif_t *aif;
   assert(cbor);
@@ -57,14 +56,17 @@ dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result) {
   *result = NULL;   /* initialize *result */
 
   /* if cbor is a string, try to make sense of it */
-  if (cbor->type == CN_CBOR_TEXT) {
-    const char *p, *q;
-    size_t len = cbor->length;  /* keep track of remaining length */
+  if (abor_check_type(cbor, ABOR_TSTR)) {
+    size_t len = abor_get_sequence_length(cbor);
+    const char *p = abor_get_text(cbor);
+    const char *q;
+
+    assert(p || (len == 0));
 
     while (len) {
       int method;
 
-      for (p = cbor->v.str; len && isspace(*p); len--, p++)
+      for (; len && isspace(*p); len--, p++)
         ;
 
       /* p now points either to the end or the first non-LWS character */
@@ -131,92 +133,115 @@ odd(long n) {
 }
 
 dcaf_result_t
-dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result) {
+dcaf_aif_parse(abor_decoder_t *cbor, dcaf_aif_t **result) {
   dcaf_result_t res = DCAF_ERROR_INVALID_TICKET;
   dcaf_aif_t *aif;
-  const cn_cbor *cp;
+  abor_iterator_t *it;
+  abor_decoder_t *cp;
+  enum { NEED_URI, NEED_METHODS } iterator_state = NEED_URI;
+
   assert(cbor);
   assert(result);
 
   *result = NULL;   /* initialize *result */
 
-  if (cbor->type != CN_CBOR_ARRAY) {
+  if (!abor_check_type(cbor, ABOR_ARRAY)) {
     return DCAF_ERROR_INVALID_TICKET;
   }
 
   /* the number of elements in the array must be even */
-  if (odd(cbor->length)) {
+  if (odd(abor_get_sequence_length(cbor))) {
     return DCAF_ERROR_INVALID_TICKET;
   }
 
   /* process AIF array */
-  cp = cbor->first_child;
-
-  while (cp) {
-    assert(cp->next);
-
-    if (((cp->type != CN_CBOR_TEXT) && (cp->type != CN_CBOR_BYTES))
-        || (cp->next->type != CN_CBOR_UINT)) {
-      break;
-    }
-
-    aif = dcaf_new_aif();
-    if (!aif) {
-      res = DCAF_ERROR_OUT_OF_MEMORY;
-      break;
-    }
-
-    if (cp->length > DCAF_MAX_RESOURCE_LEN) {
-      dcaf_delete_aif(aif);
-      res = DCAF_ERROR_OUT_OF_MEMORY;
-      break;
-    }
-    memcpy(aif->perm.resource, cp->v.bytes, cp->length);
-    aif->perm.resource_len = cp->length;
-    aif->perm.methods = cp->next->v.uint;
-
-    LL_PREPEND(*result, aif);
-    cp = cp->next->next;
+  it = abor_iterate_start(cbor);
+  if (!it) {
+    return DCAF_ERROR_OUT_OF_MEMORY;
   }
 
+  const uint8_t *uri = NULL;
+  size_t uri_length = 0;
+  do {
+    cp = abor_iterate_get(it);
+
+    if (iterator_state == NEED_URI) {
+      if (!abor_check_type(cp, ABOR_TSTR) &&
+          !abor_check_type(cp, ABOR_BSTR)) {
+        res = DCAF_ERROR_INVALID_TICKET;
+        goto finish;
+      }
+      /* get URI and length */
+      uri = abor_get_bytes(cp);
+      uri_length = abor_get_sequence_length(cp);
+
+      /* resource URI too long; stop as we cannot continue properly */
+      if (uri_length > DCAF_MAX_RESOURCE_LEN) {
+        res = DCAF_ERROR_OUT_OF_MEMORY;
+        goto finish;
+      }
+    } else { /* NEED_METHODS */
+      uint64_t methods;
+      /* get methods and create AIF entry */
+      if (!abor_get_uint(cp, &methods)) {
+        res = DCAF_ERROR_INVALID_TICKET;
+        goto finish;
+      }
+
+      aif = dcaf_new_aif();
+      if (!aif) {
+        res = DCAF_ERROR_OUT_OF_MEMORY;
+        goto finish;
+      }
+
+      if (uri_length) {
+        memcpy(aif->perm.resource, uri, uri_length);
+        aif->perm.resource_len = uri_length;
+      }
+      aif->perm.methods = methods;
+
+      LL_PREPEND(*result, aif);
+    }
+    iterator_state = (iterator_state + 1) % 2;
+    abor_decode_finish(cp);
+  } while (abor_iterate_next(it));
+
+ finish:
+  abor_decode_finish(cp);
+  abor_iterate_finish(it);    
   /* If there are items in *result, we must return DCAF_OK to instruct
    * the caller to release the allocated memory. */
   return (*result != NULL) ? DCAF_OK : res;
 }
 
-cn_cbor *
-dcaf_aif_to_cbor(const dcaf_aif_t *aif) {
-  cn_cbor *result;
+bool
+dcaf_aif_to_cbor(const dcaf_aif_t *aif, abor_encoder_t *abc) {
   const dcaf_aif_t *tmp;
+  int counter;
+  bool ok;
 
-  if (!aif || !(result = dcaf_cbor_array_create(NULL))) {
-    return NULL;
-  }
+  if (!aif)
+    return false;
+
+  /* Count number of AIF items. Each structure results in two array
+   * elements. */
+  LL_COUNT(aif,tmp,counter);
+  ok = abor_write_array(abc, 2 * counter);
 
   LL_FOREACH(aif, tmp) {
-    cn_cbor *resource, *methods;
-    resource = dcaf_cbor_string_create((const char *)tmp->perm.resource,
-                                   NULL);
-    methods =  dcaf_cbor_int_create(tmp->perm.methods, NULL);
+    /* An error in the second write may lead to an incomplete array. */ 
+    ok = ok && abor_write_text(abc,
+                               (const char *)tmp->perm.resource,
+                               tmp->perm.resource_len);
+    ok = ok && abor_write_uint(abc, tmp->perm.methods);
 
-    if (!resource || !methods) {
+    if (!ok) {
       dcaf_log(DCAF_LOG_DEBUG, "out of memory when creating AIF\n");
-      dcaf_cbor_free(resource);
-      dcaf_cbor_free(methods);
       break;
     }
-
-    dcaf_cbor_array_append(result, resource, NULL);
-    dcaf_cbor_array_append(result, methods, NULL);
   }
 
-  if (result->length == 0) {
-    /* we ran out of memory during AIF creation, so just give up */
-    dcaf_cbor_free(result);
-    return NULL;
-  } else {
-    return result;
-  }
+  return ok;
 }
 
 static bool

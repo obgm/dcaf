@@ -45,19 +45,21 @@ SCENARIO( "DCAF key generator", "[keys]" ) {
                                        42, 1200, 600);
     ticket.reset(a);
 
-    WHEN("the key component is NULL") {
-      REQUIRE(ticket.get()->key == NULL);
+    REQUIRE(ticket != nullptr);
+    REQUIRE(ticket->key != nullptr);
+    
+    WHEN("a new verifier is created") {
+      REQUIRE(dcaf_create_verifier(NULL, ticket.get()) == DCAF_OK);
 
-      THEN("dcaf_create_verifier() creates a new random key") {
+      THEN("a new key is set") {
         uint8_t ref_key[] = {
           0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
         };
 
-        REQUIRE(dcaf_create_verifier(NULL, ticket.get()) == DCAF_OK);
-        REQUIRE(ticket.get()->key != NULL);
-        REQUIRE(ticket.get()->key->length == sizeof(ref_key));
-        REQUIRE(memcmp(ticket.get()->key->data, ref_key, sizeof(ref_key)) == 0);
+        REQUIRE(ticket->key != nullptr);
+        REQUIRE(ticket->key->length == sizeof(ref_key));
+        REQUIRE(memcmp(ticket->key->data, ref_key, sizeof(ref_key)) == 0);
       }
     }
   }

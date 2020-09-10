@@ -11,8 +11,6 @@
 #include <memory>
 #include <functional>
 
-#include <cn-cbor/cn-cbor.h>
-
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 
@@ -122,7 +120,7 @@ SCENARIO( "RFC 8152 Example C.4.1", "[C.4.1]" ) {
   static std::unique_ptr<cose_obj_t, Deleter> object;
 
   GIVEN("COSE_Encrypt0 from RFC 8152, Appendix C.4.1") {
-    uint8_t raw[] = {
+    const uint8_t raw[] = {
       0xD0, 0x83, 0x43, 0xA1, 0x01, 0x0A, 0xA1, 0x05,
       0x4D, 0x89, 0xF5, 0x2F, 0x65, 0xA1, 0xC5, 0x80,
       0x93, 0x3B, 0x52, 0x61, 0xA7, 0x8C, 0x58, 0x1C,
@@ -131,7 +129,7 @@ SCENARIO( "RFC 8152 Example C.4.1", "[C.4.1]" ) {
       0x61, 0xD3, 0x8C, 0xE7, 0x1C, 0xB4, 0x5C, 0xE4,
       0x60, 0xFF, 0xB5, 0x69
     };
-    uint8_t reference[] = { /* "This is the content." */
+    const uint8_t reference[] = { /* "This is the content." */
       0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20,
       0x74, 0x68, 0x65, 0x20, 0x63, 0x6f, 0x6e, 0x74,
       0x65, 0x6e, 0x74, 0x2e
@@ -146,6 +144,8 @@ SCENARIO( "RFC 8152 Example C.4.1", "[C.4.1]" ) {
       res = cose_parse(raw, sizeof(raw), &result);
 
       REQUIRE(res == COSE_OK);
+      REQUIRE(result != nullptr);
+
       object.reset(result);
 
       THEN("it can be decrypted") {
@@ -274,7 +274,7 @@ SCENARIO("cose_obj_t serialization", "[serialize]") {
     0x63, 0x80, 0x40
   };
   const uint8_t ref2[] = {
-    0x83, 0x59, 0x01, 0x4f, 0x59, 0x01, 0x4a, 0x12,
+    0x83, 0x59, 0x01, 0x4f, 0x59, 0x01, 0x4c, 0x12,
     0x34, 0x56, 0x78, 0x25, 0xe9, 0xd3, 0x11, 0x56,
     0x20, 0xc6, 0x86, 0xab, 0x82, 0x57, 0x23, 0x57,
     0x81, 0x25, 0x8a, 0x2c, 0x21, 0xfb, 0x6e, 0x30,
@@ -323,21 +323,29 @@ SCENARIO("cose_obj_t serialization", "[serialize]") {
 
   GIVEN("a non-empty cose_obj_t structure for COSE_Encrypt0") {
     cose_result_t res;
+    abor_decoder_t *abd;
+    static const uint8_t bucket_protected[] = { 0xa1, 0x0c, 0x43, 'a', 'b', 'c' };
+    static const uint8_t bucket_unprotected[] = { 0x80 };
+    static const uint8_t bucket_data[] = { 0x40 };
 
     object.reset(cose_obj_new());
 
     REQUIRE(object.get() != nullptr);
 
-    cose_set_bucket(object.get(), COSE_PROTECTED, cn_cbor_map_create(nullptr));
-    cn_cbor_mapput_int(object.get()->buckets[COSE_PROTECTED],
-                       12,
-                       cn_cbor_data_create((const uint8_t *)"abc",
-                                           3, nullptr),
-                       nullptr);
-    cose_set_bucket(object.get(), COSE_UNPROTECTED,
-                    cn_cbor_array_create(nullptr));
-    cose_set_bucket(object.get(), COSE_DATA,
-                    cn_cbor_data_create((const uint8_t *)"", 0, nullptr));
+    abd = abor_decode_start(bucket_protected, sizeof(bucket_protected));
+    REQUIRE(abd != nullptr);
+    cose_set_bucket(object.get(), COSE_PROTECTED, abd);
+    abor_decode_finish(abd);
+
+    abd = abor_decode_start(bucket_unprotected, sizeof(bucket_unprotected));
+    REQUIRE(abd != nullptr);
+    cose_set_bucket(object.get(), COSE_UNPROTECTED, abd);
+    abor_decode_finish(abd);
+
+    abd = abor_decode_start(bucket_data, sizeof(bucket_data));
+    REQUIRE(abd != nullptr);
+    cose_set_bucket(object.get(), COSE_DATA, abd);
+    abor_decode_finish(abd);
 
     WHEN("cose_serialize() is called on that object") {
       buflen = sizeof(buf);
@@ -345,7 +353,7 @@ SCENARIO("cose_obj_t serialization", "[serialize]") {
 
       REQUIRE(res == COSE_OK);
 
-      THEN("The result matches h'83436061628040'") {
+      THEN("The result matches h'8346A10C436162638040'") {
         REQUIRE(buflen == sizeof(ref) - 1);
         REQUIRE(memcmp(buf, ref + 1, buflen) == 0);
       }
@@ -367,22 +375,73 @@ SCENARIO("cose_obj_t serialization", "[serialize]") {
 
   GIVEN("a cose_obj_t structure with >256 bytes in the protected bucket") {
     cose_result_t res;
+    abor_decoder_t *abd;
+    static const uint8_t bucket_protected[] =
+      { 0x59, 0x01, 0x4c, 0x12, 0x34,
+        0x56, 0x78, 0x25, 0xE9, 0xD3, 0x11, 0x56, 0x20,
+        0xC6, 0x86, 0xAB, 0x82, 0x57, 0x23, 0x57, 0x81,
+        0x25, 0x8A, 0x2C, 0x21, 0xFB, 0x6E, 0x30, 0x45,
+        0x38, 0x83, 0xE1, 0xB3, 0xA4, 0xC1, 0x5B, 0x71,
+        0x66, 0x13, 0x49, 0xB4, 0x61, 0x94, 0xCE, 0x58,
+        0x64, 0x11, 0x6C, 0xEF, 0x83, 0xB8, 0xB8, 0xD0,
+        0xE4, 0x8E, 0xA8, 0x52, 0x6B, 0x76, 0x84, 0x03,
+        0xF8, 0xAB, 0x50, 0x3A, 0xEC, 0x45, 0xAB, 0xCB,
+        0xFD, 0xFF, 0xB5, 0xEB, 0x86, 0x34, 0x2E, 0x3C,
+        0xB3, 0x3C, 0xDE, 0x64, 0x73, 0xBE, 0xCA, 0xF5,
+        0xFD, 0x39, 0xF2, 0xBA, 0x42, 0x02, 0xE0, 0xC6,
+        0xFF, 0x61, 0x54, 0x6C, 0xC6, 0x08, 0xD1, 0x1E,
+        0x07, 0xCA, 0xE9, 0x06, 0x1E, 0x71, 0x98, 0x91,
+        0x34, 0x9D, 0x30, 0xA1, 0xE9, 0x28, 0xEA, 0xC5,
+        0x59, 0x58, 0x88, 0xD2, 0x37, 0x70, 0xE8, 0xDB,
+        0x25, 0xE9, 0xD3, 0x11, 0x56, 0x20, 0xC6, 0x86,
+        0xAB, 0x82, 0x57, 0x23, 0x57, 0x81, 0x25, 0x8A,
+        0x2C, 0x21, 0xFB, 0x6E, 0x30, 0x45, 0x38, 0x83,
+        0xE1, 0xB3, 0xA4, 0xC1, 0x5B, 0x71, 0x66, 0x13,
+        0x49, 0xB4, 0x61, 0x94, 0xCE, 0x58, 0x64, 0x11,
+        0x6C, 0xEF, 0x83, 0xB8, 0xB8, 0xD0, 0xE4, 0x8E,
+        0xA8, 0x52, 0x6B, 0x76, 0x84, 0x03, 0xF8, 0xAB,
+        0x50, 0x3A, 0xEC, 0x45, 0xAB, 0xCB, 0xFD, 0xFF,
+        0xB5, 0xEB, 0x86, 0x34, 0x2E, 0x3C, 0xB3, 0x3C,
+        0xDE, 0x64, 0x73, 0xBE, 0xCA, 0xF5, 0xFD, 0x39,
+        0xF2, 0xBA, 0x42, 0x02, 0xE0, 0xC6, 0xFF, 0x61,
+        0x54, 0x6C, 0xC6, 0x08, 0xD1, 0x1E, 0x07, 0xCA,
+        0xE9, 0x06, 0x1E, 0x71, 0x98, 0x91, 0x8A, 0x79,
+        0x0F, 0x0D, 0x87, 0xE1, 0x36, 0xF9, 0xC1, 0x96,
+        0xF2, 0x72, 0x4D, 0x35, 0x8E, 0xAF, 0xC2, 0x86,
+        0x83, 0x73, 0xD6, 0xB1, 0x92, 0x59, 0xAD, 0x7F,
+        0x10, 0x36, 0x3D, 0xAF, 0x0C, 0xAB, 0xB0, 0x04,
+        0x07, 0xC9, 0x95, 0x26, 0x3B, 0x0E, 0x7B, 0x6C,
+        0xCF, 0x40, 0x89, 0xE0, 0x9F, 0x62, 0x3D, 0x34,
+        0x63, 0x8C, 0xB0, 0x40, 0x20, 0xF8, 0x9E, 0x49,
+        0x54, 0xC5, 0xFD, 0x54, 0x9E, 0xE5, 0xE6, 0x42,
+        0x7D, 0xD1, 0xE5, 0x73, 0x4A, 0x76, 0xFD, 0x02,
+        0x06, 0x93, 0x72, 0x72, 0x1E, 0x31, 0x62, 0x92,
+        0x01, 0x63, 0x73, 0x29, 0x2C, 0x40, 0xF3, 0x55,
+        0x16, 0xD4, 0xB1, 0xF9, 0x5F, 0xE4, 0x34, 0xB8,
+        0xB9, 0xB3, 0x86, 0xFB, 0x23, 0xDE, 0xBC, 0xA1,
+        0x0c, 0x59
+        };
+    static const uint8_t bucket_unprotected[] = { 0x80 };
+    static const uint8_t bucket_data[] = { 0x40 };
 
     object.reset(cose_obj_new());
 
     REQUIRE(object.get() != nullptr);
 
-    cose_set_bucket(object.get(), COSE_PROTECTED,
-                    cn_cbor_map_create(nullptr));
-    cn_cbor_mapput_int(object.get()->buckets[COSE_PROTECTED],
-                       12,
-                       cn_cbor_data_create((const uint8_t *)"\x12\x34\x56\x78\x25\xE9\xD3\x11\x56\x20\xC6\x86\xAB\x82\x57\x23\x57\x81\x25\x8A\x2C\x21\xFB\x6E\x30\x45\x38\x83\xE1\xB3\xA4\xC1\x5B\x71\x66\x13\x49\xB4\x61\x94\xCE\x58\x64\x11\x6C\xEF\x83\xB8\xB8\xD0\xE4\x8E\xA8\x52\x6B\x76\x84\x03\xF8\xAB\x50\x3A\xEC\x45\xAB\xCB\xFD\xFF\xB5\xEB\x86\x34\x2E\x3C\xB3\x3C\xDE\x64\x73\xBE\xCA\xF5\xFD\x39\xF2\xBA\x42\x02\xE0\xC6\xFF\x61\x54\x6C\xC6\x08\xD1\x1E\x07\xCA\xE9\x06\x1E\x71\x98\x91\x34\x9D\x30\xA1\xE9\x28\xEA\xC5\x59\x58\x88\xD2\x37\x70\xE8\xDB\x25\xE9\xD3\x11\x56\x20\xC6\x86\xAB\x82\x57\x23\x57\x81\x25\x8A\x2C\x21\xFB\x6E\x30\x45\x38\x83\xE1\xB3\xA4\xC1\x5B\x71\x66\x13\x49\xB4\x61\x94\xCE\x58\x64\x11\x6C\xEF\x83\xB8\xB8\xD0\xE4\x8E\xA8\x52\x6B\x76\x84\x03\xF8\xAB\x50\x3A\xEC\x45\xAB\xCB\xFD\xFF\xB5\xEB\x86\x34\x2E\x3C\xB3\x3C\xDE\x64\x73\xBE\xCA\xF5\xFD\x39\xF2\xBA\x42\x02\xE0\xC6\xFF\x61\x54\x6C\xC6\x08\xD1\x1E\x07\xCA\xE9\x06\x1E\x71\x98\x91\x8A\x79\x0F\x0D\x87\xE1\x36\xF9\xC1\x96\xF2\x72\x4D\x35\x8E\xAF\xC2\x86\x83\x73\xD6\xB1\x92\x59\xAD\x7F\x10\x36\x3D\xAF\x0C\xAB\xB0\x04\x07\xC9\x95\x26\x3B\x0E\x7B\x6C\xCF\x40\x89\xE0\x9F\x62\x3D\x34\x63\x8C\xB0\x40\x20\xF8\x9E\x49\x54\xC5\xFD\x54\x9E\xE5\xE6\x42\x7D\xD1\xE5\x73\x4A\x76\xFD\x02\x06\x93\x72\x72\x1E\x31\x62\x92\x01\x63\x73\x29\x2C\x40\xF3\x55\x16\xD4\xB1\xF9\x5F\xE4\x34\xB8\xB9\xB3\x86\xFB\x23\xDE\xBC\xAE\x80\x40",
-                                           330, nullptr),
-                       nullptr);
-    cose_set_bucket(object.get(), COSE_UNPROTECTED,
-                    cn_cbor_array_create(nullptr));
-    cose_set_bucket(object.get(), COSE_DATA,
-                    cn_cbor_data_create((const uint8_t *)"", 0, nullptr));
+    abd = abor_decode_start(bucket_protected, sizeof(bucket_protected));
+    REQUIRE(abd != nullptr);
+    cose_set_bucket(object.get(), COSE_PROTECTED, abd);
+    abor_decode_finish(abd);
+
+    abd = abor_decode_start(bucket_unprotected, sizeof(bucket_unprotected));
+    REQUIRE(abd != nullptr);
+    cose_set_bucket(object.get(), COSE_UNPROTECTED, abd);
+    abor_decode_finish(abd);
+
+    abd = abor_decode_start(bucket_data, sizeof(bucket_data));
+    REQUIRE(abd != nullptr);
+    cose_set_bucket(object.get(), COSE_DATA, abd);
+    abor_decode_finish(abd);
 
     WHEN("object is serialized") {
       object.get()->type = COSE_ENCRYPT0;
@@ -392,6 +451,10 @@ SCENARIO("cose_obj_t serialization", "[serialize]") {
       REQUIRE(res == COSE_OK);
 
       THEN("The result is a valid CBOR structure") {
+        dcaf_log(DCAF_LOG_DEBUG, "serialized:\n");
+        dcaf_debug_hexdump(buf, buflen);
+
+        REQUIRE(buflen == sizeof(ref2));
         REQUIRE(memcmp(buf, ref2, sizeof(ref2)) == 0);
       }
     }
@@ -400,7 +463,6 @@ SCENARIO("cose_obj_t serialization", "[serialize]") {
 
 SCENARIO("Creation of COSE_Encrypt0", "[cose]") {
   static std::unique_ptr<dcaf_key_t, Deleter> key;
-  static std::unique_ptr<cn_cbor, Deleter> cbor;
   static std::unique_ptr<cose_obj_t, Deleter> object;
   static uint8_t buf[1032];
   size_t buflen = 0;
@@ -415,9 +477,14 @@ SCENARIO("Creation of COSE_Encrypt0", "[cose]") {
       0x66, 0x84, 0x52, 0x3A, 0xB1, 0x73, 0x37, 0xF1,
       0x73, 0x50, 0x0E, 0x57, 0x28, 0xC6, 0x28, 0x54,
       0x7C, 0xB3, 0x7D, 0xFE, 0x68, 0x44, 0x9C, 0x65,
-      0xF8, 0x85, 0xD1, 0xB7, 0x3B, 0x49, 0xEA, 0xE1
+      0xF8, 0x85, 0xD1, 0xB7, 0x3B, 0x49, 0xEA, 0xE1,
+
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    size_t data_len = sizeof(data);
+    size_t data_len = sizeof(data) - 32;
     const uint8_t encrypted[] = { /* the reference data */
       0x83, 0x43, 0xa1, 0x01, 0x0a, 0xa1, 0x05, 0x4d,
       0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -435,8 +502,6 @@ SCENARIO("Creation of COSE_Encrypt0", "[cose]") {
 
     REQUIRE(k != nullptr);
     key.reset(k);
-
-    REQUIRE(key.get()->length == 16);
 
     REQUIRE(dcaf_set_key(key.get(), key_data, sizeof(key_data)));
     REQUIRE(memcmp(key.get()->data, key_data, sizeof(key_data)) == 0);

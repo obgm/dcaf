@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "dcaf_config.h"
 #define DCAF_UTF8ENCODE_PSKIDENTITY 1
 #define DCAF_MAX_PSK_IDENTITY 256
 
@@ -23,11 +24,11 @@
 #endif /* MODULE_PRNG */
 #endif /* RIOT_VERSION */
 
+#include "dcaf/anybor.h"
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/state.h"
 #include "dcaf/utlist.h"
-#include "dcaf/dcaf_cbor.h"
 
 #if DCAF_UTF8ENCODE_PSKIDENTITY
 #include "dcaf/dcaf_utf8.h"
@@ -41,7 +42,6 @@ dcaf_init(void) {
 #if defined(RIOT_VERSION) && defined(MODULE_PRNG)
   dcaf_set_prng(random_bytes);
 #endif /* RIOT_VERSION && MODULE_PRNG */
-  dcaf_cbor_init();
 }
 
 static inline uint8_t
@@ -70,20 +70,19 @@ is_dcaf(int content_format) {
 /**
  * Utility function to extract a COSE_Key from @p obj skipping the
  * CBOR tag if present.  This function returns a pointer to the
- * cn_cbor structure representing the actual COSE_Key, or NULL on
+ * CBOR structure representing the actual COSE_Key, or NULL on
  * error.
  */
-static inline const cn_cbor *
-get_cose_key(const cn_cbor *obj) {
+static inline abor_decoder_t *
+get_cose_key(abor_decoder_t *obj) {
   assert(obj);
 
-  obj = dcaf_cbor_mapget_int(obj, CWT_CNF_COSE_KEY);
+  obj = abor_mapget_int(obj, CWT_CNF_COSE_KEY);
 
-  if (obj && (obj->type == CN_CBOR_TAG)) {
-    return (obj->v.uint == COSE_KEY) ? obj->first_child : NULL;
-  } else {
-    return obj;
-  }
+  /* consume COSE_KEY tag if present */
+  abor_consume_tag(obj, COSE_KEY);
+
+  return obj;
 }
 
 #if 0
@@ -123,50 +122,63 @@ static size_t
 make_ticket_request(const dcaf_transaction_t *transaction,
                     const uint8_t *data, size_t data_len,
                     uint8_t *result, size_t max_result_len) {
-  cn_cbor *req = dcaf_cbor_decode(data, data_len, NULL);
-  cn_cbor *scope;
+  abor_encoder_t *abc;
+  abor_decoder_t *abd, *iss, *snc;
   size_t len;
   uint8_t buf[DCAF_MAX_RESOURCE_LEN+1];
   size_t length = sizeof(buf);
-
-  if (!transaction || !req || (req->type != CN_CBOR_MAP)) {
+  size_t num_items = 2; /* audience and scope */
+  if (!transaction || abor_get_major_type(data) != ABOR_MAP) {
     return 0;
   }
 
+  abc = abor_encode_start(result, max_result_len);
+  abd = abor_decode_start(data, data_len);
+  if (!abc || !abd) {
+    abor_encode_finish(abc);
+    abor_decode_finish(abd);
+    return 0;
+  }
+
+  iss = abor_mapget_int(abd, DCAF_TICKET_ISS);
+  snc = abor_mapget_int(abd, DCAF_TICKET_SNC);
+
+  num_items += (iss != NULL) + (snc != NULL);
+  abor_write_map(abc, num_items);
+
+  /* issuer */
+  if (iss && abor_write_int(abc, DCAF_TICKET_ISS)) {
+    abor_copy_item(iss, abc);
+  }
+
+  /* audience */
+  abor_write_int(abc, DCAF_TICKET_AUD);
+  
   if (transaction->aud.length > 0) {
-    assert(transaction->aud.s);
-    dcaf_cbor_mapput_int(req, DCAF_TICKET_AUD,
-             dcaf_cbor_data_create((uint8_t *)transaction->aud.s, transaction->aud.length, NULL),
-                         NULL);
-  } else {
-    dcaf_log(DCAF_LOG_WARNING,
-             "cannot set aud parameter\n");
+    abor_write_text(abc, transaction->aud.s, transaction->aud.length);
   }
 
+  /* scope */
+  abor_write_int(abc, DCAF_TICKET_SCOPE);
+  abor_write_array(abc, 2);
   /* create scope from initial request data */
-  scope = dcaf_cbor_array_create(NULL);
-  if (scope) {
-    if (coap_get_resource_uri(transaction->pdu, buf, &length, 0)) {
-      assert(buf[length] == 0);
-      cn_cbor *uri = dcaf_cbor_string_create((char *)buf, NULL);
-      cn_cbor *method =
-        dcaf_cbor_int_create(coap_get_method(transaction->pdu), NULL);
-
-      if (uri && method) {
-        dcaf_cbor_array_append(scope, uri, NULL);
-        dcaf_cbor_array_append(scope, method, NULL);
-      } else {
-        dcaf_cbor_free(uri);
-        dcaf_cbor_free(method);
-      }
-    }
-    dcaf_cbor_mapput_int(req, DCAF_TICKET_SCOPE, scope, NULL);
+  if (coap_get_resource_uri(transaction->pdu, buf, &length, 0)) {
+    assert(buf[length] == 0);
+    abor_write_text(abc, (char *)buf, length);
+    abor_write_uint(abc, coap_get_method(transaction->pdu));
   }
 
-  len = dcaf_cbor_encoder_write(result, 0, max_result_len, req);
-  dcaf_cbor_free(req);
+  /* snc */
+  if (snc && abor_write_int(abc, DCAF_TICKET_SNC)) {
+    abor_copy_item(snc, abc);
+  }
+  
+  abor_decode_finish(iss);
+  abor_decode_finish(snc);
+  len = abor_encode_finish(abc);
+  abor_decode_finish(abd);
 
-  return len;
+  return len;  
 }
 
 static void
@@ -233,9 +245,9 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
                        coap_pdu_t *received) {
   size_t content_len = 0;
   uint8_t *content = NULL;
-  cn_cbor *cbor;
-  cn_cbor *ticket_face, *client_information, *cnf;
-  const cn_cbor *cose_key = NULL;
+  abor_decoder_t *cbor;
+  abor_decoder_t *client_information, *cnf;
+  abor_decoder_t *cose_key = NULL;
   dcaf_ticket_t *cinfo = NULL;
   dcaf_key_type key_type = DCAF_NONE;
 
@@ -256,44 +268,50 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     return;
   }
 
+#if defined(ABOR_STATIC_MAPGET_NUM_ITEMS) && (ABOR_STATIC_MAPGET_NUM_ITEMS < (4U))
+#error ABOR_STATIC_MAPGET_NUM_ITEMS must be at least 4
+#endif /* ABOR_STATIC_MAPGET_NUM_ITEMS >= 4 */
+
   /* A constrained application may parse on-demand, i.e. treat the
    * ticket_face as opaque. */
-  cbor = dcaf_cbor_decode(content, content_len, NULL);
+  cbor = abor_decode_start(content, content_len);
   if (!cbor) {
     dcaf_log(DCAF_LOG_ERR, "cannot parse ticket\n");
     return;
   }
 
-  /* TODO: get key from cbor and use ticket face as psk for new
-     session */
-  ticket_face = dcaf_cbor_mapget_int(cbor, DCAF_TICKET_FACE);
-  client_information = dcaf_cbor_mapget_int(cbor, DCAF_TICKET_CLIENTINFO);
-
-  if (!ticket_face) {
-    dcaf_log(DCAF_LOG_INFO, "invalid ticket face\n");
-    goto finish;
-  }
+  /* get key from cbor and use ticket face as psk for new session */  
+  client_information = abor_mapget_int(cbor, DCAF_TICKET_CLIENTINFO);
   if (!client_information) {
     dcaf_log(DCAF_LOG_ERR, "ticket has no client information\n");
     goto finish;
   }
 
   /* retrieve cnf containg keying material information */
-  cnf = dcaf_cbor_mapget_int(client_information, DCAF_TICKET_CNF);
+  cnf = abor_mapget_int(client_information, DCAF_TICKET_CNF);
   if (!cnf) {
     dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
+    abor_decode_finish(client_information);
     goto finish;
   }
 
+  /* FIXME:
+  seq = abor_mapget_int(client_information, DCAF_TICKET_SEQ);
+  rlt = abor_mapget_int(client_information, DCAF_TICKET_RLT);
+  */
   cinfo = dcaf_new_ticket(key_type, 0 /* FIXME: seq->v.uint */,
                           0 /* FIXME: now */,
                           1000 /* FIXME: remaining_ltm */);
-  cose_key = get_cose_key(cnf); /* cn_cbor object with cose key object */
+  abor_decode_finish(client_information);
+  
+  cose_key = get_cose_key(cnf); /* extract cose key object */
+  abor_decode_finish(cnf);
   if (!cose_key) {
     dcaf_log(DCAF_LOG_INFO, "no COSE_Key found\n");
     goto finish;
   }
   dcaf_parse_dcaf_key(cinfo->key, cose_key);
+  abor_decode_finish(cose_key);
   dcaf_log(DCAF_LOG_DEBUG, "we have a key!\n");
 
   if (dcaf_check_transaction(dcaf_context, t->state.future)) {
@@ -311,22 +329,38 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     size_t identity_len;
     coap_session_t *session;
     coap_context_t *ctx;
+    abor_decoder_t *ticket_face;
+    size_t ticket_face_length;
+    const uint8_t *ticket_face_data;
 
     ctx = dcaf_get_coap_context(dcaf_context);
     assert(ctx);
 
+    ticket_face = abor_mapget_int(cbor, DCAF_TICKET_FACE);
+    if (!ticket_face) {
+      dcaf_log(DCAF_LOG_INFO, "cannot find ticket face\n");
+      goto finish;
+    }
+
+    ticket_face_length = abor_get_sequence_length(ticket_face);
+    ticket_face_data = abor_get_bytes(ticket_face);
+    abor_decode_finish(ticket_face);
+    if (!ticket_face_length || !ticket_face_data) {
+      dcaf_log(DCAF_LOG_INFO, "invalid ticket face\n");
+      goto finish;
+    }
 #if DCAF_UTF8ENCODE_PSKIDENTITY
-    identity_len = utf8_length(ticket_face->v.bytes, ticket_face->length);
+    identity_len = utf8_length(ticket_face_data, ticket_face_length);
     identity = dcaf_alloc_type_len(DCAF_STRING, identity_len);
     if (!identity || !uint8_to_utf8((char *)identity, &identity_len,
-                                    ticket_face->v.bytes, ticket_face->length)) {
+                                    ticket_face_data, ticket_face_length)) {
       dcaf_log(DCAF_LOG_WARNING, "Cannot encode ticket face. Sending raw.");
-      identity_len = ticket_face->length;
-      raw_identity = ticket_face->v.bytes;
+      identity_len = ticket_face_length;
+      raw_identity = ticket_face_data;
     }
 #else /* !DCAF_UTF8ENCODE_PSKIDENTITY */
-    identity_len = ticket_face->length;
-    raw_identity = ticket_face->v.bytes;
+    identity_len = ticket_face_length;
+    raw_identity = ticket_face_data;
 #endif /* !DCAF_UTF8ENCODE_PSKIDENTITY */
 
 #if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
@@ -394,7 +428,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     }
   }
  finish:
-  dcaf_cbor_free(cbor);
+  abor_decode_finish(cbor);
   dcaf_free_ticket(cinfo);
 }
 
@@ -651,25 +685,24 @@ dcaf_free_ticket(dcaf_ticket_t *ticket) {
   }
 }
 
-/* helper function to log cn-cbor parse errors */
-static inline void
-log_parse_error(const cn_cbor_errback err) {
-  dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", err.err, err.pos);
-}
-
 void
-dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key) {
+dcaf_parse_dcaf_key(dcaf_key_t *key, const abor_decoder_t* cose_key) {
   if (cose_key && key) {
-    cn_cbor * obj;
+    abor_decoder_t *obj;
+    uint64_t alg;
     /* set kid */
-    obj = dcaf_cbor_mapget_int(cose_key,COSE_KEY_KID);
-    if (obj && (obj->type == CN_CBOR_BYTES) && (obj->length <= DCAF_MAX_KID_SIZE)) {
-      memcpy(key->kid,obj->v.bytes,obj->length);
-      key->kid_length = obj->length;
+    obj = abor_mapget_int(cose_key,COSE_KEY_KID);
+    if (obj) {
+      key->kid_length = DCAF_MAX_KID_SIZE;
+      if (!abor_copy_bytes(obj, key->kid, &key->kid_length)) 
+        key->kid_length = 0;
     }
-    obj = dcaf_cbor_mapget_int(cose_key,COSE_KEY_ALG);
-    if (obj && (obj->type == CN_CBOR_INT)) {
-      switch (obj->v.sint) {
+    abor_decode_finish(obj);
+
+    /* set algorithm */
+    obj = abor_mapget_int(cose_key,COSE_KEY_ALG);
+    if (obj && abor_get_uint(obj, &alg)) {
+      switch (alg) {
       case COSE_AES_CCM_64_64_128:
 	key->type=DCAF_AES_128;
 	break;
@@ -678,12 +711,16 @@ dcaf_parse_dcaf_key(dcaf_key_t *key, const cn_cbor* cose_key) {
 	;
       }
     }
+    abor_decode_finish(obj);
+    
     /* set key */
-    obj = dcaf_cbor_mapget_int(cose_key,COSE_KEY_K);
-    if (obj && (obj->type == CN_CBOR_BYTES) && (obj->length <= DCAF_MAX_KEY_SIZE)) {
-      memcpy(key->data,obj->v.bytes,obj->length);
-      key->length = obj->length;
+    obj = abor_mapget_int(cose_key,COSE_KEY_K);
+    if (obj) {
+      key->length = DCAF_MAX_KEY_SIZE;
+      if (!abor_copy_bytes(obj, key->data, &key->length)) 
+        key->length = 0;
     }
+    abor_decode_finish(obj);  
   }
 }
 
@@ -755,18 +792,18 @@ get_cbor_tag(const uint8_t *data, size_t length) {
   return -1;
 }
 
-static inline int
+static inline bool
 maybe_cose(const uint8_t *data, size_t length) {
-  if (data && (length > 0)) {
-    int tag = get_cbor_tag(data, length);
-    switch (tag) {
-    case -1:                    /* not tagged, look for array */
-      return cbor_major_type(data[0]) == CBOR_MAJOR_TYPE_ARRAY;
-    case COSE_ENCRYPT0: /* for now, only COSE_Encrypt0 is recognized */
-      return (length > 1) && (cbor_major_type(data[1]) == CBOR_MAJOR_TYPE_ARRAY);
-    default:
-      ;
-    }
+  int tag = get_cbor_tag(data, length);
+  /* for now, only tag COSE_Encrypt0 is recognized */
+  if (tag == COSE_ENCRYPT0) {
+    data++;
+    length--;
+    tag = -1;                   /* indicate that tag was handled */
+  }
+  /* data may be NULL if tag == -1 */
+  if (data && (tag == -1) && (length > 1)) {
+    return abor_get_major_type(data) == ABOR_ARRAY;
   }
   return 0;
 }
@@ -779,16 +816,24 @@ get_dcaf_context_from_session(const coap_session_t *session) {
   return NULL;
 }
 
+static inline bool
+check_lifetime(int remaining_ltm) {
+  if (remaining_ltm <= 0) {
+    dcaf_log(DCAF_LOG_INFO, "ticket lifetime exceeded\n");
+    return false;
+  }
+  return true;
+}
+
 dcaf_result_t
 dcaf_parse_ticket_face(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
                   dcaf_ticket_t **result) {
   dcaf_result_t res = DCAF_ERROR_UNAUTHORIZED;
-  cn_cbor *ticket_face = NULL;
   dcaf_ticket_t *ticket;
   dcaf_dep_ticket_t *dep_ticket;
-  const cn_cbor *cnf, *snc, *iat, *ltm, *scope;
-  const cn_cbor *seq, *dseq, *cose_key;
+  abor_decoder_t *ticket_face = NULL;
+  abor_decoder_t *abd = NULL, *cose_key;
   dcaf_time_t now;
   int remaining_ltm;
   dcaf_key_type key_type = DCAF_NONE;
@@ -825,7 +870,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
       goto finish;
     }
     cose_obj_delete(cose_obj);
-    ticket_face = dcaf_cbor_decode(plaintext, plaintext_length, NULL);
+    ticket_face = abor_decode_start(plaintext, plaintext_length);
 
     /* show ticket in debug output */
     if (ticket_face && (dcaf_get_log_level() >= DCAF_LOG_DEBUG)) {
@@ -833,7 +878,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
       dcaf_show_cbor(plaintext, plaintext_length);
     }
   } else {
-    ticket_face = dcaf_cbor_decode(data, data_len, NULL);
+    ticket_face = abor_decode_start(data, data_len);
 
     /* show ticket in debug output */
     if (ticket_face && (dcaf_get_log_level() >= DCAF_LOG_DEBUG)) {
@@ -845,7 +890,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   /* FIXME: determine if ticket stems from an authorized SAM using */
   /* key derivation, SAM's signature or SAM's MAC  */
 
-  if (!ticket_face || (ticket_face->type != CN_CBOR_MAP)) {
+  if (!abor_check_type(ticket_face, ABOR_MAP)) {
     dcaf_log(DCAF_LOG_INFO, "cannot parse access ticket\n");
     goto finish;
   }
@@ -854,21 +899,19 @@ dcaf_parse_ticket_face(const coap_session_t *session,
 
   /* TODO: find out if the ticket was meant for me */
 
-  seq = dcaf_cbor_mapget_int(ticket_face, DCAF_TICKET_SEQ);
-  if (!seq) {
-    dcaf_log(DCAF_LOG_INFO, "no seqence number found\n");
+  abd = abor_mapget_int(ticket_face, DCAF_TICKET_SEQ);
+  uint64_t seqnr;
+  if (!abor_get_uint(abd, &seqnr)) {
+    dcaf_log(DCAF_LOG_INFO, "seqence number not found or invalid\n");
     goto finish;
   }
-  if (seq->type != CN_CBOR_UINT) {
-    dcaf_log(DCAF_LOG_INFO, "sequence number has invalid format\n");
-    goto finish;
-  }
+  abor_decode_finish(abd);
   
   /* if we already have a ticket with this sequence number, */
   /* the new ticket is discarded */
   /* TODO: find ticket for certain AM (sequence numbers are unique per AM) */
   LL_FOREACH(dcaf_tickets,ticket) {
-    if (seq->v.uint == ticket->seq) {
+    if (seqnr == ticket->seq) {
 	res = DCAF_OK;
 	goto finish;
     }
@@ -877,7 +920,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   /* search list of deprecated tickets for ticket with sequence
      number */
   LL_FOREACH(deprecated_tickets,dep_ticket) {
-    if (seq->v.uint == dep_ticket->seq) {
+    if (seqnr == dep_ticket->seq) {
       res = DCAF_ERROR_INVALID_TICKET;
       goto finish;
     }
@@ -886,10 +929,11 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   /* TODO: search revocation list for ticket with sequence number */
   
   /* if deprecated sequence number is specified, remove old ticket */
-  dseq = dcaf_cbor_mapget_int(ticket_face,DCAF_TICKET_DSEQ);
-  if (dseq) {
+  abd = abor_mapget_int(ticket_face, DCAF_TICKET_DSEQ);
+  uint64_t dseqnr;
+  if (abor_get_uint(abd, &dseqnr)) {
     LL_FOREACH(dcaf_tickets,ticket) {
-      if (dseq->v.uint == ticket->seq){
+      if (dseqnr == ticket->seq){
 	/* store ticket's seq and remaining lifetime in */
 	/* list of deprecated tickets */
 	dep_ticket = dcaf_new_dep_ticket(ticket->seq,ticket->ts, ticket->remaining_time);
@@ -900,83 +944,100 @@ dcaf_parse_ticket_face(const coap_session_t *session,
       }
     }
   }
+  abor_decode_finish(abd);
 
   /* retrieve lifetime */
-  ltm = dcaf_cbor_mapget_int(ticket_face, DCAF_TICKET_EXPIRES_IN);
-  if (!ltm || !(ltm->type == CN_CBOR_UINT)) {    
+  abd = abor_mapget_int(ticket_face, DCAF_TICKET_EXPIRES_IN);
+  uint64_t ltm_value;
+  if (!abor_check_type(abd, ABOR_UINT) || !abor_get_uint(abd, &ltm_value)) {
     dcaf_log(DCAF_LOG_INFO, "no valid lifetime found\n");
     goto finish;
   }
+  abor_decode_finish(abd);
+  abd = NULL;
 
-  /* retrieve nonce/timestamp */
-  snc = dcaf_cbor_mapget_int(ticket_face, DCAF_TICKET_SNC);
-  iat = dcaf_cbor_mapget_int(ticket_face, DCAF_TICKET_IAT);
+  /* Retrieve nonce/timestamp. Check available validity options. At
+   * the end, remaining_ltm must have a positive value, otherwise, an
+   * error is signaled. */
+  remaining_ltm = -1;
   now = dcaf_gettime();
-  if ((DCAF_SERVER_VALIDITY_OPTION == 1) && iat) {
-    /* validity option 1 */
-    if (iat->type!=CN_CBOR_UINT) {
-      dcaf_log(DCAF_LOG_INFO, "no valid iat found\n");
-      goto finish;
-    }
-    remaining_ltm = (ltm->v.uint - (now - iat->v.uint));
-    if (remaining_ltm <= 0) {
-      /* lifetime already exceeded  */
-      dcaf_log(DCAF_LOG_INFO, "ticket lifetime exceeded\n");
-      /* FIXME: different DCAF error code? */
-      goto finish;
+
+  if (DCAF_SERVER_VALIDITY_OPTION == 1) {
+    abd = abor_mapget_int(ticket_face, DCAF_TICKET_IAT);
+    if (abd) {
+      uint64_t iat;
+      if (!abor_get_uint(abd, &iat)) {
+        dcaf_log(DCAF_LOG_INFO, "no valid iat found\n");
+        goto finish;
+      } else {
+        remaining_ltm = ltm_value - (now - iat);
+        /* check if lifetime is already exceeded  */
+        if (!check_lifetime(remaining_ltm)) {
+          goto finish;
+        }
+      }
+      abor_decode_finish(abd);
     }
   }
-  else if (snc && (snc->type == CN_CBOR_BYTES)) {
-    /* validity option 2 or 3 */
-    int offset;
-    offset = dcaf_determine_offset_with_nonce(snc->v.bytes, snc->length);
-    if (offset < 0) {
-      dcaf_log(DCAF_LOG_INFO, "error calculating the offset\n");
-      goto finish;
-    }
-    else {
-      /* calculate the remaining lifetime */
-      remaining_ltm = ltm->v.uint - offset;
-      if (remaining_ltm<=0) {
-	dcaf_log(DCAF_LOG_INFO, "ticket lifetime already exceeded\n");
-	goto finish;
+
+  if (remaining_ltm < 0) {
+    abd = abor_mapget_int(ticket_face, DCAF_TICKET_SNC);
+    if (abor_check_type(abd, ABOR_BSTR)) {
+      /* validity option 2 or 3 */
+      int offset =
+        dcaf_determine_offset_with_nonce(abor_get_bytes(abd),
+                                         abor_get_sequence_length(abd));
+      if (offset < 0) {
+        dcaf_log(DCAF_LOG_INFO, "error calculating the offset\n");
+        goto finish;
+      } else {
+        /* calculate the remaining lifetime */
+        remaining_ltm = ltm_value - offset;
+        /* check if lifetime is already exceeded  */
+        if (!check_lifetime(remaining_ltm)) {
+          goto finish;
+        }
       }
     }
   }
-  else {
+
+  if (remaining_ltm < 0) {
+    /* out of options */
     dcaf_log(DCAF_LOG_INFO, "no validity information found\n");
     goto finish;
   }
+  abor_decode_finish(abd);
   
   /* retrieve cnf containg keying material information */
-  cnf = dcaf_cbor_mapget_int(ticket_face, DCAF_TICKET_CNF);
-  if (!cnf) {
+  abd = abor_mapget_int(ticket_face, DCAF_TICKET_CNF);
+  if (!abd) {
     dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
     goto finish;
   }
 
-  *result = dcaf_new_ticket(key_type,
-                            seq->v.uint,
-			    now, remaining_ltm);
+  *result = dcaf_new_ticket(key_type, seqnr, now, remaining_ltm);
   if (*result == NULL) {
     res = DCAF_ERROR_OUT_OF_MEMORY;
     dcaf_log(DCAF_LOG_WARNING, "cannot store new ticket (out of memory)\n");
     goto finish;
   }
-  cose_key = get_cose_key(cnf); /* cn_cbor object with cose key object */
+  cose_key = get_cose_key(abd); /* CBOR object with cose key object */
   dcaf_parse_dcaf_key((*result)->key, cose_key);
+  abor_decode_finish(cose_key);
+  abor_decode_finish(abd);
 
   /* add permissions to ticket */
-  scope = dcaf_cbor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
+  abd = abor_mapget_int(ticket_face, DCAF_TICKET_SCOPE);
   /* TODO: handle scopes that are not AIF */
-  if (scope && scope->type==CN_CBOR_ARRAY) {
+  if (abor_check_type(abd, ABOR_ARRAY)) {
     dcaf_aif_t *aif = NULL;
-    res=dcaf_aif_parse(scope,&aif);
+    res=dcaf_aif_parse(abd,&aif);
     if (res!=DCAF_OK) {
       goto finish;
     }
     (*result)->aif = aif;
   }
+  /* no abor_decode_finish(abd) here as this is done below anyway */
 
   /* Set the session identifier in the ticket structure to the session
    * pointer. As this is just use as an opaque sequence of bytes, we
@@ -988,7 +1049,8 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   res = DCAF_OK;
    
  finish:
-  dcaf_cbor_free(ticket_face);
+  abor_decode_finish(abd);
+  abor_decode_finish(ticket_face);
   return res;
 }
 
@@ -1253,12 +1315,16 @@ dcaf_result_t
 dcaf_set_sam_information(const coap_session_t *session,
                          dcaf_mediatype_t mediatype,
                          coap_pdu_t *response) {
-  unsigned char buf[100];
-  size_t length;
+  /* We do not expect the SAM information to require more than 128
+   * bytes. The size depends primarily on the length of the SAM URI.
+   * Besides, only a few bytes for CBOR map keys and the validity
+   * options are required. */
+  static unsigned char buf[64];
+  unsigned char cf[4];          /* the content format is encoded here. */
+  abor_encoder_t *abc; /* CBOR encoder */
+  bool ok;
   coap_tick_t now;
   dcaf_context_t *dcaf_context;
-  uint16_t sam_key = DCAF_TICKET_ISS, validity_key = DCAF_TICKET_DAT;
-  dcaf_nonce_t *nonce;
 
   dcaf_log(DCAF_LOG_DEBUG, "create SAM Information\n");
   coap_ticks(&now);
@@ -1284,29 +1350,30 @@ dcaf_set_sam_information(const coap_session_t *session,
   }
 
   if (!coap_add_option(response, COAP_OPTION_CONTENT_FORMAT,
-                       coap_encode_var_safe(buf, sizeof(buf), mediatype),
-                       buf)) {
+                       coap_encode_var_safe(cf, sizeof(cf), mediatype),
+                       cf)) {
     dcaf_log(DCAF_LOG_DEBUG, "DCAF_ERROR_BUFFER_TOO_SMALL\n");
     return DCAF_ERROR_BUFFER_TOO_SMALL;
   }
 
   /* generate sam information message */
-  cn_cbor *map = dcaf_cbor_map_create(NULL);
+  abc = abor_encode_start(buf, sizeof(buf));
+  ok = abc && abor_write_map(abc, 2);
+
+  /* Set SAM URI. The URI is stored as zero-terminated string right
+   * after the coap_uri_t structure in the am_uri. */
   const char *uri = (const char *)dcaf_context->am_uri + sizeof(coap_uri_t);
+  ok = ok && abor_write_int(abc, DCAF_TICKET_ISS);
+  ok = ok && abor_write_string(abc, uri);
 
-  /* set SAM URI */
-  dcaf_cbor_mapput_int(map, sam_key,
-                       dcaf_cbor_string_create(uri, NULL),
-                       NULL);
-
+  /* set validity information */
   if (DCAF_SERVER_VALIDITY_OPTION == 1) {
     /* set timestamp */
-    dcaf_cbor_mapput_int(map, validity_key,
-                         dcaf_cbor_int_create(coap_ticks_to_rt(now), NULL),
-                         NULL);
-  }
-  else {
-    validity_key = DCAF_TICKET_SNC;
+    ok = ok && abor_write_int(abc, DCAF_TICKET_DAT);
+    ok = ok && abor_write_uint(abc, coap_ticks_to_rt(now));
+  } else {
+    dcaf_nonce_t *nonce;
+    uint16_t validity_key = DCAF_TICKET_SNC;
     /* create nonce */
     nonce = dcaf_new_nonce(DCAF_MAX_NONCE_SIZE);
     if (!nonce) {
@@ -1325,26 +1392,28 @@ dcaf_set_sam_information(const coap_session_t *session,
       /* store timer */
       nonce->validity_value.timer=DCAF_MAX_SERVER_TIMEOUT;
     }
-    LL_PREPEND(nonces, nonce);
-  }
-  
-#ifdef DCAF_EXTENSIONS
-  if (is_dcaf(mediatype)) {
-    cn_cbor *accept = dcaf_cbor_array_create(NULL);
-    dcaf_cbor_array_append(accept,
-                           dcaf_cbor_int_create(DCAF_MEDIATYPE_DCAF_CBOR,
-                                                NULL),
-                           NULL);
-  dcaf_cbor_mapput_int(map, DCAF_TYPE_A, accept, NULL);
-  }
-#endif /* DCAF_EXTENSIONS */
 
-  length = dcaf_cbor_encoder_write(buf, 0, sizeof(buf), map);
-  dcaf_cbor_free(map);
+    ok = ok && abor_write_int(abc, validity_key);
+    ok = ok && abor_write_bytes(abc, nonce->nonce, nonce->nonce_length);
 
-  if (!coap_add_data(response, length, buf)) {
-    dcaf_log(DCAF_LOG_DEBUG, "also too small\n");
-    return DCAF_ERROR_BUFFER_TOO_SMALL;
+    if (ok) {
+      LL_PREPEND(nonces, nonce);
+    } else {
+      dcaf_free_type(DCAF_NONCE, nonce);
+    }
+  }
+
+  if (ok) {
+    size_t length;
+    length = abor_encode_finish(abc);
+
+    if (!coap_add_data(response, length, buf)) {
+      dcaf_log(DCAF_LOG_DEBUG, "also too small\n");
+      return DCAF_ERROR_BUFFER_TOO_SMALL;
+    }
+  } else {
+    if (abc)
+      abor_encode_finish(abc);
   }
 
   coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);

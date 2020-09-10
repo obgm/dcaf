@@ -66,6 +66,42 @@ make_cose_key(const dcaf_key_t *key) {
   return map;
 }
 
+/* Create a CBOR representation of AIF using cn-cbor. */
+static cn_cbor *
+aif_to_cbor(const dcaf_aif_t *aif) {
+  cn_cbor *result;
+  const dcaf_aif_t *tmp;
+
+  if (!aif || !(result = cn_cbor_array_create(NULL))) {
+    return NULL;
+  }
+
+  LL_FOREACH(aif, tmp) {
+    cn_cbor *resource, *methods;
+    resource = cn_cbor_string_create((const char *)tmp->perm.resource,
+                                       NULL);
+    methods =  cn_cbor_int_create(tmp->perm.methods, NULL);
+    if (!resource || !methods) {
+      dcaf_log(DCAF_LOG_DEBUG, "out of memory when creating AIF\n");
+      cn_cbor_free(resource);
+      cn_cbor_free(methods);
+      break;
+    }
+
+    cn_cbor_array_append(result, resource, NULL);
+    cn_cbor_array_append(result, methods, NULL);
+  }
+
+  if (result->length == 0) {
+    /* we ran out of memory during AIF creation, so just give up */
+    cn_cbor_free(result);
+    return NULL;
+  } else {
+    return result;
+  }
+}
+
+
 static cn_cbor *
 make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
                  const dcaf_ticket_request_t *ticket_request) {
@@ -75,7 +111,7 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
   cn_cbor *snc = NULL;
   assert(ticket != NULL);
 
-  aif = dcaf_aif_to_cbor(ticket->aif);
+  aif = aif_to_cbor(ticket->aif);
   cose_key = make_cose_key(ticket->key);
   if (!aif || !map || !cose_key) {
     cn_cbor_free(map);
@@ -187,19 +223,15 @@ make_client_info(const dcaf_ticket_t *ticket) {
   return map;
 }
 
-static cn_cbor *
-parse_cbor(const coap_pdu_t *pdu) {
+static abor_decoder_t *
+get_cbor(const coap_pdu_t *pdu) {
   uint8_t *payload = NULL;
   size_t payload_len = 0;
-  cn_cbor *cbor = NULL;
+  abor_decoder_t *cbor = NULL;
 
-  /* Retrieve payload and parse as CBOR. */
+  /* Retrieve payload and create CBOR parser. */
   if (coap_get_data((coap_pdu_t *)pdu, &payload_len, &payload)) {
-    cn_cbor_errback errp;
-    cbor = cn_cbor_decode(payload, payload_len, &errp);
-    if (!cbor) {
-      dcaf_log(DCAF_LOG_ERR, "parse error %d at pos %d\n", errp.err, errp.pos);
-    }
+    cbor = abor_decode_start(payload, payload_len);
   }
   return cbor;
 }
@@ -217,6 +249,7 @@ dcaf_new_ticket_request(void) {
 
 void
 dcaf_delete_ticket_request(dcaf_ticket_request_t *treq) {
+  dcaf_delete_aif(treq->aif);
   dcaf_free_type(DCAF_TICKET_REQUEST, treq);
 }
 
@@ -228,10 +261,10 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   dcaf_result_t result_code = DCAF_ERROR_BAD_REQUEST;
   dcaf_ticket_request_t *treq = NULL;
   dcaf_aif_t *aif = NULL;
-  cn_cbor *body = NULL;
-  cn_cbor *aud = NULL;          /* holds the audience field */
-  cn_cbor *snc = NULL;          /* holds the server nonce */
-  cn_cbor *obj;                 /* holds temporary cbor objects */
+  abor_decoder_t *abd = NULL;
+  abor_decoder_t *aud = NULL;   /* holds the audience field */
+  abor_decoder_t *snc = NULL;   /* holds the server nonce */
+  abor_decoder_t *obj;          /* holds temporary cbor objects */
 
   assert(result);
   assert(request);
@@ -242,103 +275,115 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   /* Ensure that no Content-Format other than application/dcaf+cbor
    * was requested and that we can parse the message body as CBOR. */
   if (!is_dcaf(coap_get_content_format(request))
-      || !(body = parse_cbor(request))) {
+      || !(abd = get_cbor(request))) {
     dcaf_log(DCAF_LOG_WARNING, "cannot parse request as application/dcaf+cbor\n");
     return DCAF_ERROR_BAD_REQUEST;
   }
 
   /* TODO: check if we are addressed AM (iss). If not and we are
    * acting as CAM, the request should be passed on to SAM. */
-  obj = cn_cbor_mapget_int(body, DCAF_TICKET_ISS);
-  if (obj) {
-    if (obj->type != CN_CBOR_TEXT) {
-      dcaf_log(DCAF_LOG_WARNING,
-               "wrong type for field iss (expected text string)\n");
-      goto finish;
-    } else {
-      dcaf_log(DCAF_LOG_INFO, "iss: \"%.*s\"\n", obj->length, obj->v.str);
-    }
+  obj = abor_mapget_int(abd, DCAF_TICKET_ISS);
+  if (obj && abor_check_type(obj, ABOR_TSTR)) {
+    dcaf_log(DCAF_LOG_INFO, "iss: \"%.*s\"\n", (int)abor_get_sequence_length(obj), abor_get_text(obj));
+  } else {
+    dcaf_log(DCAF_LOG_WARNING, "field iss missing or invalid\n");
+    goto finish;
   }
+  abor_decode_finish(obj);
+  obj = NULL;
 
-  aud = cn_cbor_mapget_int(body, DCAF_TICKET_AUD);
-  if (!aud ||
-      ((aud->type != CN_CBOR_TEXT) && (aud->type != CN_CBOR_BYTES))) {
-    dcaf_log(DCAF_LOG_WARNING, "invalid aud\n");
+  treq = dcaf_new_ticket_request();
+  if (!treq) {
+    result_code = DCAF_ERROR_OUT_OF_MEMORY;
+    goto finish;
+  }
+  
+  aud = abor_mapget_int(abd, DCAF_TICKET_AUD);
+  if (!aud) {
+    dcaf_log(DCAF_LOG_WARNING, "field aud is missing\n");
     goto finish;
   } else {
+    abor_type mt = abor_get_type(aud);
+    size_t aud_length;
+
+    if ((mt != ABOR_TSTR) && (mt != ABOR_BSTR)) {
+      dcaf_log(DCAF_LOG_WARNING, "invalid field aud\n");
+      goto finish;
+    }
     /* TODO: check if we know the server denoted by aud */
-    dcaf_log(DCAF_LOG_INFO, "aud: \"%.*s\"\n", aud->length, aud->v.str);
+    dcaf_log(DCAF_LOG_INFO, "aud: \"%.*s\"\n", (int)abor_get_sequence_length(aud), abor_get_text(aud));
+
+    aud_length = abor_get_sequence_length(aud);
+    if (aud_length <= DCAF_MAX_AUDIENCE_SIZE) {
+      memset(treq->aud, 0, sizeof(treq->aud));
+      memcpy(treq->aud, abor_get_bytes(aud), aud_length);
+    } else {
+      dcaf_log(DCAF_LOG_WARNING, "aud in ticket request too long\n");
+    }
+  }
+  /* aud is released at the end */
+  
+  obj = abor_mapget_int(abd, DCAF_TICKET_SCOPE);
+  if (!obj) {
+    /* handle default scope */
+    static const uint8_t scope[] = { 0x82, 0x61, 0x2F, 0x01 }; /* [ "/", 1 ] */
+    obj = abor_decode_start(scope, sizeof(scope));
   }
 
-  obj = cn_cbor_mapget_int(body, DCAF_TICKET_SCOPE);
-  if (obj) {
-    if (obj->type == CN_CBOR_TEXT) {
+  if (obj) { /* may fail if memory allocation failed for default scope */
+    if (abor_check_type(obj, ABOR_TSTR)) {
       result_code = dcaf_aif_parse_string(obj, &aif);
     } else {
       result_code = dcaf_aif_parse(obj, &aif);
     }
-  } else {
-    /* handle default scope */
-    const uint8_t scope[] = { 0x82, 0x61, 0x2F, 0x01 }; /* [ "/", 1 ] */
-    const size_t scope_length = sizeof(scope);
-    cn_cbor *tmp = cn_cbor_decode(scope, scope_length, NULL);
-    if (tmp) {
-      result_code = dcaf_aif_parse(tmp, &aif);
-      cn_cbor_free(tmp);
-    }
+    treq->aif = aif;
   }
+  abor_decode_finish(obj);
+  obj = NULL;
 
 #if 0
-  obj = cn_cbor_mapget_int(body, DCAF_TICKET_CAMT);
-  if (obj && (obj->type == CN_CBOR_UINT)) {
+  obj = abor_mapget_int(abd, DCAF_TICKET_CAMT);
+  if (obj && abor_check_type(obj, ABOR_UINT)) {
     /* TODO: store camt */
   }
 #endif
 
-  snc = cn_cbor_mapget_int(body, DCAF_TICKET_SNC);
-  if (snc && ((snc->type == CN_CBOR_BYTES) || (snc->type == CN_CBOR_TEXT))) {
-    dcaf_log(DCAF_LOG_WARNING, "invalid snc\n");
-    goto finish;
-  } else if (dcaf_get_log_level() >= DCAF_LOG_INFO) {
-    dcaf_log(DCAF_LOG_INFO, "snc:\n");
-    dcaf_debug_hexdump(aud->v.str, aud->length);
-  }
-  
-  if (result_code == DCAF_OK) {
-    /* TODO: check if the request contained a kid */
-
-    treq = dcaf_new_ticket_request();
-    if (treq) {
-      treq->aif = aif;
-      if (aud) {
-        if (aud->length <= DCAF_MAX_AUDIENCE_SIZE) {
-          memset(treq->aud, 0, DCAF_MAX_AUDIENCE_SIZE);
-          memcpy(treq->aud, aud->v.str, aud->length);
-        } else {
-          dcaf_log(DCAF_LOG_WARNING, "aud in ticket request too long\n");
-        }
-      }
-
-      if (snc) {
-        if (snc->length <= DCAF_MAX_NONCE_SIZE) {
-          memset(treq->snc, 0, DCAF_MAX_NONCE_SIZE);
-          memcpy(treq->snc, snc->v.str, snc->length);
-          treq->snc_length = snc->length;
-        } else {
-          dcaf_log(DCAF_LOG_WARNING, "snc in ticket request too long\n");
-        }
+  snc = abor_mapget_int(abd, DCAF_TICKET_SNC);
+  if (snc) {
+    abor_type mt = abor_get_type(snc);
+    size_t snc_length;
+    if ((mt == ABOR_TSTR) || (mt == ABOR_BSTR)) {
+      if (dcaf_get_log_level() >= DCAF_LOG_INFO) {
+        dcaf_log(DCAF_LOG_INFO, "snc:\n");
+        dcaf_debug_hexdump(abor_get_bytes(snc), abor_get_sequence_length(snc));
       }
     } else {
-      /* As we cannot store aif in the ticket structure, we must
-       * release its memory manually. */
-      dcaf_delete_aif(aif);
-      aif = NULL;
+      dcaf_log(DCAF_LOG_WARNING, "invalid field snc\n");
+      goto finish;
+    }
+
+    snc_length = abor_get_sequence_length(snc);
+    if (snc_length <= DCAF_MAX_NONCE_SIZE) {
+      memset(treq->snc, 0, DCAF_MAX_NONCE_SIZE);
+      memcpy(treq->snc, abor_get_bytes(snc), snc_length);
+      treq->snc_length = snc_length;
+    } else {
+      dcaf_log(DCAF_LOG_WARNING, "snc in ticket request too long\n");
     }
   }
-
+  /* snc is released at the end */
+  
  finish:
-  cn_cbor_free(body);
-  *result = treq;
+  abor_decode_finish(aud);
+  abor_decode_finish(snc);
+  abor_decode_finish(obj);      /* release any obj still remaining */
+  abor_decode_finish(abd);
+
+  if (result_code == DCAF_OK) {
+    *result = treq;
+  } else {
+    dcaf_delete_ticket_request(treq);
+  }
   return result_code;
 }
 

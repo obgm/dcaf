@@ -11,8 +11,6 @@
 #include <assert.h>
 #include <stddef.h>
 
-#include <cn-cbor/cn-cbor.h>
-
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_key.h"

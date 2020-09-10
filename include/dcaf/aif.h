@@ -11,7 +11,6 @@
 #define _AIF_H_ 1
 
 #include <stdint.h>
-#include <cn-cbor/cn-cbor.h>
 
 #include "dcaf/dcaf.h"
 
@@ -45,7 +44,7 @@ typedef struct dcaf_aif_t {
  *
  * @return       DCAF_OK on success, an error code otherwise.
  */
-dcaf_result_t dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result);
+dcaf_result_t dcaf_aif_parse_string(const abor_decoder_t *cbor, dcaf_aif_t **result);
 
 /**
  * Parses @p cbor into the AIF format and returns a newly created
@@ -63,20 +62,19 @@ dcaf_result_t dcaf_aif_parse_string(const cn_cbor *cbor, dcaf_aif_t **result);
  *
  * @return       DCAF_OK on success, an error code otherwise.
  */
-dcaf_result_t dcaf_aif_parse(const cn_cbor *cbor, dcaf_aif_t **result);
+dcaf_result_t dcaf_aif_parse(abor_decoder_t *cbor, dcaf_aif_t **result);
 
 /**
- * Creates a CBOR representation of @p aif. This function returns a
- * newly created CBOR array if at least one AIF item was created.  In
- * case of an error, NULL is returned. The CBOR array will point into
- * the @p aif data and thus will get invalid when @p aif ceases to
- * exist.
+ * Creates a CBOR representation of @p aif. This function returns true
+ * if the given AIF representation has successfully been written to
+ * @p abc. In case of an error, false is returned.
  *
  * @param aif   The AIF object to convert into CBOR.
+ * @param abc   A CBOR encoder to serialize into,
  *
- * @return A newly created CBOR array on success, or NULL on error.
+ * @return A boolean value indication the success of the serialization.
  */
-cn_cbor *dcaf_aif_to_cbor(const dcaf_aif_t *aif);
+bool dcaf_aif_to_cbor(const dcaf_aif_t *aif, abor_encoder_t *abc);
 
 /**
  * Releases the storage for @p aif and all following elements in the

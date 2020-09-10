@@ -1,8 +1,8 @@
 /*
  * dcaf_int.h -- internal declarations for libdcaf
  *
- * Copyright (C) 2015-2016 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2016 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -24,8 +24,6 @@ extern "C" {
 #include "dcaf_mem.h"
 #include "dcaf_coap.h"
 #include "state.h"
-
-#include <cn-cbor/cn-cbor.h>
 
 /**
  * The type for the locally-generated unique transaction
