@@ -201,26 +201,25 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
   return map;
 }
 
-static cn_cbor *
-make_client_info(const dcaf_ticket_t *ticket) {
-  cn_cbor *map = cn_cbor_map_create(NULL);
+static bool
+add_client_info(cn_cbor *map, const dcaf_ticket_t *ticket) {
+  bool ok = false;
   cn_cbor *cose_key;
 
   assert(ticket != NULL);
 
-  if (!map) {
-    return NULL;
+  if (map) {
+    /* TODO */
+    cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
+                       cn_cbor_int_create(ticket->seq, NULL),
+                       NULL);
+    cose_key = make_cose_key(ticket->key);
+    if (cose_key) {
+      cn_cbor_mapput_int(map, DCAF_TICKET_CNF, cose_key, NULL);
+      ok = true;
+    }
   }
-
-  /* TODO */
-  cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
-                     cn_cbor_int_create(ticket->seq, NULL),
-                     NULL);
-  cose_key = make_cose_key(ticket->key);
-  if (cose_key) {
-    cn_cbor_mapput_int(map, DCAF_TICKET_CNF, cose_key, NULL);
-  }
-  return map;
+  return ok;
 }
 
 static abor_decoder_t *
@@ -401,7 +400,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   dcaf_context_t *ctx;
   unsigned char buf[1024];
   size_t length = 0;
-  cn_cbor *body, *ticket_face, *client_info;
+  cn_cbor *body, *ticket_face;
   dcaf_ticket_t *ticket;
 
   assert(ticket_request);
@@ -442,18 +441,15 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   /* generate ticket grant depending on media type */
   body = cn_cbor_map_create(NULL);
   ticket_face = make_ticket_face(ctx, ticket, ticket_request);
-  client_info = make_client_info(ticket);
   if (!body || !ticket_face) {
-    cn_cbor_free(body);
     cn_cbor_free(ticket_face);
-    cn_cbor_free(client_info);
-    response->code = COAP_RESPONSE_CODE(500);
-    coap_add_data(response, 14, (unsigned char *)"internal error");
-    return;
+    goto error;
   }
 
   cn_cbor_mapput_int(body, DCAF_TICKET_FACE, ticket_face, NULL);
-  cn_cbor_mapput_int(body, DCAF_TICKET_CLIENTINFO, client_info, NULL);
+  if (!add_client_info(body, ticket)) {
+    goto error;
+  }
 
   length = cn_cbor_encoder_write(buf, 0, sizeof(buf), body);
   cn_cbor_free(body);
@@ -476,11 +472,14 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     coap_add_data(response, length, buf);
     dcaf_log(DCAF_LOG_INFO, "ticket grant is \n");
     dcaf_debug_hexdump(buf, length);
-  } else { /* something went wrong, prepare error response */
-    dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
-    response->code = COAP_RESPONSE_CODE(500);
-    coap_add_data(response, 14, (unsigned char *)"internal error");
+    return;
   }
+
+ error:
+  cn_cbor_free(body);
+  dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
+  response->code = COAP_RESPONSE_CODE(500);
+  coap_add_data(response, 14, (unsigned char *)"internal error");
 }
 
 dcaf_result_t

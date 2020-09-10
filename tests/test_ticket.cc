@@ -46,7 +46,6 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<cose_obj_t, Deleter> object;
   static std::unique_ptr<abor_decoder_t, Deleter> ticket_face;
   static std::unique_ptr<abor_decoder_t, Deleter> claim;
-  static std::unique_ptr<abor_decoder_t, Deleter> cinfo;
   static std::unique_ptr<dcaf_aif_t, Deleter> aif;
   static std::unique_ptr<dcaf_key_t, Deleter> s_key;
 
@@ -143,14 +142,12 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     }
 
     WHEN("A ticket grant with client information is present") {
-      cinfo.reset(abor_mapget_int(claim.get(), DCAF_TICKET_CLIENTINFO));
-      REQUIRE(cinfo != nullptr);
-      REQUIRE(abor_check_type(cinfo.get(), ABOR_MAP));
+      REQUIRE(claim != nullptr);
 
       THEN("The client information must contain a cnf claim with a symmetric key") {
         std::unique_ptr<abor_decoder_t, Deleter> cnf;
         std::unique_ptr<abor_decoder_t, Deleter> cwt_key, kty, k;
-        cnf.reset(abor_mapget_int(cinfo.get(), DCAF_TICKET_CNF));
+        cnf.reset(abor_mapget_int(claim.get(), DCAF_TICKET_CNF));
         REQUIRE(cnf != nullptr);
         REQUIRE(abor_check_type(cnf.get(), ABOR_MAP));
 

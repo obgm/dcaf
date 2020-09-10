@@ -246,7 +246,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   size_t content_len = 0;
   uint8_t *content = NULL;
   abor_decoder_t *cbor;
-  abor_decoder_t *client_information, *cnf;
+  abor_decoder_t *cnf;
   abor_decoder_t *cose_key = NULL;
   dcaf_ticket_t *cinfo = NULL;
   dcaf_key_type key_type = DCAF_NONE;
@@ -280,29 +280,22 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     return;
   }
 
-  /* get key from cbor and use ticket face as psk for new session */  
-  client_information = abor_mapget_int(cbor, DCAF_TICKET_CLIENTINFO);
-  if (!client_information) {
-    dcaf_log(DCAF_LOG_ERR, "ticket has no client information\n");
-    goto finish;
-  }
+  /* get key from cbor and use ticket face as psk for new session: */  
 
   /* retrieve cnf containg keying material information */
-  cnf = abor_mapget_int(client_information, DCAF_TICKET_CNF);
+  cnf = abor_mapget_int(cbor, DCAF_TICKET_CNF);
   if (!cnf) {
     dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
-    abor_decode_finish(client_information);
     goto finish;
   }
 
   /* FIXME:
-  seq = abor_mapget_int(client_information, DCAF_TICKET_SEQ);
-  rlt = abor_mapget_int(client_information, DCAF_TICKET_RLT);
+  seq = abor_mapget_int(cbor, DCAF_TICKET_SEQ);
+  rlt = abor_mapget_int(cbor, DCAF_TICKET_RLT);
   */
   cinfo = dcaf_new_ticket(key_type, 0 /* FIXME: seq->v.uint */,
                           0 /* FIXME: now */,
                           1000 /* FIXME: remaining_ltm */);
-  abor_decode_finish(client_information);
   
   cose_key = get_cose_key(cnf); /* extract cose key object */
   abor_decode_finish(cnf);
