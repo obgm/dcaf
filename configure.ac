@@ -77,25 +77,7 @@ AC_TYPE_SIZE_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset getrandom getaddrinfo gai_strerror])
 
-PKG_CHECK_MODULES([tinycbor], [tinycbor], [have_cbor="tinycbor"],
-   [PKG_CHECK_MODULES([cn_cbor], [cn-cbor], [have_cbor="cn-cbor"]
-   )]
-)
-
-if test "x$have_cbor" = "xtinycbor"; then
-   cbor_CFLAGS=$tinycbor_CFLAGS
-   cbor_LIBS=$tinycbor_LIBS
-   AC_DEFINE(HAVE_TINYCBOR, 1, [Define this to 1 if tinycbor is present and to be used])
-elif test "x$have_cbor" = "xcn-cbor"; then
-   cbor_CFLAGS=$cn_cbor_CFLAGS
-   cbor_LIBS=$cn_cbor_LIBS
-   AC_DEFINE(HAVE_CNCBOR, 1, [Define this to 1 if cn-cbor is present and to be used])
-else
-   AC_MSG_ERROR([neither tinycbor nor cn-cbor found.])
-fi
-AC_SUBST(cbor_CFLAGS)
-AC_SUBST(cbor_LIBS)
-
+PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
 PKG_CHECK_MODULES([libcoap], [libcoap-2-mbedtls], [have_libcoap="libcoap-2-mbedtls"],
    [PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
       [PKG_CHECK_MODULES([libcoap], [libcoap-2-tinydtls], [have_libcoap="libcoap-2-tinydtls"],
