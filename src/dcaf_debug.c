@@ -14,12 +14,21 @@
 #include "dcaf/dcaf_int.h"
 #include "dcaf/dcaf_debug.h"
 
-#define DCAF_DEBUG 1
+#ifndef CONFIG_DCAF_NODEBUG
+#define DCAF_DEBUG (1)
+#endif /* CONFIG_DCAF_NODEBUG */
+
+#ifdef CONFIG_DCAF_LOG_DEFAULT_LEVEL
+#define DCAF_DEFAULT_LOG_LEVEL (CONFIG_DCAF_LOG_DEFAULT_LEVEL)
+#else
+#define DCAF_DEFAULT_LOG_LEVEL (DCAF_LOG_WARNING)
+#endif /* CONFIG_DCAF_LOG_DEFAULT_LEVEL */
+
 
 /* The external program used to output CBOR data in debug mode. */
 #define CBOR2PRETTY "cbor2pretty.rb"
 
-static dcaf_log_t maxlog = DCAF_LOG_WARNING; /* default maximum log level */
+static dcaf_log_t maxlog = DCAF_DEFAULT_LOG_LEVEL; /* default maximum log level */
 
 dcaf_log_t 
 dcaf_get_log_level(void) {
@@ -31,10 +40,12 @@ dcaf_set_log_level(dcaf_log_t level) {
   maxlog = level;
 }
 
+#if DCAF_DEBUG
 /* this array has the same order as the type dcaf_log_t */
 static char *loglevels[] = {
   "EMRG", "ALRT", "CRIT", "ERR", "WARN", "NOTE", "INFO", "DEBG" 
 };
+#endif /* DCAF_DEBUG */
 
 static dcaf_log_handler_t log_handler = NULL;
 
