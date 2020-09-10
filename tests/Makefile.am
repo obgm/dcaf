@@ -13,7 +13,7 @@ if BUILD_TESTS
 AM_CXXFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include $(WARNING_CXXFLAGS) -std=c++14
 AM_CPPFLAGS = @libcoap_CFLAGS@
 AM_LDFLAGS = -L$(top_builddir)
-libs = -ldcaf  @libcoap_LIBS@ @cbor_LIBS@
+libs = -ldcaf  @libcoap_LIBS@ @cn_cbor_LIBS@
 
 noinst_PROGRAMS = testdriver
 
