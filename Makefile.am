@@ -33,12 +33,12 @@ libdcaf_a_CFLAGS = -I @top_builddir@/include $(WARNING_CFLAGS)
 ## Source files comprising libdcaf.
 libdcaf_a_SOURCES = \
    src/aif.c \
+   src/anybor.c \
    src/cose.c \
    src/dcaf.c \
    src/dcaf_address.c \
    src/dcaf_am.c \
    src/dcaf_base64.c \
-   src/dcaf_cbor.c \
    src/dcaf_coap.c \
    src/dcaf_crypto_openssl.c \
    src/dcaf_crypto_mbedtls.c \
@@ -56,12 +56,12 @@ libdcaf_includedir = $(includedir)/dcaf/
 libdcaf_include_HEADERS = \
    $(top_srcdir)/include/dcaf/ace.h \
    $(top_srcdir)/include/dcaf/aif.h \
+   $(top_srcdir)/include/dcaf/anybor.h \
    $(top_srcdir)/include/dcaf/cose.h \
    $(top_srcdir)/include/dcaf/cose_types.h \
    $(top_srcdir)/include/dcaf/dcaf.h \
    $(top_srcdir)/include/dcaf/dcaf_am.h \
    $(top_srcdir)/include/dcaf/dcaf_base64.h \
-   $(top_srcdir)/include/dcaf/dcaf_cbor.h \
    $(top_srcdir)/include/dcaf/dcaf_coap.h \
    $(top_srcdir)/include/dcaf/dcaf_crypto.h \
    $(top_srcdir)/include/dcaf/dcaf_debug.h \
