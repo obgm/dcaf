@@ -611,6 +611,7 @@ struct abor_iterator_t {
 abor_iterator_t *
 abor_iterate_start(const abor_decoder_t *abd) {
   abor_iterator_t *it = NULL;
+  uint64_t nitems;
 #ifdef ABOR_STATIC_MAPGET_NUM_ITEMS
   static abor_iterator_t it_;
 #endif /* ABOR_STATIC_MAPGET_NUM_ITEMS */
@@ -629,12 +630,13 @@ abor_iterate_start(const abor_decoder_t *abd) {
       if (!it)
         return NULL;
 #endif /* ABOR_STATIC_MAPGET_NUM_ITEMS */
-      parsed = parse_number(abd->pos, abd->len, &it->nitems);
+      parsed = parse_number(abd->pos, abd->len, &nitems);
       if (!parsed) {
         abor_iterate_finish(it);
         return NULL;
       }
       it->type = type;
+      it->nitems = nitems & SIZE_MAX;
       it->pos = abd->pos + parsed;
       it->len = abd->len - parsed;
     }
