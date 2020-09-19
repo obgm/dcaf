@@ -209,7 +209,13 @@ add_client_info(cn_cbor *map, const dcaf_ticket_t *ticket) {
   assert(ticket != NULL);
 
   if (map) {
+    dcaf_time_t now = dcaf_gettime();
+
     /* TODO */
+    cn_cbor_mapput_int(map, DCAF_TICKET_IAT,
+                       cn_cbor_int_create(now, NULL),
+                       NULL);
+
     cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
                        cn_cbor_int_create(ticket->seq, NULL),
                        NULL);
