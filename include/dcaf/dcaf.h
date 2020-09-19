@@ -59,38 +59,22 @@ typedef enum {
 #include "cwt.h"
 #include "scope.h"
 
-#define DCAF_TYPE_SAM   0
-#define DCAF_TYPE_SAI   1
-#define DCAF_TYPE_CAI   2
-#define DCAF_TYPE_E     3
-#define DCAF_TYPE_K     4
-#define DCAF_TYPE_NONCE 5
-#define DCAF_TYPE_L     6
-#define DCAF_TYPE_G     7
-#define DCAF_TYPE_F     8
-#define DCAF_TYPE_V     9
-#define DCAF_TYPE_A    10
-#define DCAF_TYPE_D    11
-#define DCAF_TYPE_N    12
-
 enum dcaf_ticket_field {
   DCAF_TICKET_ISS             = CWT_CLAIM_ISS,
+  DCAF_TICKET_SUB             = CWT_CLAIM_SUB,
   DCAF_TICKET_AUD             = CWT_CLAIM_AUD,
   DCAF_TICKET_IAT             = CWT_CLAIM_IAT,
   DCAF_TICKET_CNF             = CWT_CLAIM_CNF,
-  DCAF_TICKET_SCOPE           = 9,
-  DCAF_TICKET_EXPIRES_IN      = 32,
-  DCAF_TICKET_SNC             = 125,
-  DCAF_TICKET_SEQ             = 126,
-  DCAF_TICKET_DSEQ            = 127,
-  DCAF_TICKET_DAT             = 128,
-  /* use cti instead of seq? */
-
-  /* Face and client info are always present and therefore need
-   * numbers below 23. */
-  DCAF_TICKET_FACE            = 17,
-  DCAF_TICKET_CLIENTINFO      = 18,
+  DCAF_TICKET_SCOPE           = CWT_CLAIM_SCOPE,
+  DCAF_TICKET_EXPIRES_IN      = 17,
+  DCAF_TICKET_SNC             = CWT_CLAIM_CNONCE,
+  DCAF_TICKET_SEQ             = CWT_CLAIM_CTI,
+  DCAF_TICKET_DSEQ            = 19,
+  DCAF_TICKET_CSCOPE          = 21,
+  DCAF_TICKET_RS_CNF          = CWT_CLAIM_RS_CNF,
 };
+
+#define DCAF_TICKET_FACE 1
 
 typedef enum {
   DCAF_MEDIATYPE_DCAF_CBOR = 75,
