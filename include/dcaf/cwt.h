@@ -31,6 +31,7 @@ enum cwt_claim {
   CWT_CLAIM_ACE_PROFILE = 38,
   CWT_CLAIM_CNONCE      = 39,
   CWT_CLAIM_EXI         = 40,
+  CWT_CLAIM_RS_CNF      = 41,
 };
 
 enum cwt_cnf {
