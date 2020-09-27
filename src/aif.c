@@ -13,7 +13,7 @@
 #include "dcaf/utlist.h"
 #include "dcaf/aif.h"
 
-static dcaf_aif_t *
+dcaf_aif_t *
 dcaf_new_aif(void) {
   dcaf_aif_t *aif = dcaf_alloc_type(DCAF_AIF);
   if (aif) {

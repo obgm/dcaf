@@ -77,6 +77,14 @@ dcaf_result_t dcaf_aif_parse(abor_decoder_t *cbor, dcaf_aif_t **result);
 bool dcaf_aif_to_cbor(const dcaf_aif_t *aif, abor_encoder_t *abc);
 
 /**
+ * Allocates a new AIF object initialized to zero. The object returned
+ * by this function must be released by dcaf_delete_aif().
+ *
+ * @return A newly allocated AIF object or NULL on error.
+ */
+dcaf_aif_t *dcaf_new_aif(void);
+
+/**
  * Releases the storage for @p aif and all following elements in the
  * list.
  */
