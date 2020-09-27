@@ -80,6 +80,14 @@ struct dcaf_context_t {
 #endif /* DCAF_SERVER_VALIDITY_OPTION */
 #define DCAF_MAX_SERVER_TIMEOUT 10 /* time in seconds that the server keeps the nonce when using validity option 3 */
 
+/**
+ * The validity option supported by the DCAF client. Allowed values
+ * are 1, 2, and 3, respectively.
+ */
+#ifndef DCAF_CLIENT_VALIDITY_OPTION
+#define DCAF_CLIENT_VALIDITY_OPTION (1U)
+#endif /* DCAF_CLIENT_VALIDITY_OPTION */
+
 #ifndef DCAF_AM_ENCRYPT_TICKET_FACE
 /** If set to 1, the ticket face will be encrypted */
 #define DCAF_AM_ENCRYPT_TICKET_FACE (1U)
