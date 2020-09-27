@@ -60,12 +60,14 @@ token_equals(coap_pdu_t *a, coap_pdu_t *b) {
   return 0;
 }
 
+#if DCAF_CLIENT
 /* Returns true iff DCAF should be used. */
 static bool
 is_dcaf(int content_format) {
   return (content_format == -1)
     || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
 }
+#endif /* DCAF_CLIENT */
 
 /**
  * Utility function to extract a COSE_Key from @p obj skipping the
@@ -118,6 +120,7 @@ am_error_handler(dcaf_context_t *dcaf_context,
 }
 #endif
 
+#if DCAF_CLIENT
 static size_t
 make_ticket_request(const dcaf_transaction_t *transaction,
                     const uint8_t *data, size_t data_len,
@@ -180,7 +183,9 @@ make_ticket_request(const dcaf_transaction_t *transaction,
 
   return len;  
 }
+#endif /* DCAF_CLIENT */
 
+#if DCAF_CLIENT
 static void
 handle_unauthorized(dcaf_context_t *dcaf_context,
                     dcaf_transaction_t *t,
@@ -238,7 +243,9 @@ handle_unauthorized(dcaf_context_t *dcaf_context,
     dcaf_delete_transaction(dcaf_context, t);
   }
 }
+#endif /* DCAF_CLIENT */
 
+#if DCAF_CLIENT
 static void
 handle_ticket_transfer(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *t,
@@ -278,6 +285,54 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   if (!cbor) {
     dcaf_log(DCAF_LOG_ERR, "cannot parse ticket\n");
     return;
+  }
+
+  if (DCAF_CLIENT_VALIDITY_OPTION == 1) {
+    abor_decoder_t *iat, *lt;
+    uint64_t timestamp;
+    uint64_t lifetime = COAP_DEFAULT_MAX_AGE;
+    dcaf_time_t now = dcaf_gettime();
+
+    iat = abor_mapget_int(cbor, DCAF_TICKET_IAT);
+
+    /* read mandatory iat field */
+    if (!iat) {
+      dcaf_log(DCAF_LOG_INFO, "no iat found (validity option 1)\n");
+      goto finish;
+    }
+    if (((abor_get_type(iat) == ABOR_TAG) && !abor_consume_tag(iat, 1))
+        || !abor_get_uint(iat, &timestamp)) {
+      dcaf_log(DCAF_LOG_INFO, "invalid value in iat\n");
+      abor_decode_finish(iat);
+      goto finish;
+    }
+    abor_decode_finish(iat);
+
+    /* Read lifetime. If not present, set lifetime to Max-Age. */
+    lt = abor_mapget_int(cbor, DCAF_TICKET_EXPIRES_IN);
+    if (lt) {
+      if (!abor_get_uint(lt, &lifetime)) {
+        dcaf_log(DCAF_LOG_INFO, "invalid value in lt\n");
+        abor_decode_finish(lt);
+        goto finish;
+      }
+      abor_decode_finish(lt);
+    } else { /* use Max-Age as lifetime */
+      coap_opt_t *max_age;
+      coap_opt_iterator_t opt_iter;
+
+      max_age = coap_check_option(received, COAP_OPTION_MAXAGE, &opt_iter);
+      if (max_age) {
+        lifetime = coap_decode_var_bytes(coap_opt_value(max_age),
+                                         coap_opt_length(max_age));
+      }
+    }
+
+    /* The remaining lifetime RL is calculated as LT - (CT - AM_TS). */
+    if (((uint64_t)now < timestamp) || lifetime < (now - timestamp)) {
+        dcaf_log(DCAF_LOG_INFO, "ticket has already expired\n");
+        goto finish;
+    }
   }
 
   /* get key from cbor and use ticket face as psk for new session: */  
@@ -424,7 +479,9 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   abor_decode_finish(cbor);
   dcaf_free_ticket(cinfo);
 }
+#endif /* DCAF_CLIENT */
 
+#if DCAF_CLIENT
 static void
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
@@ -531,6 +588,7 @@ handle_coap_response(struct coap_context_t *coap_context,
     t->response_handler(dcaf_context, t, received);
   }
 }
+#endif /* DCAF_CLIENT */
 
 static int
 set_endpoint(const dcaf_context_t *dcaf_context,
@@ -818,6 +876,7 @@ check_lifetime(int remaining_ltm) {
   return true;
 }
 
+#if DCAF_SERVER
 dcaf_result_t
 dcaf_parse_ticket_face(const coap_session_t *session,
                   const uint8_t *data, size_t data_len,
@@ -895,7 +954,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   abd = abor_mapget_int(ticket_face, DCAF_TICKET_SEQ);
   uint64_t seqnr;
   if (!abor_get_uint(abd, &seqnr)) {
-    dcaf_log(DCAF_LOG_INFO, "seqence number not found or invalid\n");
+    dcaf_log(DCAF_LOG_INFO, "sequence number not found or invalid\n");
     goto finish;
   }
   abor_decode_finish(abd);
@@ -1046,7 +1105,9 @@ dcaf_parse_ticket_face(const coap_session_t *session,
   abor_decode_finish(ticket_face);
   return res;
 }
+#endif /* DCAF_SERVER */
 
+#if DCAF_SERVER
 static size_t
 dcaf_get_server_psk(const coap_session_t *session,
                     const uint8_t *identity, size_t identity_len,
@@ -1100,6 +1161,7 @@ dcaf_get_server_psk(const coap_session_t *session,
   dcaf_free_type(DCAF_STRING, identity_buf);
   return result;
 }
+#endif /* DCAF_SERVER */
 
 dcaf_context_t *
 dcaf_new_context(const dcaf_config_t *config) {
@@ -1128,7 +1190,9 @@ dcaf_new_context(const dcaf_config_t *config) {
   /* initialize PSK mode */
   coap_context_set_psk(dcaf_context->coap_context, NULL, NULL, 0);
 
+#if DCAF_SERVER
   dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
+#endif /* DCAF_SERVER */
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
 
   if (config) {
@@ -1180,8 +1244,10 @@ dcaf_new_context(const dcaf_config_t *config) {
   }
 
   coap_register_option(dcaf_context->coap_context, COAP_OPTION_BLOCK2);
+#if DCAF_CLIENT
   coap_register_response_handler(dcaf_context->coap_context,
                                  handle_coap_response);
+#endif /* DCAF_CLIENT */
 
   return dcaf_context;
  error:
@@ -1304,6 +1370,7 @@ dcaf_is_authorized(const coap_session_t *session,
 
 dcaf_nonce_t * nonces = NULL;
 
+#if DCAF_SERVER
 dcaf_result_t
 dcaf_set_sam_information(const coap_session_t *session,
                          dcaf_mediatype_t mediatype,
@@ -1360,11 +1427,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   ok = ok && abor_write_string(abc, uri);
 
   /* set validity information */
-  if (DCAF_SERVER_VALIDITY_OPTION == 1) {
-    /* set timestamp */
-    ok = ok && abor_write_int(abc, DCAF_TICKET_DAT);
-    ok = ok && abor_write_uint(abc, coap_ticks_to_rt(now));
-  } else {
+  if (DCAF_SERVER_VALIDITY_OPTION != 1) {
     dcaf_nonce_t *nonce;
     uint16_t validity_key = DCAF_TICKET_SNC;
     /* create nonce */
@@ -1412,6 +1475,7 @@ dcaf_set_sam_information(const coap_session_t *session,
   coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);
   return DCAF_OK;
 }
+#endif /* DCAF_SERVER */
 
 dcaf_result_t
 dcaf_set_error_response(const coap_session_t *session,
