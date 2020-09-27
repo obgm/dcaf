@@ -318,6 +318,7 @@ enc_structure_context(unsigned int type) {
   }
 }
 
+#if DCAF_AM
 static size_t
 write_enc0_structure(const uint8_t *protected, size_t protected_length,
                     const uint8_t *external_aad, size_t external_aad_len,
@@ -345,7 +346,9 @@ write_enc0_structure(const uint8_t *protected, size_t protected_length,
 
   return abor_encode_finish(abc);
 }
+#endif /* DCAF_AM */
 
+#if DCAF_AM
 cose_result_t
 cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
               const uint8_t *external_aad, size_t external_aad_len,
@@ -556,6 +559,7 @@ cose_encrypt0(cose_alg_t alg, const dcaf_key_t *key,
   cose_obj_delete(obj);
   return res;
 }
+#endif /* DCAF_AM */
 
 static bool
 setup_crypto_params(const cose_obj_t *obj,
@@ -810,6 +814,7 @@ count_bits(unsigned int val) {
   return result;
 }
 
+#if DCAF_AM
 cose_result_t
 cose_serialize(const cose_obj_t *obj,
                unsigned int flags,
@@ -865,6 +870,7 @@ cose_serialize(const cose_obj_t *obj,
   abor_encode_finish(abc);
   return COSE_SERIALIZE_ERROR;
 }
+#endif /* DCAF_AM */
 
 #ifdef COSE_DEBUG
 void cose_show_object(dcaf_log_t level, const cose_obj_t *obj) {
