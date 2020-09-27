@@ -112,6 +112,39 @@ if test "x$have_libcoap" != "xno"; then
    esac
 fi
 
+# __client__
+AC_ARG_ENABLE([client],
+              [AS_HELP_STRING([--enable-client],
+                              [Enable client implementation [default=yes]])],
+              [build_client="$enableval"],
+              [build_client="yes"])
+
+if test "x$build_client" = "xyes"; then
+   AC_DEFINE(CONFIG_DCAF_CLIENT, [1], [Define this to 1 to include DCAF client code])
+fi
+
+# __server__
+AC_ARG_ENABLE([server],
+              [AS_HELP_STRING([--enable-server],
+                              [Enable server implementation [default=yes]])],
+              [build_server="$enableval"],
+              [build_server="yes"])
+
+if test "x$build_server" = "xyes"; then
+  AC_DEFINE(CONFIG_DCAF_SERVER, [1], [Define this to 1 to include DCAF server code])
+fi
+
+# __am__
+AC_ARG_ENABLE([am],
+              [AS_HELP_STRING([--enable-am],
+                              [Enable authorization manager implementation [default=yes]])],
+              [build_am="$enableval"],
+              [build_am="yes"])
+
+if test "x$build_am" = "xyes"; then
+  AC_DEFINE(CONFIG_DCAF_AM, [1], [Define this to 1 to include DCAF authorization manager code])
+fi
+
 # __documentation__
 AC_ARG_ENABLE([documentation],
               [AS_HELP_STRING([--enable-documentation],
