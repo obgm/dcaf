@@ -68,6 +68,27 @@ struct dcaf_context_t {
   dcaf_keystore_t *keystore;
 };
 
+#ifdef CONFIG_DCAF_SERVER
+#define DCAF_SERVER CONFIG_DCAF_SERVER
+#endif
+
+#ifdef CONFIG_DCAF_CLIENT
+#define DCAF_CLIENT CONFIG_DCAF_CLIENT
+#endif
+
+#ifdef CONFIG_DCAF_CLIENT_AND_SERVER
+#ifndef CONFIG_DCAF_SERVER
+#define DCAF_SERVER 1
+#endif
+#ifndef CONFIG_DCAF_CLIENT
+#define DCAF_CLIENT 1
+#endif
+#endif
+
+#ifdef CONFIG_DCAF_AM
+#define DCAF_AM CONFIG_DCAF_AM
+#endif
+
 /**
  * The validity option supported by the DCAF server. Allowed values
  * are 1, 2, and 3, respectively. If option 1 is set, the ticket must
