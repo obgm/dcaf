@@ -1,8 +1,8 @@
 /*
  * state.h -- dcaf transaction state
  *
- * Copyright (C) 2015-2019 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2019 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -13,7 +13,7 @@
 
 typedef enum {
   DCAF_STATE_IDLE,
-  DCAF_STATE_UNAUTHORIZED, 
+  DCAF_STATE_UNAUTHORIZED,
   DCAF_STATE_ACCESS_REQUEST,
   DCAF_STATE_TICKET_REQUEST,
   DCAF_STATE_TICKET_GRANT,
@@ -22,7 +22,8 @@ typedef enum {
 
 typedef enum {
   DCAF_TRANSACTION_USER,
-  DCAF_TRANSACTION_SYSTEM
+  DCAF_TRANSACTION_SYSTEM,
+  DCAF_TRANSACTION_AUTO
 } dcaf_transaction_type_t;
 
 /** Definition of transaction state. */
