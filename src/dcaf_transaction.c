@@ -18,13 +18,6 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif /* min */
 
-#if 0
-static unsigned short
-get_default_port(const coap_uri_t *u) {
-  return coap_uri_scheme_is_secure(u) ? COAPS_DEFAULT_PORT : COAP_DEFAULT_PORT;
-}
-#endif
-
 static int
 set_uri_options(const coap_uri_t *uri, dcaf_optlist_t *optlist) {
   unsigned char buf[MAX_URI_PATH_SIZE];
@@ -90,49 +83,9 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
   }
 
   transaction->state.act = DCAF_STATE_IDLE;
-#if 0
-  /* Select endpoint according to URI scheme and remote address. */
-  transaction->local_interface =
-    dcaf_select_interface(dcaf_context, &transaction->remote,
-                          coap_uri_scheme_is_secure(&uri));
-  if (!transaction->local_interface) {
-    coap_log(LOG_EMERG, "cannot find endpoint for transaction\n");
-    goto error;
-  }
-
-  result = set_uri_options(&uri, &options);
-
-  if (options && (dcaf_optlist_serialize(options, transaction->pdu) < 0)) {
-    warn("cannot set CoAP options\n");
-  }
-
-  if (data && data_len) {
-      size_t available = transaction->pdu->max_size - transaction->pdu->length;
-
-      /* add block if data is too large or if block.num > 0 */
-      if ((data_len < available) && (transaction->block.num == 0)) {
-        coap_add_data(transaction->pdu, data_len, data);
-      } else {
-        if (transaction->block.num == 0) {
-          /* calculate block size wrt available space */
-          transaction->block.szx = min(COAP_MAX_BLOCK_SZX,
-                                       coap_fls(available >> 4));
-        }
-
-        coap_add_block(transaction->pdu, data_len, data,
-                       transaction->block.num, transaction->block.szx);
-      }
-  }
-#endif
 
   LL_PREPEND(dcaf_context->transactions, transaction);
   return transaction;
-#if 0
- error:
-  dcaf_free_type(DCAF_TRANSACTION, transaction);
-  coap_free(pdu);
-  return NULL;
-#endif
 }
 
 void
@@ -162,7 +115,6 @@ void
 dcaf_transaction_update(dcaf_transaction_t *transaction,
                       const coap_session_t *session,
                       const coap_pdu_t *pdu) {
-  /* TODO: set local_interface and remote according to session */
   dcaf_log(DCAF_LOG_DEBUG, "update transaction %02x%02x%02x%02x\n",
            transaction->tid[0], transaction->tid[1],
            transaction->tid[2], transaction->tid[3]);
