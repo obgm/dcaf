@@ -167,6 +167,10 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
       dcaf_log(DCAF_LOG_ERR, "cannot find ticket face encryption key\n");
       cn_cbor_free(map);
       return NULL;
+    } else {
+      dcaf_log(DCAF_LOG_ERR, "encrypt with rs_key: '%.*s' for aud '%.*s'\n",
+               (int)rs_key->length, rs_key->data,
+               (int)aud->length, aud->v.bytes);
     }
 
     /* write cbor face to buf, buf_len */
@@ -258,6 +262,33 @@ dcaf_delete_ticket_request(dcaf_ticket_request_t *treq) {
   dcaf_free_type(DCAF_TICKET_REQUEST, treq);
 }
 
+static dcaf_ticket_request_t *
+create_default_ticket_request(void) {
+  dcaf_ticket_request_t *treq = dcaf_new_ticket_request();
+  dcaf_aif_t *aif = dcaf_new_aif();
+
+  if ((treq != NULL) && (aif != NULL)) {
+    const char dcaf_default_audience[] = "coaps://dcaf-temp";
+    const char dcaf_default_resource[] = "restricted";
+    uint32_t dcaf_default_methods = COAP_REQUEST_GET;
+
+    assert(sizeof(dcaf_default_audience) <= DCAF_MAX_AUDIENCE_SIZE + 1);
+    assert(sizeof(dcaf_default_resource) <= DCAF_MAX_RESOURCE_LEN + 1);
+    memcpy(treq->aud, dcaf_default_audience, sizeof(dcaf_default_audience));
+
+    memcpy(aif->perm.resource, dcaf_default_resource, sizeof(dcaf_default_resource));
+    aif->perm.resource_len = sizeof(dcaf_default_resource) - 1;
+    aif->perm.methods = dcaf_default_methods;
+
+    treq->aif = aif;
+  } else {
+    dcaf_delete_ticket_request(treq);
+    dcaf_delete_aif(aif);       /* aif is no part of treq here */
+    treq = NULL;
+  }
+  return treq;
+}
+
 /* SAM parses ticket request message from CAM */
 dcaf_result_t
 dcaf_parse_ticket_request(const coap_session_t *session,
@@ -279,10 +310,17 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 
   /* Ensure that no Content-Format other than application/dcaf+cbor
    * was requested and that we can parse the message body as CBOR. */
-  if (!is_dcaf(coap_get_content_format(request))
-      || !(abd = get_cbor(request))) {
+  if (!is_dcaf(coap_get_content_format(request))) {
     dcaf_log(DCAF_LOG_WARNING, "cannot parse request as application/dcaf+cbor\n");
     return DCAF_ERROR_BAD_REQUEST;
+  }
+  abd = get_cbor(request);
+
+  /* An empty ticket request is responded to with a default
+   * configuration for this client. */
+  if (!abd) {
+    *result = create_default_ticket_request();
+    return *result ? DCAF_OK : DCAF_ERROR_OUT_OF_MEMORY;
   }
 
   /* TODO: check if we are addressed AM (iss). If not and we are
