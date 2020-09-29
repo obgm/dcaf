@@ -378,8 +378,8 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     /* FIXME: encapsulate in dcaf_send...something() */
 #if LIBCOAP_VERSION >= 4003000U
     coap_dtls_cpsk_t setup_data;
-#endif /* LIBCOAP_VERSION >= 4003000 */
     const uint8_t *raw_identity = NULL;
+#endif /* LIBCOAP_VERSION >= 4003000 */
     uint8_t *identity = NULL;
     size_t identity_len;
     coap_session_t *session;
@@ -406,7 +406,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     }
 #if DCAF_UTF8ENCODE_PSKIDENTITY
     identity_len = utf8_length(ticket_face_data, ticket_face_length);
-    identity = dcaf_alloc_type_len(DCAF_STRING, identity_len);
+    identity = dcaf_alloc_type_len(DCAF_STRING, identity_len + 1);
     if (!identity || !uint8_to_utf8((char *)identity, &identity_len,
                                     ticket_face_data, ticket_face_length)) {
       dcaf_log(DCAF_LOG_WARNING, "Cannot encode ticket face. Sending raw.");
@@ -419,10 +419,19 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 #endif /* !DCAF_UTF8ENCODE_PSKIDENTITY */
 
 #if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
+    /* coap_new_client_session_psk() requires identity to be
+     * zero-terminated, hence we cannot use the raw_identity. identity
+     * has been allocated to provide one additional byte for the
+     * terminating zero. */
+    if (!identity) {
+        dcaf_log(DCAF_LOG_CRIT, "cannot setup identity for DTLS session\n");
+        goto finish;
+    }
+    identity[identity_len] = '\000';
     session = coap_new_client_session_psk(ctx, NULL,
                                           &remote,
                                           COAP_PROTO_DTLS,
-                                          (const char *)(identity ? identity : raw_identity),
+                                          (const char *)identity,
                                           cinfo->key->data,
                                           cinfo->key->length);
 #else /* LIBCOAP_VERSION >= 4003000 */
@@ -437,7 +446,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
                                            COAP_PROTO_DTLS,
                                            &setup_data);
 #endif /* LIBCOAP_VERSION >= 4003000 */
-    assert(DCAF_UTF8ENCODE_PSKIDENTITY || identity == NULL);    
+    assert(DCAF_UTF8ENCODE_PSKIDENTITY || identity == NULL);
     dcaf_free_type(DCAF_STRING, identity);
 
     /* TODO: dcaf_create_transaction... */
