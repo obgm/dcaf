@@ -179,4 +179,7 @@ dcaf_transaction_t *dcaf_send_request(dcaf_context_t *dcaf_context,
                                       dcaf_application_handler_t app_hnd,
                                       int flags);
 
+/* internal function for blocking requests */
+void dcaf_loop_io(dcaf_context_t *, dcaf_transaction_t *);
+
 #endif /* _DCAF_TRANSACTION_H_ */

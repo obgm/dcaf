@@ -76,7 +76,6 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
   dcaf_transaction_t *transaction;
   assert(dcaf_context);
   assert(session);
-  assert(pdu);
 
   transaction = (dcaf_transaction_t *)dcaf_alloc_type(DCAF_TRANSACTION);
   if (!transaction) {
@@ -85,8 +84,10 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
   }
 
   memset(transaction, 0, sizeof(dcaf_transaction_t));
-  get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
-  transaction->pdu = coap_pdu_copy(coap_new_pdu(session), pdu);
+  if (pdu) {
+      get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
+      transaction->pdu = coap_pdu_copy(coap_new_pdu(session), pdu);
+  }
 
   transaction->state.act = DCAF_STATE_IDLE;
 #if 0
@@ -253,6 +254,54 @@ dcaf_transaction_start(dcaf_context_t *dcaf_context,
 #endif
 }
 
+void
+dcaf_loop_io(dcaf_context_t *dcaf_context, dcaf_transaction_t *transaction) {
+  coap_context_t *ctx;
+  bool done = false;
+  unsigned int wait_ms;
+  unsigned int time_spent = 0;
+  int result;
+  assert(dcaf_context);
+  assert(transaction);
+  wait_ms = dcaf_context->timeout_ms;
+
+  ctx = dcaf_get_coap_context(dcaf_context);
+  assert(ctx);
+
+  while (!done) {
+    unsigned int timeout = wait_ms == 0 ? 5000 : wait_ms;
+
+    /* coap_io_process() returns the time in milliseconds it has
+     * spent. We use this value to determine if we have run out of
+     * time. */
+#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
+    result = coap_run_once(ctx, timeout);
+#else /* LIBCOAP_VERSION >= 4003000 */
+    result = coap_io_process(ctx, timeout);
+#endif  /* LIBCOAP_VERSION >= 4003000 */
+    dcaf_log(DCAF_LOG_DEBUG, "coap_run_once returns %d\n", result);
+
+    if (result < 0) { /* error */
+      dcaf_log(DCAF_LOG_ERR, "CoAP error\n");
+      /* TODO: remove transaction */
+      break;
+    } else { /* check for potential timeout */
+      if (time_spent + result >= timeout) {
+        dcaf_log(DCAF_LOG_INFO, "timeout\n");
+        /* TODO: cancel transaction? */
+        break;
+      }
+      time_spent += result;
+      /* TODO: check done only if transaction has ended. */
+      done = !dcaf_check_transaction(dcaf_context, transaction)
+        || (transaction->state.act == DCAF_STATE_AUTHORIZED);
+
+      if (done)
+        dcaf_log(DCAF_LOG_INFO, "DCAF transaction finished\n");
+    }
+  }
+}
+
 dcaf_transaction_t *
 dcaf_send_request_uri(dcaf_context_t *dcaf_context,
                       int code,
@@ -357,6 +406,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
       dcaf_log(DCAF_LOG_WARNING, "cannot store aud info: buffer too small.\n");
     }
   }
+  t->flags = flags;
   t->application_handler = app_hnd;
   dcaf_log(DCAF_LOG_DEBUG, "added transaction %02x%02x%02x%02x\n",
            t->tid[0], t->tid[1], t->tid[2], t->tid[3]);
@@ -378,38 +428,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   /* Wait until transaction has finished if DCAF_TRANSACTION_BLOCK
    * flag is set. */
   if (flags & DCAF_TRANSACTION_BLOCK) {
-    bool done = false;
-    unsigned int wait_ms = dcaf_context->timeout_ms; /* set to global timeout */
-    unsigned int time_spent = 0;
-    while (!(done && coap_can_exit(ctx))) {
-      unsigned int timeout = wait_ms == 0 ? 5000 : wait_ms;
-
-      /* coap_io_process() returns the time in milliseconds it has
-       * spent. We use this value to determine if we have run out of
-       * time. */
-#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
-      result = coap_run_once(ctx, timeout);
-#else /* LIBCOAP_VERSION >= 4003000 */
-      result = coap_io_process(ctx, timeout);
-#endif  /* LIBCOAP_VERSION >= 4003000 */
-      dcaf_log(DCAF_LOG_DEBUG, "coap_run_once returns %d\n", result);
-
-      if (result < 0) { /* error */
-        dcaf_log(DCAF_LOG_ERR, "CoAP error\n");
-        /* TODO: remove transaction */
-        break;
-      } else { /* check for potential timeout */
-        if (time_spent + result >= timeout) {
-          dcaf_log(DCAF_LOG_INFO, "timeout\n");
-          /* TODO: cancel transaction? */
-          break;
-        }
-        time_spent += result;
-        /* TODO: check done only if transaction has ended. */
-        done = true;
-        dcaf_log(DCAF_LOG_INFO, "DCAF transaction finished\n");
-      }
-    }
+    dcaf_loop_io(dcaf_context, t);
   }
 
   return t;
