@@ -363,11 +363,18 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   dcaf_log(DCAF_LOG_DEBUG, "we have a key!\n");
 
   if (dcaf_check_transaction(dcaf_context, t->state.future)) {
+    coap_address_t remote;
     /* The future transaction can be completed with the access
      * ticket we have received. We need to create a coaps session
      * with the ticket face as identity and the contained key
      * as PSK.
      */
+    if (t->state.future->state.type == DCAF_TRANSACTION_AUTO) {
+      /* FIXME: set from aud */
+      dcaf_set_coap_address((const unsigned char *)"192.168.0.30", 12, 5684, &remote);
+    } else {
+      coap_address_copy(&remote, &t->state.future->remote);
+    }
     /* FIXME: encapsulate in dcaf_send...something() */
 #if LIBCOAP_VERSION >= 4003000U
     coap_dtls_cpsk_t setup_data;
@@ -413,7 +420,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
 #if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
     session = coap_new_client_session_psk(ctx, NULL,
-                                          &t->state.future->remote,
+                                          &remote,
                                           COAP_PROTO_DTLS,
                                           (const char *)(identity ? identity : raw_identity),
                                           cinfo->key->data,
@@ -426,7 +433,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     COAP_SET_STR(&setup_data.psk_info.key, cinfo->key->length, cinfo->key->data);
 
     session = coap_new_client_session_psk2(ctx, NULL,
-                                           &t->state.future->remote,
+                                           &remote,
                                            COAP_PROTO_DTLS,
                                            &setup_data);
 #endif /* LIBCOAP_VERSION >= 4003000 */
@@ -452,26 +459,27 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
       }
 
       /* copy URI options for request */
-      coap_option_filter_clear(f);
-      coap_option_iterator_init(t->state.future->pdu, &opt_iter, COAP_OPT_ALL);
-      while ((q = coap_option_next(&opt_iter))) {
-        coap_option_t parsed_option;
-        if (!coap_opt_parse(q, coap_opt_size(q), &parsed_option)) {
-          break;
+      if (t->state.future->pdu) {
+        coap_option_filter_clear(f);
+        coap_option_iterator_init(t->state.future->pdu, &opt_iter, COAP_OPT_ALL);
+
+        while ((q = coap_option_next(&opt_iter))) {
+          coap_option_t parsed_option;
+          if (!coap_opt_parse(q, coap_opt_size(q), &parsed_option)) {
+            break;
+          }
+          type += parsed_option.delta;
+          coap_add_option(pdu, type, parsed_option.length, parsed_option.value);
         }
-        type += parsed_option.delta;
-        coap_add_option(pdu, type, parsed_option.length, parsed_option.value);
+      } else if (t->state.future->state.type == DCAF_TRANSACTION_AUTO) {
+        /* TODO: get scope from client info */
+        coap_add_option(pdu, COAP_OPTION_URI_PATH, 10, (const uint8_t *)"restricted");
       }
       dcaf_transaction_update(t->state.future, session, pdu);
       coap_send(session, pdu);
-      while (!done) {
-#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
-        coap_run_once(ctx, 0);
-#else /* LIBCOAP_VERSION >= 4003000 */
-        coap_io_process(ctx, COAP_IO_WAIT);
-#endif  /* LIBCOAP_VERSION >= 4003000 */
-        done = dcaf_check_transaction(dcaf_context, t->state.future)
-          && (t->state.future->state.act == DCAF_STATE_IDLE);
+
+      if (dcaf_check_transaction(dcaf_context, t->state.future) && (t->state.future->flags & DCAF_TRANSACTION_BLOCK)) {
+        dcaf_loop_io(dcaf_context, t->state.future);
       }
     }
   }
@@ -493,7 +501,6 @@ handle_coap_response(struct coap_context_t *coap_context,
   bool deliver = false;
   uint8_t code;
 
-  (void)session;
   (void)sent;
   (void)id;
 
@@ -547,8 +554,25 @@ handle_coap_response(struct coap_context_t *coap_context,
     } else {           /* handle final response for transaction t */
       dcaf_log(DCAF_LOG_DEBUG, "received final response with code %u\n",
                code);
-      if (dcaf_check_transaction(dcaf_context, t->state.future)
-          && (t->state.future->state.act == DCAF_STATE_ACCESS_REQUEST)) {
+      if (!t->state.future && (t->state.type == DCAF_TRANSACTION_USER)) {
+        /* TODO: if sent pdu was not an empty dcaf+cbor message then
+         * deliver final response to the application
+         * handler. Otherwise, do the fake access request. */
+
+        /* fake access request */
+        t->state.future = dcaf_create_transaction(dcaf_context, session, NULL);
+        if (!t->state.future) {
+          dcaf_log(DCAF_LOG_WARNING, "cannot allocate DCAF transaction\n");
+        } else {
+          t->state.future->state.act = DCAF_STATE_ACCESS_REQUEST;
+          t->state.future->state.type = DCAF_TRANSACTION_AUTO;
+          /* pass flags and application_handler on to future transaction */
+          t->state.future->flags = t->flags;
+          t->state.future->application_handler = t->application_handler;
+        }
+      }
+      if (dcaf_check_transaction(dcaf_context, t->state.future) &&
+          (t->state.future->state.act == DCAF_STATE_ACCESS_REQUEST)) {
         handle_ticket_transfer(dcaf_context, t, received);
         t->state.act = DCAF_STATE_AUTHORIZED; /* Finished? */
         t->state.future->state.act = DCAF_STATE_TICKET_GRANT;
