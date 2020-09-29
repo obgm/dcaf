@@ -1,8 +1,8 @@
 /*
  * dcaf.h -- main header file for libdcaf
  *
- * Copyright (C) 2015-2016 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2016 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -55,9 +55,18 @@ typedef enum {
 #include "dcaf_optlist.h"
 #include "dcaf_prng.h"
 
+#include "ace.h"
 #include "cose.h"
 #include "cwt.h"
 #include "scope.h"
+
+/* Fields in the unauthorized response and ticket request message */
+enum dcaf_req_field {
+  DCAF_REQ_SAM                = ACE_REQ_HINT_AS,
+  DCAF_REQ_AUD                = ACE_REQ_HINT_AUD,
+  DCAF_REQ_SCOPE              = ACE_REQ_HINT_SCOPE,
+  DCAF_REQ_SNC                = ACE_REQ_HINT_CNONCE,
+};
 
 enum dcaf_ticket_field {
   DCAF_TICKET_ISS             = CWT_CLAIM_ISS,
@@ -74,7 +83,13 @@ enum dcaf_ticket_field {
   DCAF_TICKET_RS_CNF          = CWT_CLAIM_RS_CNF,
 };
 
-#define DCAF_TICKET_FACE 1
+enum dcaf_client_info_field {
+  DCAF_CINFO_TICKET_FACE      = ACE_MSG_ACCESS_TOKEN,
+  DCAF_CINFO_IAT              = CWT_CLAIM_IAT,
+  DCAF_CINFO_CNF              = ACE_MSG_CNF,
+  DCAF_CINFO_SEQ              = CWT_CLAIM_CTI,
+  DCAF_CINFO_EXPIRES_IN       = 17,
+};
 
 typedef enum {
   DCAF_MEDIATYPE_DCAF_CBOR = 75,

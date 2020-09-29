@@ -136,7 +136,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         claim.reset(abor_decode_start(databuf, databuf_len));
 
         REQUIRE(claim != nullptr);
-        ticket_face.reset(abor_mapget_int(claim.get(), DCAF_TICKET_FACE));
+        ticket_face.reset(abor_mapget_int(claim.get(), DCAF_CINFO_TICKET_FACE));
         REQUIRE(ticket_face != nullptr);
       }
     }

@@ -143,26 +143,26 @@ make_ticket_request(const dcaf_transaction_t *transaction,
     return 0;
   }
 
-  iss = abor_mapget_int(abd, DCAF_TICKET_ISS);
-  snc = abor_mapget_int(abd, DCAF_TICKET_SNC);
+  iss = abor_mapget_int(abd, DCAF_REQ_SAM);
+  snc = abor_mapget_int(abd, DCAF_REQ_SNC);
 
-  num_items += (iss != NULL) + (snc != NULL);
+  num_items += (iss != NULL) + (snc != NULL) + ACE_REQUEST_PROFILE;
   abor_write_map(abc, num_items);
 
   /* issuer */
-  if (iss && abor_write_int(abc, DCAF_TICKET_ISS)) {
+  if (iss && abor_write_int(abc, DCAF_REQ_SAM)) {
     abor_copy_item(iss, abc);
   }
 
   /* audience */
-  abor_write_int(abc, DCAF_TICKET_AUD);
-  
+  abor_write_int(abc, DCAF_REQ_AUD);
+
   if (transaction->aud.length > 0) {
     abor_write_text(abc, transaction->aud.s, transaction->aud.length);
   }
 
   /* scope */
-  abor_write_int(abc, DCAF_TICKET_SCOPE);
+  abor_write_int(abc, DCAF_REQ_SCOPE);
   abor_write_array(abc, 2);
   /* create scope from initial request data */
   if (coap_get_resource_uri(transaction->pdu, buf, &length, 0)) {
@@ -171,8 +171,14 @@ make_ticket_request(const dcaf_transaction_t *transaction,
     abor_write_uint(abc, coap_get_method(transaction->pdu));
   }
 
+  /* optional ace_profile */
+  if (ACE_REQUEST_PROFILE) {
+      abor_write_int(abc, ACE_MSG_PROFILE);
+      abor_write_null(abc);
+  }
+
   /* snc */
-  if (snc && abor_write_int(abc, DCAF_TICKET_SNC)) {
+  if (snc && abor_write_int(abc, DCAF_REQ_SNC)) {
     abor_copy_item(snc, abc);
   }
   
@@ -293,7 +299,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     uint64_t lifetime = COAP_DEFAULT_MAX_AGE;
     dcaf_time_t now = dcaf_gettime();
 
-    iat = abor_mapget_int(cbor, DCAF_TICKET_IAT);
+    iat = abor_mapget_int(cbor, DCAF_CINFO_IAT);
 
     /* read mandatory iat field */
     if (!iat) {
@@ -309,7 +315,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     abor_decode_finish(iat);
 
     /* Read lifetime. If not present, set lifetime to Max-Age. */
-    lt = abor_mapget_int(cbor, DCAF_TICKET_EXPIRES_IN);
+    lt = abor_mapget_int(cbor, DCAF_CINFO_EXPIRES_IN);
     if (lt) {
       if (!abor_get_uint(lt, &lifetime)) {
         dcaf_log(DCAF_LOG_INFO, "invalid value in lt\n");
@@ -335,18 +341,17 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     }
   }
 
-  /* get key from cbor and use ticket face as psk for new session: */  
+  /* get key from cbor and use ticket face as psk for new session: */
 
   /* retrieve cnf containg keying material information */
-  cnf = abor_mapget_int(cbor, DCAF_TICKET_CNF);
+  cnf = abor_mapget_int(cbor, DCAF_CINFO_CNF);
   if (!cnf) {
     dcaf_log(DCAF_LOG_INFO, "no cnf found\n");
     goto finish;
   }
 
   /* FIXME:
-  seq = abor_mapget_int(cbor, DCAF_TICKET_SEQ);
-  rlt = abor_mapget_int(cbor, DCAF_TICKET_RLT);
+  seq = abor_mapget_int(cbor, DCAF_CINFO_SEQ);
   */
   cinfo = dcaf_new_ticket(key_type, 0 /* FIXME: seq->v.uint */,
                           0 /* FIXME: now */,
@@ -391,7 +396,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     ctx = dcaf_get_coap_context(dcaf_context);
     assert(ctx);
 
-    ticket_face = abor_mapget_int(cbor, DCAF_TICKET_FACE);
+    ticket_face = abor_mapget_int(cbor, DCAF_CINFO_TICKET_FACE);
     if (!ticket_face) {
       dcaf_log(DCAF_LOG_INFO, "cannot find ticket face\n");
       goto finish;
@@ -458,7 +463,6 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
       coap_opt_filter_t f;
       coap_opt_t *q;
       uint16_t type = 0;
-      bool done = false;
 
       pdu->type = COAP_MESSAGE_CON;
       pdu->tid = coap_new_message_id(session);
@@ -1456,13 +1460,13 @@ dcaf_set_sam_information(const coap_session_t *session,
   /* Set SAM URI. The URI is stored as zero-terminated string right
    * after the coap_uri_t structure in the am_uri. */
   const char *uri = (const char *)dcaf_context->am_uri + sizeof(coap_uri_t);
-  ok = ok && abor_write_int(abc, DCAF_TICKET_ISS);
+  ok = ok && abor_write_int(abc, DCAF_REQ_SAM);
   ok = ok && abor_write_string(abc, uri);
 
   /* set validity information */
   if (DCAF_SERVER_VALIDITY_OPTION != 1) {
     dcaf_nonce_t *nonce;
-    uint16_t validity_key = DCAF_TICKET_SNC;
+    uint16_t validity_key = DCAF_REQ_SNC;
     /* create nonce */
     nonce = dcaf_new_nonce(DCAF_MAX_NONCE_SIZE);
     if (!nonce) {

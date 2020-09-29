@@ -206,7 +206,7 @@ make_ticket_face(dcaf_context_t *dcaf_context, const dcaf_ticket_t *ticket,
 }
 
 static bool
-add_client_info(cn_cbor *map, const dcaf_ticket_t *ticket) {
+add_client_info(cn_cbor *map, const dcaf_ticket_t *ticket, int flags) {
   bool ok = false;
   cn_cbor *cose_key;
 
@@ -216,17 +216,23 @@ add_client_info(cn_cbor *map, const dcaf_ticket_t *ticket) {
     dcaf_time_t now = dcaf_gettime();
 
     /* TODO */
-    cn_cbor_mapput_int(map, DCAF_TICKET_IAT,
+    cn_cbor_mapput_int(map, DCAF_CINFO_IAT,
                        cn_cbor_int_create(now, NULL),
                        NULL);
 
-    cn_cbor_mapput_int(map, DCAF_TICKET_SEQ,
+    cn_cbor_mapput_int(map, DCAF_CINFO_SEQ,
                        cn_cbor_int_create(ticket->seq, NULL),
                        NULL);
     cose_key = make_cose_key(ticket->key);
     if (cose_key) {
-      cn_cbor_mapput_int(map, DCAF_TICKET_CNF, cose_key, NULL);
+      cn_cbor_mapput_int(map, DCAF_CINFO_CNF, cose_key, NULL);
       ok = true;
+    }
+
+    if (flags & AM_INCLUDE_PROFILE) {
+      cn_cbor_mapput_int(map, ACE_MSG_PROFILE,
+                         cn_cbor_int_create(ACE_PROFILE_DTLS, NULL),
+                         NULL);
     }
   }
   return ok;
@@ -325,7 +331,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
 
   /* TODO: check if we are addressed AM (iss). If not and we are
    * acting as CAM, the request should be passed on to SAM. */
-  obj = abor_mapget_int(abd, DCAF_TICKET_ISS);
+  obj = abor_mapget_int(abd, DCAF_REQ_SAM);
   if (obj && abor_check_type(obj, ABOR_TSTR)) {
     dcaf_log(DCAF_LOG_INFO, "iss: \"%.*s\"\n", (int)abor_get_sequence_length(obj), abor_get_text(obj));
   } else {
@@ -340,8 +346,8 @@ dcaf_parse_ticket_request(const coap_session_t *session,
     result_code = DCAF_ERROR_OUT_OF_MEMORY;
     goto finish;
   }
-  
-  aud = abor_mapget_int(abd, DCAF_TICKET_AUD);
+
+  aud = abor_mapget_int(abd, DCAF_REQ_AUD);
   if (!aud) {
     dcaf_log(DCAF_LOG_WARNING, "field aud is missing\n");
     goto finish;
@@ -365,8 +371,8 @@ dcaf_parse_ticket_request(const coap_session_t *session,
     }
   }
   /* aud is released at the end */
-  
-  obj = abor_mapget_int(abd, DCAF_TICKET_SCOPE);
+
+  obj = abor_mapget_int(abd, DCAF_REQ_SCOPE);
   if (!obj) {
     /* handle default scope */
     static const uint8_t scope[] = { 0x82, 0x61, 0x2F, 0x01 }; /* [ "/", 1 ] */
@@ -384,14 +390,16 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   abor_decode_finish(obj);
   obj = NULL;
 
-#if 0
-  obj = abor_mapget_int(abd, DCAF_TICKET_CAMT);
-  if (obj && abor_check_type(obj, ABOR_UINT)) {
-    /* TODO: store camt */
+  /* If the request contained an ace_profile parameter, the response
+   * must specify the profile to use. */
+  obj = abor_mapget_int(abd, ACE_MSG_PROFILE);
+  if (obj) {
+    treq->flags |= AM_INCLUDE_PROFILE;
+    abor_decode_finish(obj);
+    obj = NULL;
   }
-#endif
 
-  snc = abor_mapget_int(abd, DCAF_TICKET_SNC);
+  snc = abor_mapget_int(abd, DCAF_REQ_SNC);
   if (snc) {
     abor_type mt = abor_get_type(snc);
     size_t snc_length;
@@ -415,7 +423,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
     }
   }
   /* snc is released at the end */
-  
+
  finish:
   abor_decode_finish(aud);
   abor_decode_finish(snc);
@@ -490,8 +498,8 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     goto error;
   }
 
-  cn_cbor_mapput_int(body, DCAF_TICKET_FACE, ticket_face, NULL);
-  if (!add_client_info(body, ticket)) {
+  cn_cbor_mapput_int(body, DCAF_CINFO_TICKET_FACE, ticket_face, NULL);
+  if (!add_client_info(body, ticket, ticket_request->flags)) {
     goto error;
   }
 
