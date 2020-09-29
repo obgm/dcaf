@@ -190,8 +190,15 @@ struct dcaf_ticket_request_t {
   char aud[DCAF_MAX_AUDIENCE_SIZE + 1]; /**< addressed audience */
   uint8_t snc[DCAF_MAX_NONCE_SIZE];     /**< server nonce */
   size_t snc_length;
+
+  /** The flags field contains additional options for controlling the
+   * ticket creation. Currently, the only option to set is
+   * AM_INCLUDE_PROFILE to include the ace_profile parameter. */
+  int flags;
   dcaf_aif_t *aif;                  /**< requested permissions */
 };
+
+#define AM_INCLUDE_PROFILE 0x01
 
 struct dcaf_nonce_t {
   uint8_t nonce[DCAF_MAX_NONCE_SIZE];
