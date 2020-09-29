@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "dcaf_config.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/cose.h"
 #include "dcaf/cose_int.h"
