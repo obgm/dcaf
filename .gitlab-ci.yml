@@ -1,0 +1,35 @@
+image: obgm/libcoap:develop
+
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+  # instead of calling g++ directly you can also use some build toolkit like make
+  # install the necessary build tools when needed
+  before_script:
+    - sudo apt-get update && sudo apt-get install -y doxygen graphviz
+    - ./autogen.sh
+    - ./configure
+  script:
+    - make
+  artifacts:
+    paths:
+      - tests/testdriver
+      - am/dcaf-am
+      - examples/dcaf-client
+      - examples/s
+    expire_in: 1 week
+  cache:
+    paths:
+      - .libs
+
+# run tests using the binary built before
+test:
+  stage: test
+  script:
+    - tests/testdriver
