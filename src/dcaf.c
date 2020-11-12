@@ -383,8 +383,8 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     /* FIXME: encapsulate in dcaf_send...something() */
 #if LIBCOAP_VERSION >= 4003000U
     coap_dtls_cpsk_t setup_data;
-    const uint8_t *raw_identity = NULL;
 #endif /* LIBCOAP_VERSION >= 4003000 */
+    const uint8_t *raw_identity = NULL;
     uint8_t *identity = NULL;
     size_t identity_len;
     coap_session_t *session;
