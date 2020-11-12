@@ -289,7 +289,11 @@ main(int argc, char **argv) {
   init_resources(ctx);
 
   while (true) {
+#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
+    coap_run_once(ctx, 0);
+#else /* LIBCOAP_VERSION >= 4003000 */
     coap_io_process(ctx, COAP_IO_WAIT);
+#endif  /* LIBCOAP_VERSION >= 4003000 */
     /* regularly check tickets, deprecated tickets and nonces if they
        are expired */
     dcaf_expiration();

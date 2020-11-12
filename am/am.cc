@@ -280,7 +280,12 @@ main(int argc, char **argv) {
   wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
 
   while (!quit) {
-    int result = coap_io_process(ctx, wait_ms);
+    int result;
+#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
+    result = coap_run_once(ctx, wait_ms);
+#else /* LIBCOAP_VERSION >= 4003000 */
+    result = coap_io_process(ctx, wait_ms);
+#endif  /* LIBCOAP_VERSION >= 4003000 */
     if ( result < 0 ) {
       break;
     } else if ((unsigned)result < wait_ms) {
