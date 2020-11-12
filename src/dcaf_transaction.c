@@ -365,11 +365,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
 
   /* Store remote address in transaction object. We need to adjust the
    * port to switch to DTLS later. */
-#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000U)
-  coap_address_copy(&t->remote, &session->remote_addr);
-#else /* LIBCOAP_VERSION >= 4003000 */
   coap_address_copy(&t->remote, &session->addr_info.remote);
-#endif  /* LIBCOAP_VERSION >= 4003000 */
   if (!coap_uri_scheme_is_secure(uri)) {
     uint16_t port = dcaf_get_coap_port(&t->remote);
     dcaf_set_coap_port(&t->remote, port ? port + 1 : COAPS_DEFAULT_PORT);
