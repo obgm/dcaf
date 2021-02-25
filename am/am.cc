@@ -1,8 +1,8 @@
 /*
  * am.cc -- DCAF authorization manager
  *
- * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2021 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2021 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -293,9 +293,6 @@ main(int argc, char **argv) {
     } else {
       wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
     }
-
-    /* check if we have to send observe notifications */
-    coap_check_notify(ctx);
   }
 
   dcaf_free_context(dcaf);
