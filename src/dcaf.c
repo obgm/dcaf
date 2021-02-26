@@ -473,7 +473,11 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
       /* copy URI options for request */
       if (t->state.future->pdu) {
+#if LIBCOAP_VERSION >= 4003000U
+        coap_option_filter_clear(&f);
+#else
         coap_option_filter_clear(f);
+#endif /* LIBCOAP_VERSION >= 4003000 */
         coap_option_iterator_init(t->state.future->pdu, &opt_iter, COAP_OPT_ALL);
 
         while ((q = coap_option_next(&opt_iter))) {
@@ -503,7 +507,14 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 #endif /* DCAF_CLIENT */
 
 #if DCAF_CLIENT
-static void
+#if LIBCOAP_VERSION >= 4003000U
+#define COAP_RESPONSE_T coap_response_t
+#else
+#define COAP_RESPONSE_T void
+#define COAP_RESPONSE_OK
+#endif /* LIBCOAP_VERSION >= 4003000U */
+
+static COAP_RESPONSE_T
 handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
                      coap_pdu_t *sent,
@@ -523,7 +534,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   t = dcaf_find_transaction(dcaf_context, session, received);
   if (!t) {
     dcaf_log(DCAF_LOG_ERR, "dropped response for unknown transaction\n");
-    return;
+    return COAP_RESPONSE_OK;
   }
 
   /* Call response handler or error handler, respectively. If not set,
@@ -533,7 +544,7 @@ handle_coap_response(struct coap_context_t *coap_context,
     dcaf_log(DCAF_LOG_DEBUG, "invoke response handler\n");
     t->response_handler(dcaf_context, t, received);
     dcaf_delete_transaction(dcaf_context, t);
-    return;
+    return COAP_RESPONSE_OK;
   }
 
   /* Reached only for responses that have no handler, i.e., the
@@ -545,7 +556,7 @@ handle_coap_response(struct coap_context_t *coap_context,
     if (t->application_handler)
       t->application_handler(dcaf_context, t, received);
     dcaf_delete_transaction(dcaf_context, t);
-    return;
+    return COAP_RESPONSE_OK;
   }
 
   /* pretty-print CBOR payload if debug is enabled */
@@ -590,7 +601,7 @@ handle_coap_response(struct coap_context_t *coap_context,
         t->state.act = DCAF_STATE_AUTHORIZED; /* Finished? */
         t->state.future->state.act = DCAF_STATE_TICKET_GRANT;
       }
-      return;
+      return COAP_RESPONSE_OK;
     }
     break;
   }
@@ -600,12 +611,12 @@ handle_coap_response(struct coap_context_t *coap_context,
     if (COAP_RESPONSE_CLASS(code) == 2) {
       handle_ticket_transfer(dcaf_context, t, received);
       t->state.act = DCAF_STATE_AUTHORIZED;
-      return;
+      return COAP_RESPONSE_OK;
     } else {                  /* access request failed */
       /* FIXME: signal error to application */
       dcaf_log(DCAF_LOG_CRIT, "access request failed\n");
       dcaf_delete_transaction(dcaf_context, t);
-      return;
+      return COAP_RESPONSE_OK;
     }
     break;
   case DCAF_STATE_TICKET_REQUEST:
@@ -618,12 +629,13 @@ handle_coap_response(struct coap_context_t *coap_context,
     /* fall through */
   default:
     dcaf_log(DCAF_LOG_ALERT, "unknown transaction state\n");
-    return;
+    return COAP_RESPONSE_OK;
   }
 
   if (deliver && t && t->response_handler) {
     t->response_handler(dcaf_context, t, received);
   }
+  return COAP_RESPONSE_OK;
 }
 #endif /* DCAF_CLIENT */
 
