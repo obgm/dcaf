@@ -1541,7 +1541,7 @@ dcaf_set_error_response(const coap_session_t *session,
                   coap_encode_var_safe(buf, sizeof(buf),
                                        COAP_MEDIATYPE_TEXT_PLAIN),
                   buf);
-  coap_add_data(response, 20, (unsigned char *)"error");
+  coap_add_data(response, 5, (unsigned char *)"error");
   return DCAF_OK;
 }
 
