@@ -1,7 +1,7 @@
 /*
  * dcaf_am.h -- AM-specific functionality
  *
- * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2021 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -66,6 +66,9 @@ void dcaf_set_ticket_grant(const coap_session_t *session,
  *                       release.
  */
 void dcaf_delete_ticket_request(dcaf_ticket_request_t *ticket_request);
+
+bool dcaf_get_audience(const dcaf_ticket_request_t *ticket_request,
+                       const char **audience);
 
 #ifdef __cplusplus
 }

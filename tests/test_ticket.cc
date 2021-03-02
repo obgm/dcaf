@@ -1,7 +1,7 @@
 /*
  * test_ticket.cc -- DCAF authorization ticket handling
  *
- * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2021 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -107,7 +107,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 
       THEN("a ticket grant can be created") {
         dcaf_set_ticket_grant(&session, treq.get(), coap_response.get());
-        REQUIRE(coap_response.get()->code == COAP_RESPONSE_CODE(201));
+        REQUIRE(coap_response.get()->code == COAP_RESPONSE_CODE_CREATED);
 
         /* check Content-Format */
         REQUIRE(test_option_eq(coap_response.get(),

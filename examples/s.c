@@ -1,7 +1,7 @@
 /* s -- CoAP resource server with authenticated authorization
  *
- * Copyright (c) 2016-2020 Olaf Bergmann <bergmann@tzi.org>
- *               2016-2020 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (c) 2016-2021 Olaf Bergmann <bergmann@tzi.org>
+ *               2016-2021 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -71,7 +71,7 @@ hnd_get(coap_context_t *ctx,
     }
     return;
   }
-  response->code = COAP_RESPONSE_CODE(205);
+  response->code = COAP_RESPONSE_CODE_CONTENT;
 
   coap_add_option(response,
                   COAP_OPTION_CONTENT_TYPE,
@@ -102,17 +102,17 @@ hnd_ticket_post(coap_context_t *ctx,
 
   coap_get_data(request,&size, &data);
   if (size == 0) {
-    response->code = COAP_RESPONSE_CODE(400);
+    response->code = COAP_RESPONSE_CODE_BAD_REQUEST;
     return;
   }
   res = dcaf_parse_ticket_face(session, data, size, &ticket);
   if (res == DCAF_ERROR_BAD_REQUEST) {
-    response->code = COAP_RESPONSE_CODE(400);
+    response->code = COAP_RESPONSE_CODE_BAD_REQUEST;
     return;
     /* FIXME: handle other errors */
   }
   dcaf_add_ticket(ticket);
-  response->code = COAP_RESPONSE_CODE(204);
+  response->code = COAP_RESPONSE_CODE_CHANGED;
 }
 
 static void
@@ -184,7 +184,7 @@ usage(const char *program, const char *version) {
     program = ++p;
 
   fprintf(stderr, "%s v%s -- a CoAP server with authenticated authorization\n"
-     "Copyright (c) 2016-2017 Olaf Bergmann <bergmann@tzi.org>\n\n"
+     "Copyright (c) 2016-2021 Olaf Bergmann <bergmann@tzi.org>\n\n"
      "usage: %s [-A address] [-a URI] [-k key] [-p port] [-v num]\n\n"
      "\t-A address\tinterface address to bind to\n"
      "\t-a URI\t\tauthorization manager (AM) URI (the \"token endpoint\")\n"

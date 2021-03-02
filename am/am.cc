@@ -46,8 +46,8 @@ usage( const char *program, const char *version) {
     program = ++p;
 
   fprintf( stderr, "%s v%s -- DCAF Authorization Server\n"
-           "(c) 2015-2019 Olaf Bergmann <bergmann@tzi.org>\n"
-           "(c) 2015-2019 Stefanie Gerdes <gerdes@tzi.org>\n\n"
+           "(c) 2015-2021 Olaf Bergmann <bergmann@tzi.org>\n"
+           "(c) 2015-2021 Stefanie Gerdes <gerdes@tzi.org>\n\n"
            "usage: %s [-A address] [-a uri] [-C file] [-p port] [-v num]\n\n"
            "\t-A address\tinterface address to bind to\n"
            "\t-a URI\t\tauthorization manager (AM) URI (the \"token endpoint\")\n"
@@ -118,7 +118,7 @@ hnd_unknown(coap_context_t *ctx,
   (void)query;
 
   /* the default response code */
-  response->code = COAP_RESPONSE_CODE(404);
+  response->code = COAP_RESPONSE_CODE_NOT_FOUND;
   uri_path = coap_get_uri_path(request);
   if (!uri_path) {
     return;
@@ -129,7 +129,7 @@ hnd_unknown(coap_context_t *ctx,
     if (uri.substr(0, 4) == "key/") {
       /* FIXME: read payload as key and add to key store */
       dcaf_log(DCAF_LOG_DEBUG, "a key!\n");
-      response->code = COAP_RESPONSE_CODE(201);
+      response->code = COAP_RESPONSE_CODE_CREATED;
     }
   }
 }

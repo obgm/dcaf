@@ -1,7 +1,7 @@
 /*
  * dcaf_coap.h -- CoAP compatibility wrapper libdcaf
  *
- * Copyright (C) 2018-2020 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018-2021 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -22,8 +22,14 @@
 #include <coap2/coap.h>
 #endif /* !ESP_PLATFORM */
 
-#define COAP_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
-#define COAP_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
+#if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
+#define COAP_RESPONSE_CODE_CREATED      (COAP_RESPONSE_CODE(201))
+#define COAP_RESPONSE_CODE_CHANGED      (COAP_RESPONSE_CODE(202))
+#define COAP_RESPONSE_CODE_CONTENT      (COAP_RESPONSE_CODE(205))
+#define COAP_RESPONSE_CODE_BAD_REQUEST  (COAP_RESPONSE_CODE(400))
+#define COAP_RESPONSE_CODE_UNAUTHORIZED (COAP_RESPONSE_CODE(401))
+#define COAP_RESPONSE_CODE_NOT_FOUND    (COAP_RESPONSE_CODE(404))
+#endif /* LIBCOAP_VERSION < 4003000 */
 
 /**
  * Returns the Content Format specified in @p pdu

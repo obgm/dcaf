@@ -1,8 +1,8 @@
 /*
  * dcaf.c -- libdcaf core
  *
- * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2021 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2021 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -573,7 +573,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   case DCAF_STATE_IDLE: {
     /* FIXME: check response code, handle DCAF SAM response
               deliver message in any other case */
-    if (code == COAP_CODE_UNAUTHORIZED) {
+    if (code == COAP_RESPONSE_CODE_UNAUTHORIZED) {
       handle_unauthorized(dcaf_context, t, received);
     } else {           /* handle final response for transaction t */
       dcaf_log(DCAF_LOG_DEBUG, "received final response with code %u\n",
@@ -1454,7 +1454,7 @@ dcaf_set_sam_information(const coap_session_t *session,
    * SAM URI is set. */
   if (!dcaf_context->am_uri) {
     dcaf_log(DCAF_LOG_DEBUG, "no SAM URI\n");
-    coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);
+    coap_set_response_code(response, COAP_RESPONSE_CODE_UNAUTHORIZED);
     return DCAF_OK;
   }
 
@@ -1521,7 +1521,7 @@ dcaf_set_sam_information(const coap_session_t *session,
       abor_encode_finish(abc);
   }
 
-  coap_set_response_code(response, COAP_CODE_UNAUTHORIZED);
+  coap_set_response_code(response, COAP_RESPONSE_CODE_UNAUTHORIZED);
   return DCAF_OK;
 }
 #endif /* DCAF_SERVER */
@@ -1535,7 +1535,7 @@ dcaf_set_error_response(const coap_session_t *session,
   (void)error;
 
   /* TODO: describe error, provide correct result */
-  coap_set_response_code(response, COAP_CODE_BAD_REQUEST);
+  coap_set_response_code(response, COAP_RESPONSE_CODE_BAD_REQUEST);
   coap_add_option(response,
                   COAP_OPTION_CONTENT_FORMAT,
                   coap_encode_var_safe(buf, sizeof(buf),
