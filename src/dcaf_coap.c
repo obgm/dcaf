@@ -94,7 +94,7 @@ coap_pdu_copy(coap_pdu_t *dst, const coap_pdu_t *src) {
   /* copy header data and token, if any */
   dst->type = src->type;
   dst->code = src->code;
-  dst->tid = src->tid;
+  dst->mid = src->mid;
   if (src->token_length) {
     coap_add_token(dst, src->token_length, src->token);
   }

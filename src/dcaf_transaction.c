@@ -196,7 +196,7 @@ dcaf_transaction_start(dcaf_context_t *dcaf_context,
 
   /* When libcoap has accepted the PDU we have to clear our pointer to
    * avoid double free. */
-  if (transaction->tid != COAP_INVALID_TID) {
+  if (transaction->tid != COAP_INVALID_MID) {
     transaction->pdu = NULL;
     return DCAF_TRANSACTION_OK;
   } else {
@@ -323,7 +323,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   }
 
   pdu->type = COAP_MESSAGE_CON;
-  pdu->tid = coap_new_message_id(session);
+  pdu->mid = coap_new_message_id(session);
   pdu->code = code;
 
   /* generate random token */

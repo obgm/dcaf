@@ -465,7 +465,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
       uint16_t type = 0;
 
       pdu->type = COAP_MESSAGE_CON;
-      pdu->tid = coap_new_message_id(session);
+      pdu->mid = coap_new_message_id(session);
       pdu->code = COAP_REQUEST_GET;
       if (!dcaf_prng(token, sizeof(token))
           || !coap_add_token(pdu, sizeof(token), token)) {
@@ -519,7 +519,7 @@ handle_coap_response(struct coap_context_t *coap_context,
                      coap_session_t *session,
                      coap_pdu_t *sent,
                      coap_pdu_t *received,
-                     const coap_tid_t id) {
+                     const coap_mid_t id) {
   dcaf_context_t *dcaf_context;
   dcaf_transaction_t *t;
   bool deliver = false;
