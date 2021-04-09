@@ -908,10 +908,12 @@ maybe_cose(const uint8_t *data, size_t length) {
   return 0;
 }
 
-static dcaf_context_t *
-get_dcaf_context_from_session(const coap_session_t *session) {
-  if (session && session->context) {
-    return dcaf_get_dcaf_context(session->context);
+dcaf_context_t *
+dcaf_get_dcaf_context_from_session(const coap_session_t *session) {
+  if (session) {
+    coap_context_t *coap_context = coap_session_get_context(session);
+    if (coap_context)
+      return dcaf_get_dcaf_context(coap_context);
   }
   return NULL;
 }
@@ -964,7 +966,7 @@ dcaf_parse_ticket_face(const coap_session_t *session,
     cose_res = cose_decrypt(cose_obj, NULL, 0,
                             plaintext, &plaintext_length,
                             get_am_key,
-                            get_dcaf_context_from_session(session));
+                            dcaf_get_dcaf_context_from_session(session));
     if (cose_res != COSE_OK) {
       dcaf_log(DCAF_LOG_INFO, "cannot decrypt COSE object\n");
       cose_obj_delete(cose_obj);
@@ -1188,7 +1190,7 @@ dcaf_get_server_psk(const coap_session_t *session,
   } else {
     dcaf_context_t *dcaf_context;
 
-    dcaf_context = get_dcaf_context_from_session(session);
+    dcaf_context = dcaf_get_dcaf_context_from_session(session);
     assert(dcaf_context);
     if (dcaf_context) {
       /* TODO check if we want to pass &session->remote_addr as well.
@@ -1356,8 +1358,11 @@ dcaf_get_coap_context(dcaf_context_t *context) {
 
 static int
 is_secure(const coap_session_t *session) {
-  return (session != NULL) &&
-    ((session->proto & COAP_PROTO_DTLS) != 0);
+  if (session) {
+    coap_proto_t proto = coap_session_get_proto((coap_session_t *)session);
+    return (proto & COAP_PROTO_DTLS) != 0;
+  }
+  return false;
 }
 #if 0
 coap_endpoint_t *
@@ -1438,13 +1443,12 @@ dcaf_set_sam_information(const coap_session_t *session,
   dcaf_log(DCAF_LOG_DEBUG, "create SAM Information\n");
   coap_ticks(&now);
   assert(session != NULL);
-  assert(session->context != NULL);
   assert(response != NULL);
 
   if (!session || !response) {
     return DCAF_ERROR_INTERNAL_ERROR;
   }
-  dcaf_context = dcaf_get_dcaf_context(session->context);
+  dcaf_context = dcaf_get_dcaf_context_from_session(session);
   if (!dcaf_context) {
     dcaf_log(DCAF_LOG_DEBUG, "DCAF_ERROR_INTERNAL_ERROR\n");
     return DCAF_ERROR_INTERNAL_ERROR;

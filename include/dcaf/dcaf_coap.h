@@ -10,17 +10,7 @@
 #ifndef _DCAF_COAP_H_
 #define _DCAF_COAP_H_ 1
 
-/*
- * The auto-generated file coap.h usually resides in the coap2 include
- * path. As the ESP-IDF does not generate the file and comes with a
- * custom coap.h that lives in port/coap we need to change the include
- * path accordingly.
- */
-#ifdef ESP_PLATFORM
-#include <coap.h>
-#else /* !ESP_PLATFORM */
-#include <coap2/coap.h>
-#endif /* !ESP_PLATFORM */
+#include <coap3/coap.h>
 
 #if !defined(LIBCOAP_VERSION) || (LIBCOAP_VERSION < 4003000)
 #define COAP_RESPONSE_CODE_CREATED      (COAP_RESPONSE_CODE(201))

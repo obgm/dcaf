@@ -1,8 +1,8 @@
 /*
  * dcaf_am.c -- libdcaf core
  *
- * Copyright (C) 2015-2018 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2018 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2021 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2021 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -458,7 +458,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   assert(ticket_request);
   assert(response);
 
-  ctx = (dcaf_context_t *)coap_get_app_data(session->context);
+  ctx = dcaf_get_dcaf_context_from_session(session);
   assert(ctx);
 
   /* Initialize sequence number to 0 and set the real value later to

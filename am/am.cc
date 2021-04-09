@@ -28,9 +28,6 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include <coap2/coap.h>
-#include <coap2/coap_dtls.h>
-
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_am.h"
 #include "config_parser.hh"

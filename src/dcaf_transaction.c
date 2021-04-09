@@ -1,13 +1,14 @@
 /*
  * dcaf_transaction.c -- DCAF transaction store
  *
- * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2021 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2021 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
  */
 
+#include "dcaf/dcaf_coap.h"
 #include "dcaf/dcaf_transaction.h"
 #include "dcaf/dcaf_int.h"
 #include "dcaf/utlist.h"
@@ -365,7 +366,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
 
   /* Store remote address in transaction object. We need to adjust the
    * port to switch to DTLS later. */
-  coap_address_copy(&t->remote, &session->addr_info.remote);
+  coap_address_copy(&t->remote, coap_session_get_addr_remote(session));
   if (!coap_uri_scheme_is_secure(uri)) {
     uint16_t port = dcaf_get_coap_port(&t->remote);
     dcaf_set_coap_port(&t->remote, port ? port + 1 : COAPS_DEFAULT_PORT);

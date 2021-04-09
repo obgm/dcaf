@@ -217,6 +217,17 @@ struct dcaf_nonce_t {
   }validity_value;
 };
 
+/**
+ * Retrieves the dcaf context object associated with a session. Note
+ * that the session must have been created by dcaf to ensure that the
+ * application data associated with the underlying CoAP context is a
+ * valid dcaf_context_t structure.
+ *
+ * @param session A CoAP session created by the DCAF library.
+ * @return        A pointer to the associated DCAF context or NULL.
+ */
+dcaf_context_t *dcaf_get_dcaf_context_from_session(const coap_session_t *session);
+
 #ifdef __cplusplus
 }
 #endif

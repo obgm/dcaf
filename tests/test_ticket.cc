@@ -81,9 +81,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     };
 
     WHEN("The request is parsed") {
-      coap_session_t session;
       dcaf_ticket_request_t *result;
-      session.context = dcaf_get_coap_context(dcaf_context());
 
       REQUIRE(coap_pdu.get() != nullptr);
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
@@ -92,7 +90,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
 
       THEN("dcaf_parse_ticket_request() returns DCAF_OK") {
         dcaf_result_t res;
-        res = dcaf_parse_ticket_request(&session, coap_pdu.get(), &result);
+        res = dcaf_parse_ticket_request(nullptr, coap_pdu.get(), &result);
         REQUIRE(res == DCAF_OK);
         REQUIRE(result != nullptr);
         treq.reset(result);
@@ -100,13 +98,14 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     }
 
     WHEN("A validated dcaf_ticket_request_t structure is available") {
-      coap_session_t session;
-      session.context = dcaf_get_coap_context(dcaf_context());
-
+      coap_session_t *session;
+      session = coap_new_client_session(dcaf_get_coap_context(dcaf_context()),
+                                        nullptr, nullptr, COAP_PROTO_UDP);
+      REQUIRE(session != nullptr);
       REQUIRE(treq.get() != nullptr);
 
       THEN("a ticket grant can be created") {
-        dcaf_set_ticket_grant(&session, treq.get(), coap_response.get());
+        dcaf_set_ticket_grant(session, treq.get(), coap_response.get());
         REQUIRE(coap_response.get()->code == COAP_RESPONSE_CODE_CREATED);
 
         /* check Content-Format */
@@ -250,7 +249,6 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     }
 
     WHEN("The payload is comprised of invalid CBOR") {
-      coap_session_t session;
       dcaf_ticket_request_t *result;
 
       REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
@@ -263,7 +261,7 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
         /* Switch off debug logs temporarily to avoid cluttering the
          * logs with forced error messages. */
         test_log_off();
-        res = dcaf_parse_ticket_request(&session, coap_pdu.get(), &result);
+        res = dcaf_parse_ticket_request(NULL, coap_pdu.get(), &result);
         test_log_on();
 
         REQUIRE(res == DCAF_OK);
