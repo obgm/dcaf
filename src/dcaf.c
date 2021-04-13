@@ -1159,51 +1159,62 @@ dcaf_parse_ticket_face(const coap_session_t *session,
 #endif /* DCAF_SERVER */
 
 #if DCAF_SERVER
-static size_t
-dcaf_get_server_psk(const coap_session_t *session,
-                    const uint8_t *identity, size_t identity_len,
-                    uint8_t *psk, size_t max_psk_len) {
+static const coap_bin_const_t *
+dcaf_get_server_psk(coap_bin_const_t *identity,
+                    coap_session_t *session,
+                    void *arg) {
   dcaf_ticket_t *t = NULL;
-  size_t result = 0;
+  const coap_bin_const_t *result = NULL;
+  static coap_bin_const_t psk;
+  size_t identity_len = 0;
+  uint8_t *identity_buf = NULL;
+  dcaf_context_t *dcaf_context = (dcaf_context_t *)arg;
+
+  assert(dcaf_context);
+
+  if (identity) {
 #if DCAF_UTF8ENCODE_PSKIDENTITY
-  size_t identity_buflen = identity_len;
-  uint8_t *identity_buf = dcaf_alloc_type_len(DCAF_STRING, identity_len);
-  if (!identity_buf ||
-      !utf8_to_uint8(identity_buf, &identity_buflen, (const char *)identity, identity_len)) {
-    dcaf_log(DCAF_LOG_WARNING, "Cannot decode ticket face. Parsing raw data.\n");
-  } else {
-    identity = identity_buf;
-    identity_len = identity_buflen;
-  }
+    size_t identity_buflen = identity->length;
+    identity_buf = dcaf_alloc_type_len(DCAF_STRING, identity_buflen);
+
+    if (!identity_buf ||
+        !utf8_to_uint8(identity_buf, &identity_buflen,
+                       (const char *)identity->s, identity->length)) {
+      dcaf_log(DCAF_LOG_WARNING, "Cannot decode ticket face. Parsing raw data.\n");
+    } else {
+      identity_len = identity_buflen;
+    }
+#else /* DCAF_UTF8ENCODE_PSKIDENTITY */
+    identity_len = identity->length;
+    identity_buf = identity->s;
 #endif /* DCAF_UTF8ENCODE_PSKIDENTITY */
-  if (dcaf_parse_ticket_face(session, identity, identity_len, &t) == DCAF_OK){
+  }
+
+  if (dcaf_parse_ticket_face(session, identity_buf, identity_len, &t) == DCAF_OK) {
     /* got a new ticket; just store it and continue */
     dcaf_add_ticket(t);
 
-    if (t &&  t->key && (t->key->length <=max_psk_len)) {
+    if (t &&  t->key) {
       /* TODO check if key is a psk and return 0 otherwise */
-      memcpy(psk, t->key->data, t->key->length);
-      /* return length of key */
-      result = t->key->length;
+      COAP_SET_STR(&psk,t->key->length,t->key->data);
+      result = &psk;
       goto finish;
-    }
-  } else {
-    dcaf_context_t *dcaf_context;
+    } else {
+      if (!dcaf_context) {
+        goto finish;
+      }
 
-    dcaf_context = dcaf_get_dcaf_context_from_session(session);
-    assert(dcaf_context);
-    if (dcaf_context) {
-      /* TODO check if we want to pass &session->remote_addr as well.
+      /* TODO check if we want to pass the session's remote_addr as well.
        *      (keys would need to be added with peer addr set to make
        *      this work) */
       dcaf_key_t *key = dcaf_find_key(dcaf_context, NULL,
-                                      identity, identity_len);
+                                      identity_buf, identity_len);
 
       if (key) {
         dcaf_log(DCAF_LOG_DEBUG, "found psk for %.*s\n",
-                 (int)identity_len, identity);
-        memcpy(psk, key->data, key->length);
-        result = key->length;
+                 (int)identity_len, identity_buf);
+        COAP_SET_STR(&psk,key->length,key->data);
+        result = &psk;
         goto finish;
       }
     }
@@ -1239,10 +1250,18 @@ dcaf_new_context(const dcaf_config_t *config) {
   }
 
   /* initialize PSK mode */
-  coap_context_set_psk(dcaf_context->coap_context, NULL, NULL, 0);
+  /* coap_context_set_psk(dcaf_context->coap_context, NULL, NULL, 0); */
 
 #if DCAF_SERVER
-  dcaf_context->coap_context->get_server_psk = dcaf_get_server_psk;
+  {
+    /* initialize PSK mode */
+    coap_dtls_spsk_t dtls_psk;
+    memset(&dtls_psk, 0, sizeof(dtls_psk));
+    dtls_psk.version = COAP_DTLS_SPSK_SETUP_VERSION;
+    dtls_psk.validate_id_call_back = dcaf_get_server_psk;
+    dtls_psk.id_call_back_arg = dcaf_context;
+    coap_context_set_psk2(dcaf_context->coap_context, &dtls_psk);
+  }
 #endif /* DCAF_SERVER */
   coap_set_app_data(dcaf_context->coap_context, dcaf_context);
 
