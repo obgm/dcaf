@@ -133,7 +133,6 @@ fi
 AC_ARG_ENABLE([documentation],
               [AS_HELP_STRING([--enable-documentation],
                               [Enable doxygen-generated documentation [default=yes]])],
-              [build_docs="yes"],
               [build_docs="$enableval"])
 
 AC_CHECK_PROG([DOXYGEN], [doxygen])
@@ -143,7 +142,6 @@ AM_CONDITIONAL(BUILD_DOCUMENTATION, [test "x$build_docs" != "xno"])
 AC_ARG_ENABLE([tests],
               [AS_HELP_STRING([--enable-tests],
                               [Enable building the binary testsuite [default=yes]])],
-              [build_tests="yes"],
               [build_tests="$enableval"])
 
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" != "xno"])
