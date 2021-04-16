@@ -160,11 +160,13 @@ int dcaf_set_am_uri(dcaf_context_t *context,
                     const unsigned char *uri,
                     size_t uri_length);
 
+const coap_uri_t *dcaf_get_am_uri(const dcaf_context_t *context);
+
 coap_endpoint_t *dcaf_select_interface(dcaf_context_t *context,
                                        const coap_address_t *dst,
                                        int secure);
 
-const coap_address_t *dcaf_get_am_address(dcaf_context_t *context);
+const coap_address_t *dcaf_get_am_address(const dcaf_context_t *context);
 
 /**
  * Checks if the given @p pdu is authorized in the context

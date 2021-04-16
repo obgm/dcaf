@@ -1364,8 +1364,14 @@ dcaf_set_am_uri(dcaf_context_t *context,
                            &context->am_address) == 0);
 }
 
+const coap_uri_t *
+dcaf_get_am_uri(const dcaf_context_t *context) {
+  assert(context);
+  return context->am_uri;
+}
+
 const coap_address_t *
-dcaf_get_am_address(dcaf_context_t *context) {
+dcaf_get_am_address(const dcaf_context_t *context) {
   assert(context);
   return (context->am_uri != NULL) ? &context->am_address : NULL;
 }
