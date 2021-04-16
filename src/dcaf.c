@@ -44,18 +44,14 @@ dcaf_init(void) {
 #endif /* RIOT_VERSION && MODULE_PRNG */
 }
 
-static inline uint8_t
-coap_get_token_len(coap_pdu_t *p) {
-  return p->token_length;
-}
-
 static inline int
 token_equals(coap_pdu_t *a, coap_pdu_t *b) {
   if (a && b) {
-    unsigned atkl = coap_get_token_len(a);
-    unsigned btkl = coap_get_token_len(b);
-    return (atkl == btkl)
-      && (strncmp((char *)a->token, (char *)b->token, atkl) == 0);
+    coap_bin_const_t atk, btk;
+    atk = coap_pdu_get_token(a);
+    btk = coap_pdu_get_token(b);
+    return (atk.length == btk.length)
+      && (memcmp(atk.s, btk.s, atk.length) == 0);
   }
   return 0;
 }
@@ -196,7 +192,7 @@ static void
 handle_unauthorized(dcaf_context_t *dcaf_context,
                     dcaf_transaction_t *t,
                     coap_pdu_t *received) {
-  uint8_t *data;
+  const uint8_t *data;
   size_t data_len;
   dcaf_transaction_t *am_t;
 
@@ -257,7 +253,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *t,
                        coap_pdu_t *received) {
   size_t content_len = 0;
-  uint8_t *content = NULL;
+  const uint8_t *content = NULL;
   abor_decoder_t *cbor;
   abor_decoder_t *cnf;
   abor_decoder_t *cose_key = NULL;
@@ -457,16 +453,14 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     /* TODO: dcaf_create_transaction... */
     assert(session);
     if (session) {
-      coap_pdu_t *pdu = coap_new_pdu(session);
+      coap_pdu_t *pdu =
+        coap_new_pdu(COAP_MESSAGE_CON, COAP_REQUEST_CODE_GET, session);
       uint8_t token[4];
       coap_opt_iterator_t opt_iter;
       coap_opt_filter_t f;
       coap_opt_t *q;
       uint16_t type = 0;
 
-      pdu->type = COAP_MESSAGE_CON;
-      pdu->mid = coap_new_message_id(session);
-      pdu->code = COAP_REQUEST_GET;
       if (!dcaf_prng(token, sizeof(token))
           || !coap_add_token(pdu, sizeof(token), token)) {
       }
@@ -561,7 +555,7 @@ handle_coap_response(struct coap_context_t *coap_context,
 
   /* pretty-print CBOR payload if debug is enabled */
   if (dcaf_get_log_level() >= DCAF_LOG_DEBUG) {
-    uint8_t *data;
+    const uint8_t *data;
     size_t data_len;
 
     if (coap_get_data(received, &data_len, &data)) {

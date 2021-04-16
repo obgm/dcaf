@@ -64,7 +64,7 @@ static inline uint8_t coap_get_response_code(const coap_pdu_t *pdu) {
  */
 static inline void coap_set_response_code(coap_pdu_t *pdu,
                                           uint8_t code) {
-  pdu->code = code;
+  coap_pdu_set_code(pdu, (coap_pdu_code_t)code);
 }
 
 /**
@@ -111,19 +111,6 @@ const uint8_t *coap_get_token(const coap_pdu_t *pdu);
  * @return The size of the token in bytes.
  */
 size_t coap_get_token_length(const coap_pdu_t *pdu);
-
-/**
- * Copies the CoAP PDU @p src into @p dst which must hold sufficient
- * space for the src's data. This function returns @p dst on success,
- * or NULL on error.
- *
- * @param dst   A new CoAP PDU that will be filled with a copy
- *              from @p src.
- * @param src   The CoAP PDU to copy.
- *
- * @return @p dst on success, or NULL on error.
- */
-coap_pdu_t *coap_pdu_copy(coap_pdu_t *dst, const coap_pdu_t *src);
 
 #ifndef COAP_MEDIATYPE_TEXT_PLAIN
 #define COAP_MEDIATYPE_TEXT_PLAIN (0)

@@ -78,7 +78,7 @@ int dcaf_check_transaction(dcaf_context_t *dcaf_context,
 
 /** Updates the @p transaction according to @p session and @p pdu. */
 void dcaf_transaction_update(dcaf_transaction_t *transaction,
-                             const coap_session_t *session,
+                             coap_session_t *session,
                              const coap_pdu_t *pdu);
 
 dcaf_transaction_result_t dcaf_transaction_start(dcaf_context_t *dcaf_context,

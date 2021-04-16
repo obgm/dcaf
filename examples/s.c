@@ -68,7 +68,7 @@ hnd_get(coap_context_t *ctx,
     }
     return;
   }
-  response->code = COAP_RESPONSE_CODE_CONTENT;
+  coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
 
   coap_add_option(response,
                   COAP_OPTION_CONTENT_TYPE,
@@ -90,7 +90,7 @@ hnd_ticket_post(coap_context_t *ctx,
         coap_pdu_t *response) {
   size_t size;
   dcaf_result_t res;
-  unsigned char *data;
+  const uint8_t *data;
   dcaf_ticket_t *ticket;
   (void)ctx;
   (void)resource;
@@ -99,17 +99,17 @@ hnd_ticket_post(coap_context_t *ctx,
 
   coap_get_data(request,&size, &data);
   if (size == 0) {
-    response->code = COAP_RESPONSE_CODE_BAD_REQUEST;
+    coap_pdu_set_code(response, COAP_RESPONSE_CODE_BAD_REQUEST);
     return;
   }
   res = dcaf_parse_ticket_face(session, data, size, &ticket);
   if (res == DCAF_ERROR_BAD_REQUEST) {
-    response->code = COAP_RESPONSE_CODE_BAD_REQUEST;
+    coap_pdu_set_code(response, COAP_RESPONSE_CODE_BAD_REQUEST);
     return;
     /* FIXME: handle other errors */
   }
   dcaf_add_ticket(ticket);
-  response->code = COAP_RESPONSE_CODE_CHANGED;
+  coap_pdu_set_code(response, COAP_RESPONSE_CODE_CHANGED);
 }
 
 static void

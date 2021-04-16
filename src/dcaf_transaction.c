@@ -46,23 +46,6 @@ set_uri_options(const coap_uri_t *uri, dcaf_optlist_t *optlist) {
   return 0;
 }
 
-static size_t
-get_token_from_pdu(const coap_pdu_t *pdu, void *buf, size_t max_buf) {
-  const uint8_t *token;
-  size_t token_length;
-
-  assert(pdu);
-  assert(buf);
-
-  token_length = coap_get_token_length(pdu);
-  if (token_length && (token = coap_get_token(pdu))) {
-    size_t written = min(token_length, max_buf);
-    memcpy(buf, token, written);
-    return written;
-  }
-  return 0;
-}
-
 dcaf_transaction_t *
 dcaf_create_transaction(dcaf_context_t *dcaf_context,
                         coap_session_t *session,
@@ -79,8 +62,18 @@ dcaf_create_transaction(dcaf_context_t *dcaf_context,
 
   memset(transaction, 0, sizeof(dcaf_transaction_t));
   if (pdu) {
-      get_token_from_pdu(pdu, &transaction->tid, sizeof(transaction->tid));
-      transaction->pdu = coap_pdu_copy(coap_new_pdu(session), pdu);
+    coap_bin_const_t token;
+    token = coap_pdu_get_token(pdu);
+    memcpy(&transaction->tid, token.s,
+           min(token.length, sizeof(transaction->tid)));
+    transaction->pdu = coap_pdu_duplicate(pdu, session,
+                                          token.length, token.s,
+                                          NULL);
+    if (!transaction->pdu) {
+      dcaf_free_type(DCAF_TRANSACTION, transaction);
+      dcaf_log(DCAF_LOG_ERR, "insufficient memory for DCAF transaction\n");
+      return NULL;      
+    }
   }
 
   transaction->state.act = DCAF_STATE_IDLE;
@@ -114,19 +107,26 @@ dcaf_transaction_set_error_handler(dcaf_transaction_t *transaction,
 
 void
 dcaf_transaction_update(dcaf_transaction_t *transaction,
-                      const coap_session_t *session,
-                      const coap_pdu_t *pdu) {
+                        coap_session_t *session,
+                        const coap_pdu_t *pdu) {
+  coap_bin_const_t token;
   dcaf_log(DCAF_LOG_DEBUG, "update transaction %02x%02x%02x%02x\n",
            transaction->tid[0], transaction->tid[1],
            transaction->tid[2], transaction->tid[3]);
 
-  get_token_from_pdu(pdu, transaction->tid, sizeof(transaction->tid));
+  token = coap_pdu_get_token(pdu);
+  memcpy(&transaction->tid, token.s,
+         min(token.length, sizeof(transaction->tid)));
   dcaf_log(DCAF_LOG_DEBUG, "to %02x%02x%02x%02x\n",
            transaction->tid[0], transaction->tid[1],
            transaction->tid[2], transaction->tid[3]);
   coap_delete_pdu(transaction->pdu);
-  transaction->pdu = coap_new_pdu(session);
-  coap_pdu_copy(transaction->pdu, pdu);
+  transaction->pdu = coap_pdu_duplicate(pdu, session,
+                                        token.length, token.s,
+                                        NULL);
+  if (!transaction->pdu) {
+    dcaf_log(DCAF_LOG_WARNING, "insufficient memory for DCAF transaction update\n");
+  }
 }
 
 dcaf_transaction_t *
@@ -135,9 +135,12 @@ dcaf_find_transaction(dcaf_context_t *dcaf_context,
                       const coap_pdu_t *pdu) {
   dcaf_transaction_id_t id;
   dcaf_transaction_t *transaction;
+  coap_bin_const_t token;
   (void)session;
 
-  get_token_from_pdu(pdu, id, sizeof(id));
+  token = coap_pdu_get_token(pdu);
+  memset(id, 0, sizeof(id));
+  memcpy(id, token.s, min(sizeof(id), token.length));
 
   LL_FOREACH(dcaf_context->transactions, transaction) {
     if (memcmp(transaction->tid, id, sizeof(id)) == 0) {
@@ -317,15 +320,11 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     return NULL;
   }
 
-  pdu = coap_new_pdu(session);
+  pdu = coap_new_pdu(COAP_MESSAGE_CON, code, session);
   if (!pdu) {
     dcaf_log(DCAF_LOG_WARNING, "cannot create new PDU\n");
     return NULL;
   }
-
-  pdu->type = COAP_MESSAGE_CON;
-  pdu->mid = coap_new_message_id(session);
-  pdu->code = code;
 
   /* generate random token */
   if (!dcaf_prng(token, sizeof(token))

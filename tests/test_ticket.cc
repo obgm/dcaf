@@ -41,8 +41,12 @@ test_option_eq(const coap_pdu_t *pdu, unsigned int option, long value) {
 SCENARIO( "DCAF ticket request", "[ticket]" ) {
   static std::unique_ptr<dcaf_ticket_t, Deleter> ticket;
   static std::unique_ptr<dcaf_ticket_request_t, Deleter> treq;
-  static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu{coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU)};
-  static std::unique_ptr<coap_pdu_t, Deleter> coap_response{coap_pdu_init(0, 0, 0, COAP_DEFAULT_MTU)};
+  static std::unique_ptr<coap_pdu_t, Deleter> coap_pdu{
+    coap_pdu_init(COAP_MESSAGE_CON, COAP_REQUEST_CODE_GET,
+                  0, COAP_DEFAULT_MTU)};
+  static std::unique_ptr<coap_pdu_t, Deleter> coap_response{
+    coap_pdu_init(COAP_MESSAGE_ACK, COAP_RESPONSE_CODE_OK,
+                  0, COAP_DEFAULT_MTU)};
   static std::unique_ptr<cose_obj_t, Deleter> object;
   static std::unique_ptr<abor_decoder_t, Deleter> ticket_face;
   static std::unique_ptr<abor_decoder_t, Deleter> claim;

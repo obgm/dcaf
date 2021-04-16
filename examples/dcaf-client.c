@@ -105,9 +105,11 @@ int obs_ms_reset = 0;
 #endif /* GCC */
 
 static inline int
-check_token(coap_pdu_t *received) {
-  return received->token_length == the_token.length &&
-    memcmp(received->token, the_token.s, the_token.length) == 0;
+check_token(const coap_pdu_t *received) {
+  coap_bin_const_t token;
+  token = coap_pdu_get_token(received);
+  return token.length == the_token.length &&
+    memcmp(token.s, the_token.s, the_token.length) == 0;
 }
 
 static void

@@ -115,7 +115,7 @@ hnd_unknown(coap_context_t *ctx,
   (void)query;
 
   /* the default response code */
-  response->code = COAP_RESPONSE_CODE_NOT_FOUND;
+  coap_pdu_set_code(request, COAP_RESPONSE_CODE_NOT_FOUND);
   uri_path = coap_get_uri_path(request);
   if (!uri_path) {
     return;
@@ -126,7 +126,7 @@ hnd_unknown(coap_context_t *ctx,
     if (uri.substr(0, 4) == "key/") {
       /* FIXME: read payload as key and add to key store */
       dcaf_log(DCAF_LOG_DEBUG, "a key!\n");
-      response->code = COAP_RESPONSE_CODE_CREATED;
+      coap_pdu_set_code(response, COAP_RESPONSE_CODE_CREATED);
     }
   }
 }

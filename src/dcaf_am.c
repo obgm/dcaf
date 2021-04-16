@@ -240,7 +240,7 @@ add_client_info(cn_cbor *map, const dcaf_ticket_t *ticket, int flags) {
 
 static abor_decoder_t *
 get_cbor(const coap_pdu_t *pdu) {
-  uint8_t *payload = NULL;
+  const uint8_t *payload = NULL;
   size_t payload_len = 0;
   abor_decoder_t *cbor = NULL;
 
@@ -469,7 +469,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   if (!ticket ||
       (dcaf_create_verifier(ctx, (dcaf_ticket_t *)ticket) != DCAF_OK)) {
     dcaf_log(DCAF_LOG_CRIT, "cannot create ticket\n");
-    response->code = COAP_RESPONSE_CODE(500);
+    coap_set_response_code(response, COAP_RESPONSE_CODE_INTERNAL_ERROR);
     coap_add_data(response, 14, (unsigned char *)"internal error");
     return;
   }
@@ -509,7 +509,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   if (length > 0) {  /* we have a response */
     unsigned char optionbuf[8];
 
-    response->code = COAP_RESPONSE_CODE(201);
+    coap_set_response_code(response, COAP_RESPONSE_CODE_CREATED);
     coap_add_option(response,
                     COAP_OPTION_CONTENT_FORMAT,
                     coap_encode_var_safe(optionbuf, sizeof(optionbuf),
@@ -530,7 +530,7 @@ dcaf_set_ticket_grant(const coap_session_t *session,
  error:
   cn_cbor_free(body);
   dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
-  response->code = COAP_RESPONSE_CODE(500);
+  coap_set_response_code(response, COAP_RESPONSE_CODE_CREATED);
   coap_add_data(response, 14, (unsigned char *)"internal error");
 }
 
