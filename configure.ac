@@ -77,40 +77,24 @@ AC_TYPE_SIZE_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset getrandom getaddrinfo gai_strerror])
 
+LIBCOAP=libcoap-3
 PKG_CHECK_MODULES([cn_cbor], [cn-cbor])
-PKG_CHECK_MODULES([libcoap], [libcoap-2-mbedtls], [have_libcoap="libcoap-2-mbedtls"],
-   [PKG_CHECK_MODULES([libcoap], [libcoap-2-openssl], [have_libcoap="libcoap-2-openssl"],
-      [PKG_CHECK_MODULES([libcoap], [libcoap-2-tinydtls], [have_libcoap="libcoap-2-tinydtls"],
-        [PKG_CHECK_MODULES([libcoap], [libcoap-2], [have_libcoap="libcoap-2"])]
-      )]
-   )]
-)
+PKG_CHECK_MODULES([libcoap], [$LIBCOAP])
 
-if test "x$have_libcoap" != "xno"; then
-   # FIXME: this works only with bash parameter substitution and pkg-config
-   libcoap_L=`pkg-config --libs-only-L $have_libcoap`
-   libcoap_LIBS="-Wl,-rpath=${libcoap_L:2} $libcoap_LIBS"
-
-   # We want to use the same crypto libs as libcoap uses
-   case "$have_libcoap" in
-       *-openssl)
-      PKG_CHECK_MODULES([OpenSSL], [openssl])
-      libcoap_CFLAGS="$libcoap_CFLAGS $OpenSSL_CFLAGS -DCOAP_DTLS_OPENSSL"
-      libcoap_LIBS="$libcoap_LIBS $OpenSSL_LIBS"
-      ;;
-       *-mbedtls)
-      # There is no pkgconfig for MbedTLS hence we use the default installation
-      MbedTLS_CFLAGS=""
-      MbedTLS_LIBS="-lmbedtls -lmbedcrypto -lmbedx509"
-      libcoap_CFLAGS="$libcoap_CFLAGS $MbedTLS_CFLAGS -DCOAP_DTLS_MBEDTLS"
-      libcoap_LIBS="$libcoap_LIBS $MbedTLS_LIBS"
-      ;;
-       *-tinydtls)
-      libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_TINYDTLS"
-      libcoap_LIBS="$libcoap_LIBS -ltinydtls"
-      ;;
-   esac
-fi
+case "$libcoap_LIBS" in
+    *-openssl)
+   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_OPENSSL"
+   ;;
+    *-mbedtls)
+   # There is no pkgconfig for MbedTLS hence we use the default installation
+   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_MBEDTLS"
+   MbedTLS_LIBS="-lmbedtls -lmbedcrypto -lmbedx509"
+   libcoap_LIBS="$libcoap_LIBS $MbedTLS_LIBS"
+   ;;
+    *-tinydtls)
+   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_TINYDTLS"
+   ;;
+esac
 
 # __client__
 AC_ARG_ENABLE([client],
