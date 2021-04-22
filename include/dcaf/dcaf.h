@@ -178,7 +178,7 @@ const coap_address_t *dcaf_get_am_address(const dcaf_context_t *context);
  * @return 1 if @p pdu is authorized, 0 otherwise.
  */
 int dcaf_is_authorized(const coap_session_t *session,
-                       coap_pdu_t *pdu);
+                       const coap_pdu_t *pdu);
 
 /**
  * Fills the given @p response with a payload that points to the

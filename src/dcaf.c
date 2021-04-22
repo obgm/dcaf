@@ -191,7 +191,7 @@ make_ticket_request(const dcaf_transaction_t *transaction,
 static void
 handle_unauthorized(dcaf_context_t *dcaf_context,
                     dcaf_transaction_t *t,
-                    coap_pdu_t *received) {
+                    const coap_pdu_t *received) {
   const uint8_t *data;
   size_t data_len;
   dcaf_transaction_t *am_t;
@@ -251,7 +251,7 @@ handle_unauthorized(dcaf_context_t *dcaf_context,
 static void
 handle_ticket_transfer(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *t,
-                       coap_pdu_t *received) {
+                       const coap_pdu_t *received) {
   size_t content_len = 0;
   const uint8_t *content = NULL;
   abor_decoder_t *cbor;
@@ -509,10 +509,9 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 #endif /* LIBCOAP_VERSION >= 4003000U */
 
 static COAP_RESPONSE_T
-handle_coap_response(struct coap_context_t *coap_context,
-                     coap_session_t *session,
-                     coap_pdu_t *sent,
-                     coap_pdu_t *received,
+handle_coap_response(coap_session_t *session,
+                     const coap_pdu_t *sent,
+                     const coap_pdu_t *received,
                      const coap_mid_t id) {
   dcaf_context_t *dcaf_context;
   dcaf_transaction_t *t;
@@ -522,7 +521,7 @@ handle_coap_response(struct coap_context_t *coap_context,
   (void)sent;
   (void)id;
 
-  dcaf_context = dcaf_get_dcaf_context(coap_context);
+  dcaf_context = dcaf_get_dcaf_context_from_session(session);
   assert(dcaf_context);
 
   t = dcaf_find_transaction(dcaf_context, session, received);
@@ -1415,7 +1414,7 @@ dcaf_default_check_scope(dcaf_scope_t type, void *perm, const coap_pdu_t *pdu) {
 
 int
 dcaf_is_authorized(const coap_session_t *session,
-                   coap_pdu_t *pdu) {
+                   const coap_pdu_t *pdu) {
   int result = 0;               /* not authorized by default */
   if (is_secure(session)) {
     dcaf_ticket_t *ticket;

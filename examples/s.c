@@ -44,17 +44,13 @@ static size_t resource_len = 43;
 
 /* handler for requests to a resource with restricted access */
 static void
-hnd_get(coap_context_t *ctx,
-        struct coap_resource_t *resource,
+hnd_get(coap_resource_t *resource,
         coap_session_t *session,
-        coap_pdu_t *request,
-        coap_binary_t *token,
-        coap_string_t *query,
+        const coap_pdu_t *request,
+        const coap_string_t *query,
         coap_pdu_t *response) {
   unsigned char buf[3];
-  (void)ctx;
   (void)resource;
-  (void)token;
   (void)query;
 
   /* Check if authorized, i.e., the request was received on a secure
@@ -81,20 +77,16 @@ hnd_get(coap_context_t *ctx,
 
 /* handler for uploads to the ticket resource */
 static void
-hnd_ticket_post(coap_context_t *ctx,
-        struct coap_resource_t *resource,
-        coap_session_t *session,
-        coap_pdu_t *request,
-        coap_binary_t *token,
-        coap_string_t *query,
-        coap_pdu_t *response) {
+hnd_ticket_post(coap_resource_t *resource,
+                coap_session_t *session,
+                const coap_pdu_t *request,
+                const coap_string_t *query,
+                coap_pdu_t *response) {
   size_t size;
   dcaf_result_t res;
   const uint8_t *data;
   dcaf_ticket_t *ticket;
-  (void)ctx;
   (void)resource;
-  (void)token;
   (void)query;
 
   coap_get_data(request,&size, &data);
@@ -113,17 +105,13 @@ hnd_ticket_post(coap_context_t *ctx,
 }
 
 static void
-hnd_am_info_get(coap_context_t *ctx,
-        struct coap_resource_t *resource,
-        coap_session_t *session,
-        coap_pdu_t *request,
-        coap_binary_t *token,
-        coap_string_t *query,
-        coap_pdu_t *response) {
-  (void)ctx;
+hnd_am_info_get(coap_resource_t *resource,
+                coap_session_t *session,
+                const coap_pdu_t *request,
+                const coap_string_t *query,
+                coap_pdu_t *response) {
   (void)resource;
   (void)request;
-  (void)token;
   (void)query;
 
   dcaf_result_t res;

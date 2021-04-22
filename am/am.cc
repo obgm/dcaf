@@ -68,19 +68,15 @@ handle_sigint(int signum) {
 /* TODO: store issued tickets until they become invalid */
 
 static void
-hnd_post_token(coap_context_t *ctx,
-              struct coap_resource_t *resource,
+hnd_post_token(coap_resource_t *resource,
               coap_session_t *session,
-              coap_pdu_t *request,
-              coap_binary_t *token,
-              coap_string_t *query,
+              const coap_pdu_t *request,
+              const coap_string_t *query,
               coap_pdu_t *response) {
   dcaf_ticket_request_t *treq = NULL;
   dcaf_result_t res;
 
-  (void)ctx;
   (void)resource;
-  (void)token;
   (void)query;
 
   /* Check if authorized, i.e., the request was received on a secure
@@ -100,22 +96,18 @@ hnd_post_token(coap_context_t *ctx,
 }
 
 static void
-hnd_unknown(coap_context_t *ctx,
-            struct coap_resource_t *resource,
+hnd_unknown(coap_resource_t *resource,
             coap_session_t *session,
-            coap_pdu_t *request,
-            coap_binary_t *token,
-            coap_string_t *query,
+            const coap_pdu_t *request,
+            const coap_string_t *query,
             coap_pdu_t *response) {
   coap_string_t *uri_path;
-  (void)ctx;
   (void)resource;
   (void)session;
-  (void)token;
   (void)query;
 
   /* the default response code */
-  coap_pdu_set_code(request, COAP_RESPONSE_CODE_NOT_FOUND);
+  coap_pdu_set_code(response, COAP_RESPONSE_CODE_NOT_FOUND);
   uri_path = coap_get_uri_path(request);
   if (!uri_path) {
     return;

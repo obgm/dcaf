@@ -36,7 +36,7 @@ typedef enum {
 typedef dcaf_transaction_result_t (*dcaf_response_handler_t)
                                        (dcaf_context_t *,
                                         dcaf_transaction_t *,
-                                        coap_pdu_t *);
+                                        const coap_pdu_t *);
 
 typedef void (*dcaf_error_handler_t)(dcaf_context_t *,
                                      dcaf_transaction_t *,
@@ -44,7 +44,7 @@ typedef void (*dcaf_error_handler_t)(dcaf_context_t *,
 
 typedef void (*dcaf_application_handler_t)(dcaf_context_t *,
                                            dcaf_transaction_t *,
-                                           coap_pdu_t *);
+                                           const coap_pdu_t *);
 
 /**
  * Creates a new transaction object. When finished, the storage

@@ -213,7 +213,7 @@ rnd(uint8_t *out, size_t len) {
 static void
 response_handler(struct dcaf_context_t *dcaf_context,
                  dcaf_transaction_t *transaction,
-                 coap_pdu_t *received) {
+                 const coap_pdu_t *received) {
   (void)dcaf_context;
   (void)transaction;
   dcaf_log(DCAF_LOG_INFO, "got response: \n");
