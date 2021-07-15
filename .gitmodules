@@ -1,4 +1,0 @@
-[submodule "ext/lug"]
-	path = ext/lug
-	url = https://github.com/jwtowner/lug.git
-	branch = master
