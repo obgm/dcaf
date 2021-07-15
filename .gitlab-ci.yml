@@ -12,7 +12,7 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - sudo apt-get update && sudo apt-get install -y doxygen graphviz yaml-cpp
+    - sudo apt-get update && sudo apt-get install -y doxygen graphviz libyaml-cpp-dev
     - ./autogen.sh
     - ./configure
   script:
