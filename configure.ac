@@ -168,20 +168,10 @@ AC_ARG_ENABLE([am],
               [build_am="yes"])
 
 AS_IF([test "x$build_am" != "xno"], [
-   AC_CACHE_CHECK([for lug], [ac_cv_lug], [
-       AS_IF([test -d ext/lug/lug],
-                                    [ av_cv_lug=ext/lug/lug
-                                      AC_MSG_RESULT([yes])
-                                    ],
-                                    [AC_MSG_RESULT([no])])])
-    if test "x$av_cv_lug" = "x"; then
-       AC_MSG_ERROR([cannot find lug. Try `git submodule update --init` or configure with --disable-am.])
-    fi
-    am_DIR=am
-    lug_CXXFLAGS="-I\$(top_srcdir)/ext/lug"
+   PKG_CHECK_MODULES([yaml_cpp], [yaml-cpp])
+   am_DIR=am
 ])
 AC_SUBST(am_DIR)
-AC_SUBST(lug_CXXFLAGS)
 
 AC_CONFIG_HEADERS([dcaf_config.h])
 

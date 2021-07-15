@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <filesystem>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -22,78 +23,229 @@ hex2char(char c) {
 
 namespace am_config {
 
-parser::parser() {
-  using namespace lug::language;
-  using namespace std;
+std::string
+getDefaultConfigFile(void) {
+  char *home = getenv("HOME");
+  std::filesystem::path root;
+  std::error_code err;
+  
+  if (home) { /* check if $HOME/.amrc or $HOME/.local/dcaf/amrc exists */
+    /* these are the paths under $HOME to search for the config file */
+    static const char *local_searchpaths[] = { ".amrc", ".local/dcaf/amrc" };
 
-  lug::variable<std::string_view> id_{environment}, sv_{environment};
-  lug::variable<parser::key_type> keytype_{environment};
-  lug::variable<parser::method_t> method_{environment}, m_{environment};
-  lug::variable<std::string_view> endpoint_{environment};
-
-  lug::variable<std::set<std::string_view> > ep_{environment};
-
-  using Wildcard = std::string_view;
-
-  rule AMConfig;
-    rule UnicodeEscape  = lexeme[ chr('u') > "[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]"_rx ];
-    rule Escape         = lexeme[ "\\" > ("[/\\bfnrt]"_rx | UnicodeEscape) ];
-    rule String         = lexeme[ "\"" > capture(sv_)[*(u8"[^\"\\\u0000-\u001F]"_rx | Escape)] > "\"" ] <[&]{ return *sv_; };
-    rule Identifier     = lexeme[ capture(id_)["[a-z]"_irx > *("[0-9a-z_]"_irx) ] ] <[&]{ return *id_; };
-    rule Hex            = lexeme[ capture(sv_)[+("[0-9a-f]"_irx "[0-9a-f]"_irx)] ] <[&]{ return *sv_; };
-    rule Keytype        =  "psk"_isx > ((sv_%Hex      <[&]() {
-        std::string key;
-        int n = -1;
-        /* sv_->size() is always even due to rule Hex */
-        for (auto c : *sv_) {
-          if (n >= 0) {
-            key += (n + hex2char(c)) & 0xff;
-            n = -1;
-          } else {
-            n = hex2char(c) << 4;
-          }
-        }
-        *keytype_ = std::tuple{key_t::PSK, key};
-        })
-      | (sv_%String <[&]() { *keytype_ = std::tuple{key_t::PSK, std::string(*sv_)}; })
-                                        ) <[&]() { return *keytype_; };
-    rule KeyObject      = "key"_sx > sv_%String > ~"as"_sx > keytype_%Keytype
-      <[&]{ keys[std::string(*sv_)] = *keytype_; };
-    rule Configure      = "configure"_sx > KeyObject;
-    rule Group          = "add"_sx > "key"_sx > sv_%String > "to"_sx > "group"_sx > id_%Identifier;
-    rule Method         =
-      ("GET"_isx      <[]() { return method_t::GET; })
-      | ("POST"_isx   <[]() { return method_t::POST; })
-      | ("PUT"_isx    <[]() { return method_t::PUT; })
-      | ("DELETE"_isx <[]() { return method_t::DELETE; })
-      | ("FETCH"_isx  <[]() { return method_t::FETCH; })
-      | ("PATCH"_isx  <[]() { return method_t::PATCH; })
-      | ("IPATCH"_isx <[]() { return method_t::IPATCH; });
-    rule Methods        = (method_%Method 
-                           >~(chr('|') > m_%Methods)) <[&](){ unsigned char m = static_cast<unsigned char>(*m_); return static_cast<method_t>(m | (1 << static_cast<unsigned char>(*method_))); };
-    rule Command        = (chr('*') | Methods);
-    rule Subject        = (chr('*') | String | Identifier);
-    rule Endpoint       = ((chr('*') <[]() { return Wildcard();  })
-                           | (sv_%String <[&sv_]() { return *sv_;  })
-                           | (id_%Identifier <[&id_]() { return *id_;  }));
-    rule Endpoints       = (endpoint_%Endpoint 
-                            >(~(chr(',') > *(" "_sx) > ep_%Endpoints)))
-      <[&ep_,&endpoint_](){ ep_->insert(*endpoint_); return *ep_; };
-    rule Permission     = "allow"_sx > method_%Command > "from"_sx > Subject > "on"_sx > ep_%Endpoints <[&]() { std::cout << "With your permission, boss: " << static_cast<int>(*method_)
-                                                                                                                      << " on endpoints";
-      std::for_each(ep_->cbegin(), ep_->cend(), [](auto &e) { std::cout << " " << e; });
-      std::cout << endl;
-                                                                                                    };
-    rule Statement      = (Configure | Group | Permission) > (eol | chr(';'));
-    AMConfig            = *Statement;
-    grammar = start(AMConfig);
+    for (size_t idx=0; idx < sizeof(local_searchpaths)/sizeof(local_searchpaths[0]); idx++) {
+      std::filesystem::path path{root/home/local_searchpaths[idx]};
+      if (std::filesystem::exists(path, err)) {
+        return path;
+      }
+    }
+  }
+  else if (std::filesystem::exists(root/"etc/amrc", err)) {
+    return root/"etc/amrc";
+  }
+  return "";
 }
 
-bool parser::parse(std::istream& input) {
-  if (input && lug::parse(input, grammar, environment)) {
-    return true;
+/* explicitly define destructor to avoid inlining warning */
+parser::~parser(void) {
+}
+
+/**
+ * Adds key/value pairs from @p mapNode into the result map
+ * @p result. Maps that are nested using the special key "<<" are
+ * added recursively.
+ *
+ * @param[in]  mapNode The map to flatten.
+ * @param[out] result  Where key/value pairs from @p mapNode are inserted.
+ */
+template <typename K, typename V, typename C, typename A>
+static void flatten(const YAML::Node &mapNode, std::map<K, V, C, A> &result) {
+  if (!mapNode.IsMap())
+    return;
+
+  for (const auto &entry : mapNode) {
+    const auto &key = entry.first.as<K>();
+    if (entry.second.IsScalar()) {
+      result[key] = entry.second.as<V>();
+      std::cout << key << ": " << result[key] << std::endl;
+    }
+    else if (key == "<<" && entry.second.IsMap()) {
+      flatten(entry.second, result);
+    }
   }
-  return false;
+}
+
+void
+parser::readHosts(void) {
+  if (auto host = (*config_root)["host"]) {
+
+    if (host.IsMap()) {
+      for (const auto &entry : host) {
+        flatten(entry.second, hosts[entry.first.as<std::string>()]);
+      }
+    }
+  }
+}
+
+void
+parser::readGroups(void) {
+  if (auto groups= (*config_root)["groups"]) {
+
+    if (groups.IsSequence()) {
+      for (const auto &group : groups) {
+        if (group.IsMap()) {
+          auto name = group["name"];
+          auto members = group["members"];
+          if (name.IsDefined()) {
+            std::cout << "Group: " << name.as<std::string>() << std::endl;
+          }
+          if (members.IsSequence()) {
+            for (const auto &member : members) {
+              if (member.IsScalar()) {
+                // TODO: check if tagged with "!cert"
+                std::cout << "Member: " << member.as<std::string>() << std::endl;
+              } else if (member.IsMap()) {
+                // TODO: get name, key
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+static const char *methodNames[] = { "GET", "POST", "PUT", "DELETE", "FETCH", "PATCH", "IPATCH" };
+
+static uint8_t
+methodToInt(const std::string &s) {
+  for (size_t idx = 0; idx < sizeof(methodNames)/sizeof(methodNames[0]); idx++) {
+    if (s == methodNames[idx]) {
+      return 1 << idx;
+    }
+  }
+  return 0;
+}
+
+Rule::~Rule(void) {
+}
+
+void parser::readRules(void) {
+  if (auto rules= (*config_root)["rules"]) {
+
+    if (rules.IsSequence()) {
+      for (const auto &rule : rules) {
+        if (rule.IsMap()) {
+          auto uri = rule["resource"];
+          auto methods = rule["methods"];
+          auto allow = rule["allow"];
+          if (uri.IsDefined() && methods.IsDefined() && allow.IsDefined()) {
+            Rule r{uri.as<std::string>()};
+            uint32_t mtd = Rule::Method::GET;
+
+            if (methods.IsScalar()) {
+              mtd = methodToInt(methods.as<std::string>());
+            }
+            else if (methods.IsSequence()) {
+              for (const auto &m : methods) {
+                mtd |= methodToInt(m.as<std::string>());
+              }
+            }
+            if (mtd) {
+              r.methods = mtd;
+              rulebase.insert({ r.resource, r });
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+struct Key {
+  std::string name;
+  std::unique_ptr<std::string> psk;
+  std::unique_ptr<std::string> rpk;
+
+  Key(const std::string &n) : name(n) {}
+};
+
+// FIXME: make convert::decode()
+static std::unique_ptr<Key>
+createKey(const YAML::Node &keyNode) {
+  auto name = keyNode["name"];
+  auto psk = keyNode["psk"];
+  auto rpk = keyNode["rpk"];
+
+  if (name.IsDefined()) {
+    std::unique_ptr<Key> key = std::make_unique<Key>(name.as<std::string>());
+    if (key) {
+      if (psk.IsDefined()) {
+        key->psk = std::make_unique<std::string>(psk.as<std::string>());
+      }
+      if (rpk.IsDefined()) {
+        key->rpk = std::make_unique<std::string>(rpk.as<std::string>());
+      }
+    }
+    return key;
+  }
+  return nullptr;
+}
+
+void
+parser::readKeys(void) {
+  if (!config_root)
+    return;
+
+  if (auto ks = (*config_root)["keystore"]) {
+
+    if (ks.IsSequence()) {
+      for (const auto &entry : ks) {
+        auto key = createKey(entry);
+        if (key) {
+          std::cout << "Key: " << key->name;
+          if (key->psk) {
+            std::cout << " (PSK: " << *key->psk << ")";
+          }
+          if (key->rpk) {
+            std::cout << " (RPK: " << *key->rpk << ")";
+          }
+
+          std::cout << std::endl;
+          if (key->psk) {
+            keys[key->name] = { key_t::PSK, *key->psk };
+          }
+          if (key->rpk) {
+            keys[key->name] = { key_t::RPK, *key->rpk };
+          }
+        }
+      }
+    }
+  }
+}
+
+bool parser::parse(std::istream& input) { (void)input; return false; }
+
+bool parser::parseFile(const std::string &filename) {
+  try {
+    std::unique_ptr<YAML::Node> node = std::make_unique<YAML::Node>(YAML::LoadFile(filename));
+    if (node) {
+      config_root = std::move(node);
+      readKeys();
+      readHosts();
+      readGroups();
+      readRules();
+    }
+  }
+  catch (const YAML::BadFile& ex) {
+    std::cerr << ex.what() << std::endl;
+    return false;
+  }
+  catch (const YAML::ParserException& ex) {
+    std::cerr << ex.what() << std::endl;
+    return false;
+  }
+  return true;
 }
 
 } /* namespace am_config */

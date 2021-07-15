@@ -7,7 +7,7 @@
 
 # picking up the default warning CFLAGS into AM_CFLAGS
 AM_CXXFLAGS = -std=c++17
-AM_CPPFLAGS = -I @top_builddir@/include @lug_CXXFLAGS@ $(WARNING_CXXFLAGS) @libcoap_CFLAGS@
+AM_CPPFLAGS = -I @top_builddir@/include $(yaml_cpp_CFLAGS) $(WARNING_CXXFLAGS) @libcoap_CFLAGS@
 
 AM_LDFLAGS = -L@top_builddir@
 
@@ -16,8 +16,7 @@ bin_PROGRAMS = dcaf-am
 dcaf_am_DEPENDENCIES = $(top_builddir)/libdcaf.a
 
 dcaf_am_includedir = $(top_builddir)/am
-dcaf_am_include_HEADERS = config_parser.hh
+#dcaf_am_include_HEADERS = config_parser.hh
 dcaf_am_SOURCES = am.cc config_parser.cc
 dcaf_am_CXXFLAGS = $(AM_CXXFLAGS)
-dcaf_am_CPPFLAGS = $(filter-out -Wswitch-enum -fpermissive -Winline, $(AM_CPPFLAGS))
-dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@
+dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@ $(yaml_cpp_LIBS)

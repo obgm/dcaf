@@ -190,6 +190,7 @@ main(int argc, char **argv) {
   unsigned wait_ms;
   dcaf_config_t config;
   am_config::parser parser;
+  std::string config_file{am_config::getDefaultConfigFile()};
   struct sigaction sa;
 
   memset(&config, 0, sizeof(config));
@@ -205,23 +206,9 @@ main(int argc, char **argv) {
     case 'a' :
       config.am_uri = optarg;
       break;
-    case 'C' : {
-      std::fstream cf(optarg, std::ios_base::in);
-      if (!cf) {
-        std::cerr << "Cannot open config file '" << optarg << "'" << std::endl;
-        exit(2);
-      }
-      try {
-        if (!parser.parse(cf)) {
-          std::cerr << "Invalid configuration!" << std::endl;
-          exit(3);
-        }
-      } catch (lug::lug_error& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        exit(3);
-      }
+    case 'C' :
+      config_file = optarg;
       break;
-    }
     case 'p' :
       config.coap_port = static_cast<uint16_t>(strtol(optarg, nullptr, 10));
       config.coaps_port = config.coap_port + 1;
@@ -235,6 +222,22 @@ main(int argc, char **argv) {
     }
   }
 
+  if (config_file.empty()) {
+    std::cerr << "No config file found." << std::endl;
+    exit(2);
+  } else {
+    if (!parser.parseFile(config_file)) {
+      std::cerr << "Cannot parse config '" << config_file << "'" << std::endl;
+      exit(3);
+    }
+  }
+  for (const auto &vhost : parser.hosts) {
+    // TODO: setup libcoap PKI
+    std::cout << "vhost " << vhost.first << ":" << std::endl;
+    for (const auto &option : vhost.second) {
+      std::cout << option.first << ": " << option.second << std::endl;
+    }
+  }
   coap_startup();
   coap_dtls_set_log_level(log_level);
   coap_set_log_level(log_level);
