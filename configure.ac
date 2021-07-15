@@ -83,16 +83,30 @@ PKG_CHECK_MODULES([libcoap], [$LIBCOAP])
 
 case "$libcoap_LIBS" in
     *-openssl)
-   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_OPENSSL"
+   AC_MSG_NOTICE([build $LIBCOAP against OpenSSL])
+   PKG_CHECK_MODULES([openssl], [openssl])
+   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_OPENSSL $openssl_CFLAGS"
+   libcoap_LIBS="$libcoap_LIBS $openssl_LIBS"
    ;;
     *-mbedtls)
    # There is no pkgconfig for MbedTLS hence we use the default installation
+   AC_MSG_NOTICE([build $LIBCOAP against Mbed TLS])
    libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_MBEDTLS"
    MbedTLS_LIBS="-lmbedtls -lmbedcrypto -lmbedx509"
    libcoap_LIBS="$libcoap_LIBS $MbedTLS_LIBS"
    ;;
     *-tinydtls)
+   AC_MSG_NOTICE([build $LIBCOAP against tinyDTLS])
    libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_TINYDTLS"
+   ;;
+    *-gnutls)
+   AC_MSG_NOTICE([build $LIBCOAP against GnuTLS])
+   PKG_CHECK_MODULES([gnutls], [gnutls])
+   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_GNUTLS $gnutls_CFLAGS"
+   AC_MSG_ERROR([Sorry, GnuTLS currently is not supported])
+   ;;
+    *)
+   AC_MSG_ERROR([no TLS library found for libcoap])
    ;;
 esac
 
