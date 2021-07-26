@@ -3,7 +3,9 @@
 #include <map>
 #include <set>
 #include <stdexcept>
+#include <vector>
 
+#include "dcaf/dcaf.h"
 #include "config_parser.hh"
 
 static inline bool
@@ -83,6 +85,61 @@ parser::readHosts(void) {
       for (const auto &entry : host) {
         flatten(entry.second, hosts[entry.first.as<std::string>()]);
       }
+    }
+  }
+}
+
+template <typename F>
+static int find_and_set(const std::map<std::string, std::string> &entry, const std::string &what, F &field) {
+  const auto &elem{entry.find(what)};
+
+  if (elem != entry.end()) {
+    field = std::stoi(elem->second);
+    return 1;
+  }
+  return 0;
+}
+
+void
+parser::readEndpoints(void) {
+  if (auto ep = (*config_root)["endpoints"]) {
+    using Entry = std::map<std::string, std::string>;
+    std::vector<Entry> interfaces;
+
+    if (ep.IsMap()) { /* single entry */
+      interfaces.push_back(Entry{});
+      flatten(ep, interfaces.back());
+    } else if (ep.IsSequence()) { /* list */
+      for (const auto &entry : ep) {
+        if (entry.IsMap()) {
+          interfaces.push_back(Entry{});
+          flatten(entry, interfaces.back());
+        }
+      }
+    }
+
+    /* prepare Endpoint objects from list of interfaces */
+    for (const auto &iface : interfaces) {
+      const auto &addr = iface.find("interface");
+      if (addr == iface.end()) {
+        continue;
+      }
+
+      Endpoint endpoint;
+      bool have_port = false;
+      endpoint.interface = addr->second;
+      have_port += find_and_set(iface, "udp",  endpoint.ports[0]);
+      have_port += find_and_set(iface, "dtls", endpoint.ports[1]);
+      have_port += find_and_set(iface, "tcp",  endpoint.ports[2]);
+      have_port += find_and_set(iface, "tls",  endpoint.ports[3]);
+
+      /* set all entries to default values if no field has been set */
+      if (have_port == 0) {
+        endpoint.ports[0] = endpoint.ports[2] = DCAF_DEFAULT_COAP_PORT;
+        endpoint.ports[1] = endpoint.ports[3] = DCAF_DEFAULT_COAPS_PORT;
+      }
+
+      endpoints.push_back(endpoint);
     }
   }
 }
@@ -232,6 +289,7 @@ bool parser::parseFile(const std::string &filename) {
     if (node) {
       config_root = std::move(node);
       readKeys();
+      readEndpoints();
       readHosts();
       readGroups();
       readRules();

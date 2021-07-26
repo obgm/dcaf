@@ -31,6 +31,7 @@
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_am.h"
 #include "config_parser.hh"
+#include "coap_config.hh"
 
 #define COAP_RESOURCE_CHECK_TIME 2
 
@@ -129,11 +130,13 @@ init_resources(coap_context_t *coap_context) {
   const char mediatypes[] = DCAF_MEDIATYPE_DCAF_CBOR_STRING " " DCAF_MEDIATYPE_ACE_CBOR_STRING;
 
   resource = coap_resource_init(coap_make_str_const(DCAF_AM_DEFAULT_PATH), 0);
-  coap_register_handler(resource, COAP_REQUEST_POST, hnd_post_token);
-  /* add values for supported content-formats */
-  coap_add_attr(resource, coap_make_str_const("ct"),
-                coap_make_str_const(mediatypes), 0);
-  coap_add_resource(coap_context, resource);
+  if (resource) {
+    coap_register_handler(resource, COAP_REQUEST_POST, hnd_post_token);
+    /* add values for supported content-formats */
+    coap_add_attr(resource, coap_make_str_const("ct"),
+                  coap_make_str_const(mediatypes), 0);
+    coap_add_resource(coap_context, resource);
+  }
 
   resource = coap_resource_unknown_init(hnd_unknown);
   if (resource) {
@@ -180,6 +183,17 @@ make_key(const std::string &id, const am_config::parser::key_type &type) {
   return nullptr;
 }
 
+template<typename T>
+static inline bool even(T value) {
+  static_assert(std::is_integral<T>::value, "Integral required.");
+  return (value & 1) == 0;
+}
+
+template<typename T>
+static inline bool odd(T value) {
+  return !even(value);
+}
+
 int
 main(int argc, char **argv) {
   dcaf_context_t  *dcaf;
@@ -189,14 +203,15 @@ main(int argc, char **argv) {
   coap_log_t log_level = LOG_WARNING;
   unsigned wait_ms;
   dcaf_config_t config;
+  uint16_t coap_port = 0;
+  uint16_t coaps_port = 0;
+
   am_config::parser parser;
   std::string config_file{am_config::getDefaultConfigFile()};
   struct sigaction sa;
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
-  config.coap_port = DCAF_DEFAULT_COAP_PORT;
-  config.coaps_port = DCAF_DEFAULT_COAPS_PORT;
 
   while ((opt = getopt(argc, argv, "a:A:C:g:p:v:l:")) != -1) {
     switch (opt) {
@@ -210,8 +225,8 @@ main(int argc, char **argv) {
       config_file = optarg;
       break;
     case 'p' :
-      config.coap_port = static_cast<uint16_t>(strtol(optarg, nullptr, 10));
-      config.coaps_port = config.coap_port + 1;
+      coap_port = static_cast<uint16_t>(strtol(optarg, nullptr, 10));
+      coaps_port = coap_port + 1;
       break;
     case 'v' :
       log_level = static_cast<coap_log_t>(strtol(optarg, nullptr, 10));
@@ -231,13 +246,6 @@ main(int argc, char **argv) {
       exit(3);
     }
   }
-  for (const auto &vhost : parser.hosts) {
-    // TODO: setup libcoap PKI
-    std::cout << "vhost " << vhost.first << ":" << std::endl;
-    for (const auto &option : vhost.second) {
-      std::cout << option.first << ": " << option.second << std::endl;
-    }
-  }
   coap_startup();
   coap_dtls_set_log_level(log_level);
   coap_set_log_level(log_level);
@@ -250,6 +258,33 @@ main(int argc, char **argv) {
   if (!dcaf || !(ctx = dcaf_get_coap_context(dcaf)))
     return -1;
 
+  for (const auto &ep : parser.endpoints) {
+    coap_address_t addr;
+    uint16_t port;
+
+    for (size_t idx = 0; idx < sizeof(ep.ports)/sizeof(ep.ports[0]); idx++) {
+      if (ep.ports[idx] == 0) { /* skip unset */
+        continue;
+      }
+      /* command line argument overrides config option */
+      port = odd(idx)
+        ? ((coaps_port != 0) ? coaps_port : ep.ports[idx])
+        : ((coap_port != 0) ? coap_port : ep.ports[idx]);
+
+      if (dcaf_set_coap_address((const unsigned char *)ep.interface.c_str(), ep.interface.length(),
+                                port, &addr) != DCAF_OK) {
+        dcaf_log(DCAF_LOG_CRIT, "cannot set interface address '%s'\n", ep.interface.c_str());
+        continue;
+      }
+      static const coap_proto_t proto[] = { COAP_PROTO_UDP, COAP_PROTO_DTLS, COAP_PROTO_TCP, COAP_PROTO_TLS };
+      if (coap_new_endpoint(ctx, &addr, proto[idx]) == nullptr) {
+        dcaf_log(DCAF_LOG_ERR, "cannot set endpoint\n");
+      } else {
+        dcaf_log(DCAF_LOG_DEBUG, "endpoint set\n");
+      }
+    }
+  }
+
   /* fill key store */
   std::for_each(parser.keys.cbegin(), parser.keys.cend(),
                 [&dcaf](auto const &k) {
@@ -260,6 +295,22 @@ main(int argc, char **argv) {
                     dcaf_add_key(dcaf, nullptr, key);
                   }
                 });
+
+  coap_dtls_pki_t dtls_pki;
+  unsigned int vhosts = 0;
+  /* Setup libcoap PKI. Currently, only one vhost is supported. */
+  for (const auto &vhost : parser.hosts) {
+    if (am_config::am_setup_pki(ctx, vhost.second, dtls_pki)) {
+      dcaf_log(DCAF_LOG_DEBUG, "Configured vhost %s\n", vhost.first.c_str());
+      vhosts++;
+      break;
+    }
+  }
+  if (vhosts == 0) {
+    dcaf_log(DCAF_LOG_ERR, "Need host certificate\n");
+    return 1;
+  }
+
   init_resources(ctx);
 
   memset (&sa, 0, sizeof(sa));

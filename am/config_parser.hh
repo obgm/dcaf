@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <set>
+#include <vector>
 
 #include <yaml-cpp/yaml.h>
 
@@ -26,6 +27,11 @@ struct Rule {
   ~Rule(void);
 };
 
+struct Endpoint {
+  std::string interface;
+  uint16_t ports[4] = {0, 0, 0, 0}; /* UDP, DTLS, TCP, TLS */
+};
+
 using Rules = std::multimap<std::string, Rule>;
 
 class parser {
@@ -36,6 +42,7 @@ public:
 
   using HostConfig = std::map<std::string, std::string>;
   using Hosts = std::map<std::string, HostConfig>;
+  using Endpoints = std::vector<Endpoint>;
 
   ~parser(void);
 
@@ -46,10 +53,12 @@ public:
   KeyMap keys;
   Hosts hosts;
   Rules rulebase;
+  Endpoints endpoints;
 protected:
   std::unique_ptr<YAML::Node> config_root;
 
   void readKeys(void);
+  void readEndpoints(void);
   void readHosts(void);
   void readGroups(void);
   void readRules(void);
