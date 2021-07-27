@@ -16,6 +16,19 @@ update_pki_key(coap_dtls_key_t &dtls_key, const std::string &key_name,
   dtls_key.key.pem.ca_file = ca_name.c_str();
 }
 
+template <typename T, typename Container>
+static bool check_item(const T &item, const Container &cont, const char *desc) {
+  if (item == cont.end()) {
+    dcaf_log(DCAF_LOG_ERR, "%s not specified\n", desc);
+    return false;
+  }
+  if (!std::filesystem::is_regular_file(item->second)) {
+    dcaf_log(DCAF_LOG_ERR, "%s '%s' not readable\n", desc, item->second.c_str());
+    return false;
+  }
+  return true;
+}
+
 bool
 am_setup_pki(coap_context_t *ctx, const parser::HostConfig &config, coap_dtls_pki_t &dtls_pki) {
   std::error_code err;
@@ -28,6 +41,8 @@ am_setup_pki(coap_context_t *ctx, const parser::HostConfig &config, coap_dtls_pk
       coap_context_set_pki_root_cas(ctx, NULL, trust_roots->second.c_str());
     } else if (std::filesystem::is_regular_file(trust_roots->second)) {
       coap_context_set_pki_root_cas(ctx, trust_roots->second.c_str(), NULL);
+    } else {
+      dcaf_log(DCAF_LOG_WARNING, "Cannot set trust anchors: %s\n", trust_roots->second.c_str());
     }
   }
 
@@ -50,14 +65,13 @@ am_setup_pki(coap_context_t *ctx, const parser::HostConfig &config, coap_dtls_pk
 
   const auto pem_file{config.find("pem_file")};
   const auto key_file{config.find("key_file")};
+  bool ok = true;
 
-  if (pem_file == config.end() || key_file == config.end()) {
-    dcaf_log(DCAF_LOG_ERR, "Need pem_file and key_file options to set host certificate");
-    return false;
-  }
-    
+  ok = check_item(pem_file, config, "pem_file") && ok;
+  ok = check_item(key_file, config, "key_file") && ok;
+
   update_pki_key(dtls_pki.pki_key, key_file->second, pem_file->second, ca_file->second);
-  return true;
+  return ok;
 }
 
 } /* namespace am_config */
