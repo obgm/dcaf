@@ -300,7 +300,7 @@ main(int argc, char **argv) {
   unsigned int vhosts = 0;
   /* Setup libcoap PKI. Currently, only one vhost is supported. */
   for (const auto &vhost : parser.hosts) {
-    if (am_config::am_setup_pki(ctx, vhost.second, dtls_pki)) {
+    if (am_config::am_setup_pki(ctx, vhost.second, dtls_pki) && coap_context_set_pki(ctx, &dtls_pki)) {
       dcaf_log(DCAF_LOG_DEBUG, "Configured vhost %s\n", vhost.first.c_str());
       vhosts++;
       break;
