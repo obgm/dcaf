@@ -20,24 +20,31 @@
 #endif /* min */
 
 static int
-set_uri_options(const coap_uri_t *uri, dcaf_optlist_t *optlist) {
+set_uri_options(const coap_uri_t *uri, uint16_t type, dcaf_optlist_t *optlist) {
   unsigned char buf[MAX_URI_PATH_SIZE];
   unsigned char *bufp = buf;
   size_t buf_size = sizeof(buf);
-  int num_segments =
-    coap_split_path(uri->path.s, uri->path.length, buf, &buf_size);
+  int num_segments;
+
+  if (type == COAP_OPTION_URI_PATH) {
+    num_segments = coap_split_path(uri->path.s, uri->path.length, buf, &buf_size);
+  } else if (type == COAP_OPTION_URI_QUERY) {
+    num_segments = coap_split_query(uri->query.s, uri->query.length, buf, &buf_size);
+  } else { /* not supported */
+    return -1;
+  }
 
   /* TODO: remove options to replace from optlist */
   for (int i = 0; (i < num_segments) && (buf_size > 0); i++) {
     coap_option_t opt;
     size_t len = coap_opt_parse(bufp, buf_size, &opt);
     if (!len) {
-      dcaf_log(DCAF_LOG_WARNING, "invalid URI encountered\n");
+      dcaf_log(DCAF_LOG_WARNING, "invalid URI-%s encountered\n",
+               (type == COAP_OPTION_URI_PATH) ? "Path" : "Query");
       return -1;
     } else {
       coap_insert_optlist(optlist,
-                          coap_new_optlist(COAP_OPTION_URI_PATH,
-                                           opt.length, opt.value));
+                          coap_new_optlist(type, opt.length, opt.value));
       bufp += len;
       buf_size -= len;
     }
@@ -334,7 +341,8 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   }
 
   /* insert URI options for request */
-  set_uri_options(uri, &options);
+  set_uri_options(uri, COAP_OPTION_URI_PATH, &options);
+  set_uri_options(uri, COAP_OPTION_URI_QUERY, &options);
   coap_add_optlist_pdu(pdu, (coap_optlist_t **)&options);
 
   if (data && data_len && !coap_add_data(pdu, data_len, data)) {
