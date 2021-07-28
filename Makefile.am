@@ -73,7 +73,7 @@ libdcaf_include_HEADERS = \
    $(top_srcdir)/include/dcaf/dcaf_transaction.h \
    $(top_srcdir)/include/dcaf/dcaf_address.h \
    $(top_srcdir)/include/dcaf/dcaf_utf8.h \
-   $(top_builddir)/include/dcaf/dcaf.h
+   $(top_builddir)/include/dcaf/libdcaf.h
 
 ## Include autogen.sh in distribution but do not install it.
 dist_noinst_SCRIPTS = autogen.sh
