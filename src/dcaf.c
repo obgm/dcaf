@@ -60,8 +60,7 @@ token_equals(coap_pdu_t *a, coap_pdu_t *b) {
 /* Returns true iff DCAF should be used. */
 static bool
 is_dcaf(int content_format) {
-  return (content_format == -1)
-    || (content_format == DCAF_MEDIATYPE_DCAF_CBOR);
+  return content_format == DCAF_MEDIATYPE_DCAF_CBOR;
 }
 #endif /* DCAF_CLIENT */
 
