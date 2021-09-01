@@ -124,7 +124,7 @@ make_ticket_request(const dcaf_transaction_t *transaction,
   abor_decoder_t *abd, *iss, *snc;
   size_t len;
   uint8_t buf[DCAF_MAX_RESOURCE_LEN+1];
-  size_t length = sizeof(buf);
+  size_t length = sizeof(buf) - 1;
   size_t num_items = 2; /* audience and scope */
   if (!transaction || abor_get_major_type(data) != ABOR_MAP) {
     return 0;
@@ -159,7 +159,9 @@ make_ticket_request(const dcaf_transaction_t *transaction,
   /* scope */
   abor_write_int(abc, DCAF_REQ_SCOPE);
   abor_write_array(abc, 2);
-  /* create scope from initial request data */
+  /* Create scope from initial request data. buf is cleared to ensure
+   * a null-terminated result. */
+  memset(buf, 0, sizeof(buf));
   if (coap_get_resource_uri(transaction->pdu, buf, &length, 0)) {
     assert(buf[length] == 0);
     abor_write_text(abc, (char *)buf, length);
