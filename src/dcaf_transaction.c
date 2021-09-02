@@ -29,7 +29,10 @@ set_uri_options(const coap_uri_t *uri, uint16_t type, dcaf_optlist_t *optlist) {
   if (type == COAP_OPTION_URI_PATH) {
     num_segments = coap_split_path(uri->path.s, uri->path.length, buf, &buf_size);
   } else if (type == COAP_OPTION_URI_QUERY) {
-    num_segments = coap_split_query(uri->query.s, uri->query.length, buf, &buf_size);
+    /* Emit query options only if the URI query is not empty. */
+    if (uri->query.length > 0) {
+      num_segments = coap_split_query(uri->query.s, uri->query.length, buf, &buf_size);
+    }
   } else { /* not supported */
     return -1;
   }
