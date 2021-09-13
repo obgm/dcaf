@@ -24,7 +24,7 @@ set_uri_options(const coap_uri_t *uri, uint16_t type, dcaf_optlist_t *optlist) {
   unsigned char buf[MAX_URI_PATH_SIZE];
   unsigned char *bufp = buf;
   size_t buf_size = sizeof(buf);
-  int num_segments;
+  int num_segments = 0;
 
   if (type == COAP_OPTION_URI_PATH) {
     num_segments = coap_split_path(uri->path.s, uri->path.length, buf, &buf_size);
