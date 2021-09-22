@@ -209,11 +209,12 @@ main(int argc, char **argv) {
   am_config::parser parser;
   std::string config_file{am_config::getDefaultConfigFile()};
   struct sigaction sa;
+  bool need_vhost = true; // enforce at least one valid host certificate
 
   memset(&config, 0, sizeof(config));
   config.host = addr_str.c_str();
 
-  while ((opt = getopt(argc, argv, "a:A:C:g:p:v:l:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:A:C:Hg:p:v:l:")) != -1) {
     switch (opt) {
     case 'A':
       config.host = optarg;
@@ -223,6 +224,9 @@ main(int argc, char **argv) {
       break;
     case 'C' :
       config_file = optarg;
+      break;
+    case 'H' :
+      need_vhost = false;
       break;
     case 'p' :
       coap_port = static_cast<uint16_t>(strtol(optarg, nullptr, 10));
@@ -306,7 +310,7 @@ main(int argc, char **argv) {
       break;
     }
   }
-  if (vhosts == 0) {
+  if (need_vhost && (vhosts == 0)) {
     dcaf_log(DCAF_LOG_ERR, "Need host certificate\n");
     return 1;
   }
