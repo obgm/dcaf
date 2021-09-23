@@ -155,8 +155,9 @@ AM_CONDITIONAL(BUILD_DOCUMENTATION, [test "x$build_docs" != "xno"])
 # __tests__
 AC_ARG_ENABLE([tests],
               [AS_HELP_STRING([--enable-tests],
-                              [Enable building the binary testsuite [default=yes]])],
-              [build_tests="$enableval"])
+                              [Enable building the binary testsuite [default=no]])],
+              [build_tests="$enableval"],
+              [build_tests="no"])
 
 AM_CONDITIONAL(BUILD_TESTS, [test "x$build_tests" != "xno"])
 
