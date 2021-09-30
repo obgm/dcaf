@@ -1,7 +1,7 @@
 dcaf: Authenticated Authorization for the Internet of Things
 
-Copyright (c) 2015—2020 by Olaf Bergmann <bergmann@tzi.org>
-              2015—2020 by Stefanie Gerdes <gerdes@tzi.org>
+Copyright (c) 2015—2021 by Olaf Bergmann <bergmann@tzi.org>
+              2015—2021 by Stefanie Gerdes <gerdes@tzi.org>
 
 ABOUT DCAF
 ==========
@@ -23,11 +23,23 @@ processing power and memory.
 More information on DCAF is available at
 https://dcaf.science
 
-PACKAGE CONTENTS
-================
+PREREQUISITES
+=============
 
-This library contains a protocol parser and basic handling functions
-for integration with libcoap.
+The following packages are required for building libdcaf:
+
+* [libcoap](https://libcoap.net) version 4.2 or above, build with
+  either OpenSSL, Mbed TLS, or tinydtls.
+* [yaml-cpp](https://github.com/jbeder/yaml-cpp)
+* [cn-cbor](https://github.com/jimsch/cn-cbor)
+
+BUILDING
+========
+
+1. First, run `autogen.sh` to create the required autoconf files, then
+2. do `configure`, followed by
+3. `make`
+4. and `make install` if required.
 
 LICENSE INFORMATION
 ===================
@@ -36,3 +48,6 @@ This library is published as open-source software without any warranty
 of any kind. Use is permitted under the terms of the MIT license.
 Please refer to LICENSE for further details.
 
+For unit tests, this software package includes
+[Catch2](https://github.com/catchorg/Catch2) which is distributed
+under the Boost Software License, Version 1.0.
