@@ -11,8 +11,6 @@
 #include "catch.hpp"
 #include "test.hh"
 
-#include "dcaf/dcaf.h"
-
 dcaf_context_t *
 dcaf_context(void) {
   static std::unique_ptr<dcaf_context_t, Deleter> theContext;

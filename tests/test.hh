@@ -20,7 +20,14 @@
 #include "dcaf/cose.h"
 #include "dcaf/cose_int.h"
 
-dcaf_context_t *dcaf_context(void);
+#ifndef COAP_DEFAULT_VERSION
+/* define COAP_DEFAULT_VERSION for backwards compatibility */
+#define COAP_DEFAULT_VERSION (1U)
+#endif /* COAP_DEFAULT_VERSION */
+#ifndef COAP_PAYLOAD_START
+/* define COAP_PAYLOAD_START for backwards compatibility */
+#define COAP_PAYLOAD_START (0xFF)
+#endif /* COAP_PAYLOAD_START */
 
 /* Helper structure to simplify deletion of COSE objects in smart
  * pointers. */
@@ -42,5 +49,7 @@ struct Deleter {
 
 void test_log_off(void);
 void test_log_on(void);
+
+dcaf_context_t *dcaf_context(void);
 
 #endif /* TEST_COSE_HH_ */
