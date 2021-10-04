@@ -88,10 +88,9 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
       dcaf_ticket_request_t *result;
 
       REQUIRE(coap_pdu.get() != nullptr);
-      // FIXME: As of version 4.3, coap_pdu_parse() is in libcoap's internal API 
-      // REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
-      //                        coap_data, sizeof(coap_data),
-      //                        coap_pdu.get()) > 0);
+      REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
+                             coap_data, sizeof(coap_data),
+                             coap_pdu.get()) > 0);
 
       THEN("dcaf_parse_ticket_request() returns DCAF_OK") {
         dcaf_result_t res;
@@ -256,10 +255,9 @@ SCENARIO( "DCAF ticket request", "[ticket]" ) {
     WHEN("The payload is comprised of invalid CBOR") {
       dcaf_ticket_request_t *result;
 
-      // FIXME: As of version 4.3, coap_pdu_parse() is in libcoap's internal API 
-      // REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
-      //                        coap_data, sizeof(coap_data) - 1,
-      //                        coap_pdu.get()) > 0);
+      REQUIRE(coap_pdu_parse(COAP_PROTO_UDP,
+                             coap_data, sizeof(coap_data) - 1,
+                             coap_pdu.get()) > 0);
 
       THEN("the dcaf_parse_ticket_request returns DCAF_OK") {
         dcaf_result_t res;
