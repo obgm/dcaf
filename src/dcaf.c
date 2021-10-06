@@ -770,6 +770,19 @@ dcaf_add_ticket(dcaf_ticket_t *ticket) {
   }
 }
 
+bool
+dcaf_check_ticket(const dcaf_ticket_t *ticket) {
+  if (ticket) {
+    dcaf_ticket_t *elem;
+    LL_FOREACH(dcaf_tickets, elem) {
+      if (elem == ticket) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void
 dcaf_free_ticket(dcaf_ticket_t *ticket) {
   if (ticket) {

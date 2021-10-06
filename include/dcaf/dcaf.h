@@ -283,6 +283,13 @@ dcaf_ticket_t *dcaf_new_ticket(const dcaf_key_type key_type,
 void dcaf_add_ticket(dcaf_ticket_t *ticket);
 
 /**
+ * Checks if @p ticket is still valid.
+ *
+ * @return @c true if the ticket exists and is valid.
+ */
+bool dcaf_check_ticket(const dcaf_ticket_t *ticket);
+
+/**
  * Releases the storage that has been allocated for @p ticket
  * by dcaf_new_ticket().
  *
