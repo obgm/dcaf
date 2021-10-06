@@ -49,12 +49,20 @@ dcaf_result_t dcaf_parse_ticket_request(const coap_session_t *session,
  * @p *response. If the request was denied, an error response will
  * be written.
  *
- * @param session        The session where the ticket was received.
+ * @param session        The session where the ticket request was
+ *                       received.
  * @param ticket_request The parsed ticket request as created by
  *                       dcaf_parse_ticket_request().
  * @param response       The response message to fill.
+ *
+ * @return               Returns a new dcaf_ticket_t object if a
+ *                       ticket was created or @c NULL on error.
+ *                       As tickets may be released automatically
+ *                       when expired, care must be taken to access
+ *                       ticket contents only if dcaf_check_ticket()
+ *                       is successful.
  */
-void dcaf_set_ticket_grant(const coap_session_t *session,
+const dcaf_ticket_t *dcaf_set_ticket_grant(const coap_session_t *session,
                            const dcaf_ticket_request_t *ticket_request,
                            coap_pdu_t *response);
 
@@ -69,6 +77,7 @@ void dcaf_delete_ticket_request(dcaf_ticket_request_t *ticket_request);
 
 bool dcaf_get_audience(const dcaf_ticket_request_t *ticket_request,
                        const char **audience);
+
 
 #ifdef __cplusplus
 }

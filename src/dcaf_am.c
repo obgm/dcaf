@@ -445,7 +445,7 @@ next_ticket_seq(void) {
   return ++last_seq;
 }
 
-void
+const dcaf_ticket_t *
 dcaf_set_ticket_grant(const coap_session_t *session,
                       const dcaf_ticket_request_t *ticket_request,
                       coap_pdu_t *response) {
@@ -471,7 +471,8 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     dcaf_log(DCAF_LOG_CRIT, "cannot create ticket\n");
     coap_set_response_code(response, COAP_RESPONSE_CODE_INTERNAL_ERROR);
     coap_add_data(response, 14, (unsigned char *)"internal error");
-    return;
+    dcaf_free_ticket(ticket);
+    return NULL;
   }
 
   ticket->seq = next_ticket_seq();
@@ -524,14 +525,18 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     coap_add_data(response, length, buf);
     dcaf_log(DCAF_LOG_INFO, "ticket grant is \n");
     dcaf_debug_hexdump(buf, length);
-    return;
+
+    dcaf_add_ticket(ticket);
+    return ticket;
   }
 
  error:
+  dcaf_free_ticket(ticket);
   cn_cbor_free(body);
   dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
   coap_set_response_code(response, COAP_RESPONSE_CODE_CREATED);
   coap_add_data(response, 14, (unsigned char *)"internal error");
+  return NULL;
 }
 
 dcaf_result_t
