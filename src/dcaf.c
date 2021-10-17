@@ -1180,6 +1180,16 @@ dcaf_get_server_psk(coap_bin_const_t *identity,
   assert(dcaf_context);
 
   if (identity) {
+    /* Lookup if identity denotes a stored key. This would be the case
+     * for preset keys for devices in the same security domain. */
+    dcaf_key_t *key =
+      dcaf_find_key(dcaf_context, NULL, identity->s, identity->length);
+    if (key) {
+      COAP_SET_STR(&psk,key->length,key->data);
+      result = &psk;
+      goto finish;
+    }
+
 #if DCAF_UTF8ENCODE_PSKIDENTITY
     size_t identity_buflen = identity->length;
     identity_buf = dcaf_alloc_type_len(DCAF_STRING, identity_buflen);
