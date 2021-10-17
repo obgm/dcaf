@@ -1503,7 +1503,13 @@ dcaf_set_sam_information(const coap_session_t *session,
 
   /* generate sam information message */
   abc = abor_encode_start(buf, sizeof(buf));
-  ok = abc && abor_write_map(abc, 2);
+  /* If validity option 1 is used, no additional nonce must be set in
+   * the AS information. */
+  if (DCAF_SERVER_VALIDITY_OPTION == 1) {
+    ok = abc && abor_write_map(abc, 1);
+  } else {
+    ok = abc && abor_write_map(abc, 2);
+  }
 
   /* Set SAM URI. The URI is stored as zero-terminated string right
    * after the coap_uri_t structure in the am_uri. */
