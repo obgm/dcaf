@@ -16,6 +16,12 @@ bin_PROGRAMS = dcaf-am
 dcaf_am_DEPENDENCIES = $(top_builddir)/libdcaf.a
 
 dcaf_am_includedir = $(top_builddir)/am
-dcaf_am_SOURCES = am.cc config_parser.cc coap_config.cc
-dcaf_am_CXXFLAGS = $(AM_CXXFLAGS)
-dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@ $(yaml_cpp_LIBS)
+dcaf_am_SOURCES = am.cc config_parser.cc coap_config.cc db.cc
+dcaf_am_CXXFLAGS = $(AM_CXXFLAGS) $(sqlite_CFLAGS)
+dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@ $(yaml_cpp_LIBS) $(sqlite_LIBS)
+
+## Additional files for the distribution archive
+EXTRA_DIST = \
+  coap_config.cc   \
+  config_parser.hh \
+  db.hh

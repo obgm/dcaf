@@ -143,6 +143,13 @@ if test "x$build_am" = "xyes"; then
   AC_DEFINE(CONFIG_DCAF_AM, [1], [Define this to 1 to include DCAF authorization manager code])
 fi
 
+# Database support
+
+PKG_CHECK_MODULES([sqlite], [sqlite3],
+                  [AC_DEFINE([HAVE_SQLITE], [1],
+                             [Enable database support using sqlite3])],
+                  [AC_MSG_NOTICE([build AM without database support])])
+
 # __documentation__
 AC_ARG_ENABLE([documentation],
               [AS_HELP_STRING([--enable-documentation],
