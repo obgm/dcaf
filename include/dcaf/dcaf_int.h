@@ -52,22 +52,6 @@ struct dcaf_transaction_t {
   dcaf_state_t state;
 };
 
-struct dcaf_context_t {
-  coap_context_t *coap_context;
-  coap_address_t am_address;
-  coap_uri_t *am_uri;
-  void *app;
-  int flags;
-
-  /** Wait time until a transaction is considered failed. This value
-   * is specified in milliseconds. A value of 0 means no timeout. The
-   * default value is 90000. */
-  unsigned int timeout_ms;
-
-  dcaf_transaction_t *transactions;
-  dcaf_keystore_t *keystore;
-};
-
 #ifdef CONFIG_DCAF_SERVER
 #define DCAF_SERVER CONFIG_DCAF_SERVER
 #endif
@@ -88,6 +72,25 @@ struct dcaf_context_t {
 #ifdef CONFIG_DCAF_AM
 #define DCAF_AM CONFIG_DCAF_AM
 #endif
+
+struct dcaf_context_t {
+  coap_context_t *coap_context;
+  coap_address_t am_address;
+  coap_uri_t *am_uri;
+  void *app;
+  int flags;
+
+  /** Wait time until a transaction is considered failed. This value
+   * is specified in milliseconds. A value of 0 means no timeout. The
+   * default value is 90000. */
+  unsigned int timeout_ms;
+
+  dcaf_transaction_t *transactions;
+  dcaf_keystore_t *keystore;
+
+  /* FIXME: include only if DCAF_AM != 0 */
+  dcaf_get_ticket_cb get_ticket;
+};
 
 /**
  * The validity option supported by the DCAF server. Allowed values

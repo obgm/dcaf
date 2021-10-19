@@ -168,6 +168,18 @@ coap_endpoint_t *dcaf_select_interface(dcaf_context_t *context,
 
 const coap_address_t *dcaf_get_am_address(const dcaf_context_t *context);
 
+struct dcaf_ticket_request_t;
+typedef struct dcaf_ticket_request_t dcaf_ticket_request_t;
+
+struct dcaf_aif_t;
+typedef struct dcaf_aif_t dcaf_aif_t;
+
+typedef int (*dcaf_get_ticket_cb)(const coap_session_t *session,
+                                  const dcaf_ticket_request_t *ticket_request,
+                                  dcaf_aif_t **result);
+
+void dcaf_set_ticket_cb(dcaf_context_t *context, dcaf_get_ticket_cb callback);
+
 /**
  * Checks if the given @p pdu is authorized in the context
  * of @p session. This function returns 1 on successful

@@ -454,12 +454,23 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   size_t length = 0;
   cn_cbor *body, *ticket_face;
   dcaf_ticket_t *ticket;
+  dcaf_aif_t *aif = NULL;
 
   assert(ticket_request);
   assert(response);
 
   ctx = dcaf_get_dcaf_context_from_session(session);
   assert(ctx);
+
+  /* Invoke callback function to evaluate if the caller is allowed to
+   * access the requested resource. If no rules are provided, a 4.03
+   * response is returned.
+   */
+  if (!ctx->get_ticket || !ctx->get_ticket(session, ticket_request, &aif)) {
+    coap_set_response_code(response, COAP_RESPONSE_CODE_FORBIDDEN);
+    coap_add_data(response, 9, (unsigned char *)"Forbidden");
+    return NULL;
+  }
 
   /* Initialize sequence number to 0 and set the real value later to
    * avoid gaps in the sequence number space when ticket creation
@@ -486,9 +497,8 @@ dcaf_set_ticket_grant(const coap_session_t *session,
     /* Cast needed to get rid of the const qualifier. */
     ((dcaf_ticket_request_t *)ticket_request)->aif = NULL;
   } else {
-    /* FIXME: set actual permissions. */
-    dcaf_log(DCAF_LOG_WARNING,
-             "set_ticket_grant: AIF not set (not implemented)\n");
+    ticket->aif = aif;
+    aif = NULL;
   }
 
   /* generate ticket grant depending on media type */
@@ -531,10 +541,11 @@ dcaf_set_ticket_grant(const coap_session_t *session,
   }
 
  error:
+  dcaf_delete_aif(aif);
   dcaf_free_ticket(ticket);
   cn_cbor_free(body);
   dcaf_log(DCAF_LOG_CRIT, "cannot create ticket grant\n");
-  coap_set_response_code(response, COAP_RESPONSE_CODE_CREATED);
+  coap_set_response_code(response, COAP_RESPONSE_CODE_INTERNAL_ERROR);
   coap_add_data(response, 14, (unsigned char *)"internal error");
   return NULL;
 }

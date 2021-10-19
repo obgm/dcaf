@@ -22,10 +22,10 @@ typedef struct dcaf_aif_permission_t {
 } dcaf_aif_permission_t;
 
 /** A list of DCAF resources */
-typedef struct dcaf_aif_t {
+struct dcaf_aif_t {
   struct dcaf_aif_t *next;
   dcaf_aif_permission_t perm;
-} dcaf_aif_t;
+};
 
 /**
  * Parses @p cbor string into the AIF format and returns a newly

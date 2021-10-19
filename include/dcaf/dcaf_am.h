@@ -17,8 +17,7 @@ extern "C" {
 #endif
 #endif
 
-struct dcaf_ticket_request_t;
-typedef struct dcaf_ticket_request_t dcaf_ticket_request_t;
+#include "dcaf/dcaf.h"
 
 /**
  * Parses the @p request as ticket request message into @p result.

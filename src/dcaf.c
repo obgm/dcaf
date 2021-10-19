@@ -1393,6 +1393,12 @@ dcaf_get_am_address(const dcaf_context_t *context) {
   return (context->am_uri != NULL) ? &context->am_address : NULL;
 }
 
+void
+dcaf_set_ticket_cb(dcaf_context_t *context, dcaf_get_ticket_cb callback) {
+  assert(context);
+  context->get_ticket = callback;
+}
+
 coap_context_t *
 dcaf_get_coap_context(dcaf_context_t *context) {
   return context->coap_context;
