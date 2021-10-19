@@ -10,8 +10,11 @@
 #ifndef _DB_HH
 #define _DB_HH 1
 
+#include <algorithm>
 #include <string>
 #include <map>
+
+#include "rule.hh"
 
 namespace am {
 
@@ -28,6 +31,49 @@ public:
   
   operator bool(void) const;
   const char *errmsg(void) const;
+
+  /**
+   * Adds the combination of @p key and @p group to the internal
+   * storage.
+   *
+   * @param key   The dcaf_key_t to store.
+   * @param group The group to which @p key is associated.
+   * @return      @c true if (key, group) was successfully
+   *              stored.
+   *
+   * TODO: hide dcaf_key_t implementation
+   */
+  bool addToGroup(const dcaf_key_t &key, const Group &group);
+
+  /**
+   * Retrieves all groups for the given @p key and adds them to
+   * the output iterator @p out.
+   */
+  template <class OutputIterator>
+  void findGroups(const dcaf_key_t &key, OutputIterator out) const {
+    std::transform(groups.lower_bound(key), groups.upper_bound(key),
+                   out, std::get<1>);
+  }
+
+  /**
+   * Adds the given @p aud and @p rule to the rule storage.
+   *
+   * @param aud   The audience associated with the @p rule.
+   * @param rule  The rule associated with @p aud.
+   * @return      @c true if (aud, rule) was successfully
+   *              stored.
+   */
+  bool addToRules(const Audience &aud, const Rule &rule);
+
+  /**
+   * Retrieves all rules for the given @p aud and adds them to
+   * the output iterator @p out.
+   */
+  template <class OutIter>
+  void findRules(const Audience &aud, OutIter out) const {
+    std::transform(rules.lower_bound(aud), rules.upper_bound(aud),
+                   out, std::get<1>);
+  }
 
   class Keys {
     Database &db;
@@ -61,6 +107,9 @@ private:
                          const std::string &values);
   bool select_from_table(const std::string &table, const std::string &fields,
                          const std::string &where);
+
+  Groups groups;
+  Rules rules;
 };
 
 } /* namespace am */

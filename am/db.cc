@@ -82,6 +82,16 @@ static constexpr bool sqlite3 =
   false;
 #endif /* HAVE_SQLITE */
 
+bool Database::addToGroup(const dcaf_key_t &key, const Group &group) {
+  groups.insert(std::make_pair(key,group));
+  return true;
+}
+
+bool Database::addToRules(const Audience &aud, const Rule &rule) {
+  rules.insert(std::make_pair(aud,rule));
+  return true;
+}
+
 const map<string, string> Database::fields{
   pair{ Database::Keys::table, Database::Keys::field_def }
 };
