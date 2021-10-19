@@ -24,4 +24,5 @@ dcaf_am_LDADD = -ldcaf @libcoap_LIBS@ @cn_cbor_LIBS@ $(yaml_cpp_LIBS) $(sqlite_L
 EXTRA_DIST = \
   coap_config.cc   \
   config_parser.hh \
-  db.hh
+  db.hh \
+  rule.hh
