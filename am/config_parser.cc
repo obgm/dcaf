@@ -193,10 +193,11 @@ void parser::readRules(void) {
     if (rules.IsSequence()) {
       for (const auto &rule : rules) {
         if (rule.IsMap()) {
+          auto aud = rule["device"];
           auto uri = rule["resource"];
           auto methods = rule["methods"];
           auto allow = rule["allow"];
-          if (uri.IsDefined() && methods.IsDefined() && allow.IsDefined()) {
+          if (aud.IsDefined() && uri.IsDefined() && methods.IsDefined() && allow.IsDefined()) {
             Rule r{uri.as<std::string>()};
             uint32_t mtd = Rule::Method::GET;
 
@@ -210,7 +211,15 @@ void parser::readRules(void) {
             }
             if (mtd) {
               r.methods = mtd;
-              rulebase.insert({ r.resource, r });
+            }
+
+            if (allow.IsDefined()) {
+              if (allow.IsScalar()) {
+                r.allowed.insert(allow.as<std::string>());
+                rulebase.insert({ aud.as<std::string>(), r });
+              } else if (allow.IsSequence()) {
+                // TODO: iterate through sequence and add copies of r into rulebase
+              }
             }
           }
         }
