@@ -11,6 +11,7 @@
  */
 
 #include <algorithm>
+#include <iterator>
 #include <random>
 #include <string>
 #include <type_traits>
@@ -31,6 +32,7 @@
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_am.h"
 #include "config_parser.hh"
+#include "db.hh"
 #include "coap_config.hh"
 
 #define COAP_RESOURCE_CHECK_TIME 2
@@ -65,6 +67,42 @@ static void
 handle_sigint(int signum) {
   (void)signum;
   quit = true;
+}
+
+using namespace am;
+
+static int
+getTicket(const coap_session_t *session,
+          const dcaf_ticket_request_t *ticket_request,
+          dcaf_aif_t **result) {
+  dcaf_context_t *dcaf_context = dcaf_get_dcaf_context_from_session(session);
+  const coap_bin_const_t *key = coap_session_get_psk_identity(session);
+  assert(dcaf_context);
+
+  if (!key || !dcaf_context) {
+    return 0;
+  }
+  dcaf_log(DCAF_LOG_DEBUG, "lookup rules for %.*s\n", (int)key->length, key->s);
+
+  Database *db = (Database *)dcaf_get_app_data(dcaf_context);
+  if (!db) {
+    dcaf_log(DCAF_LOG_WARNING, "no rule database available, deny request\n");
+    return 0;
+  }
+
+  std::vector<Rule> rules;
+  db->findRules(ticket_request->aud, std::back_inserter(rules));
+
+  dcaf_log(DCAF_LOG_DEBUG, "found %zu rules\n", rules.size());
+
+  for (const auto &rule: rules) {
+    dcaf_log(DCAF_LOG_DEBUG, "allow %u on %s for %s\n",
+             rule.permissions, rule.resource.c_str(), rule.group.c_str());
+  }
+
+  (void)result;
+
+  return 1;
 }
 
 /* TODO: store issued tickets until they become invalid */
@@ -317,6 +355,17 @@ main(int argc, char **argv) {
   }
 
   init_resources(ctx);
+
+  /* Initialize rule database. */
+  Database db{"test", true};
+  for (const auto &p : parser.rulebase) {
+    for (const auto &g : p.second.allowed) {
+      db.addToRules(std::string{p.first}, am::Rule{p.second.resource, g, p.second.methods});
+    }
+  }
+
+  dcaf_set_ticket_cb(dcaf, getTicket);
+  dcaf_set_app_data(dcaf, &db);
 
   memset (&sa, 0, sizeof(sa));
   sigemptyset(&sa.sa_mask);
