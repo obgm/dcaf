@@ -52,7 +52,7 @@ public:
   template <class OutputIterator>
   void findGroups(const dcaf_key_t &key, OutputIterator out) const {
     std::transform(groups.lower_bound(key), groups.upper_bound(key),
-                   out, std::get<1>);
+                   out, [](const auto &p) { return p.second; });
   }
 
   /**
@@ -72,7 +72,7 @@ public:
   template <class OutIter>
   void findRules(const Audience &aud, OutIter out) const {
     std::transform(rules.lower_bound(aud), rules.upper_bound(aud),
-                   out, std::get<1>);
+                   out, [](const auto &p) { return p.second; });
   }
 
   class Keys {
