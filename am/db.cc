@@ -127,7 +127,12 @@ Database::~Database(void) {
 }
 
 bool Database::create_table(const string &table) {
-  if (sqlite3 && !mem) {
+  if (mem) {
+    /* TODO: create table for in-memory-layout */
+    (void)table;
+  }
+#ifdef HAVE_SQLITE
+  else {
     string sql{"create table if not exists " + table + " (" + fields.find(table)->second + ")"};
     int code;
     sqlite3_stmt *stmt;
@@ -142,16 +147,22 @@ bool Database::create_table(const string &table) {
     }
     sqlite3_finalize(stmt);
     return (status = code) == SQLITE_OK;
-  } else {
-    /* TODO: create table for in-memory-layout */
-    return false;
   }
+#endif /* HAVE_SQLITE */
+  return false;
 }
 
 bool Database::insert_into_table(const string &table,
                                  const string &flds,
                                  const string &values) {
-  if (sqlite3 && !mem) {
+  if (mem) {
+    /* TODO: create table for in-memory-layout */
+    (void)table;
+    (void)flds;
+    (void)values;
+  }
+#ifdef HAVE_SQLITE
+  else {
     string sql{"insert into " + table + " (" + flds +") values (" + values +");"};
     int code;
     sqlite3_stmt *stmt;
@@ -168,15 +179,21 @@ bool Database::insert_into_table(const string &table,
     }
     sqlite3_finalize(stmt);
     return (status = code) == SQLITE_OK;
-  } else {
-    /* TODO: create table for in-memory-layout */
-    return false;
   }
+#endif /* HAVE_SQLITE */
+  return false;
 }
 
 bool Database::select_from_table(const string &table, const string &flds,
                                  const string &where) {
-  if (sqlite3 && !mem) {
+  if (mem) {
+    /* TODO: create table for in-memory-layout */
+    (void)table;
+    (void)flds;
+    (void)where;
+  }
+#ifdef HAVE_SQLITE
+  else {
     string sql{"select " + flds + " from " + table + " " + where + ";"};
     int code;
     sqlite3_stmt *stmt;
@@ -200,22 +217,26 @@ bool Database::select_from_table(const string &table, const string &flds,
     }
     sqlite3_finalize(stmt);
     return (status = code) == SQLITE_OK;
-  } else {
-    // TODO: in-memory
   }
+#endif /* HAVE_SQLITE */
   return false;
 }
 
 bool Database::open(const string &dbname, const string &vfs) {
-  if (sqlite3 && !mem) {
+  if (mem) {
+    /* TODO: create table for in-memory-layout */
+    (void)dbname;
+    (void)vfs;
+  }
+#ifdef HAVE_SQLITE
+  else {
     db = new SQLite{dbname, vfs};
     if (db) {
       /* check for our tables */
       return create_table(Keys::table) && keys.add("dcaf", 1, "secretPSK", 1233456);
     }
-  } else {
-    /* TODO: in-memory */
   }
+#endif /* HAVE_SQLITE */
   return false;
 }
 
