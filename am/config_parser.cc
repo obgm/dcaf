@@ -216,11 +216,15 @@ void parser::readRules(void) {
             if (allow.IsDefined()) {
               if (allow.IsScalar()) {
                 r.allowed.insert(allow.as<std::string>());
-                rulebase.insert({ aud.as<std::string>(), r });
               } else if (allow.IsSequence()) {
-                // TODO: iterate through sequence and add copies of r into rulebase
+                for (const auto &a : allow) {
+                  if (a.IsScalar()) {
+                    r.allowed.insert(a.as<std::string>());
+                  }
+                }
               }
             }
+            rulebase.insert({ aud.as<std::string>(), r });
           }
         }
       }
