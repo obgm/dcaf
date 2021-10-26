@@ -15,30 +15,15 @@
 
 #include <cstring>
 
-#include "dcaf/dcaf_int.h"
-
-template <>
-struct std::less <dcaf_key_t> {
-  constexpr bool ls(const uint8_t *as, size_t alen,
-                    const uint8_t *bs, size_t blen) const {
-    return (alen < blen) || (alen == blen && memcmp(as, bs, alen) < 0);
-  }
-  constexpr bool operator()(const dcaf_key_t& lhs,
-                            const dcaf_key_t& rhs) const {
-    return (lhs.type < rhs.type) || (lhs.type == rhs.type &&
-                                     ls(lhs.kid, rhs.kid_length,
-                                        lhs.kid, rhs.kid_length));
-  }
-};
-
 namespace am {
 
 /*
  * Subjects are identified by keys. Each subject
  * is in zero or more groups.
  */
+using KeyId = std::string;
 using Group = std::string;
-using Groups = std::multimap<dcaf_key_t, Group>;
+using Groups = std::multimap<KeyId, Group>;
 
 /* A resource is identified by a relative path. */
 using Resource = std::string;

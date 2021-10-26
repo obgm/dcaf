@@ -43,15 +43,15 @@ public:
    *
    * TODO: hide dcaf_key_t implementation
    */
-  bool addToGroup(const dcaf_key_t &key, const Group &group);
+  bool addToGroup(const KeyId &kid, const Group &group);
 
   /**
    * Retrieves all groups for the given @p key and adds them to
    * the output iterator @p out.
    */
   template <class OutputIterator>
-  void findGroups(const dcaf_key_t &key, OutputIterator out) const {
-    std::transform(groups.lower_bound(key), groups.upper_bound(key),
+  void findGroups(const KeyId &kid, OutputIterator out) const {
+    std::transform(groups.lower_bound(kid), groups.upper_bound(kid),
                    out, [](const auto &p) { return p.second; });
   }
 

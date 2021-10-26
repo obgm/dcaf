@@ -19,6 +19,7 @@
 #include <sqlite3.h>
 #endif /* HAVE_SQLITE */
 
+#include "dcaf/dcaf.h"
 #include "db.hh"
 
 struct sqlite3;
@@ -82,12 +83,17 @@ static constexpr bool sqlite3 =
   false;
 #endif /* HAVE_SQLITE */
 
-bool Database::addToGroup(const dcaf_key_t &key, const Group &group) {
-  groups.insert(std::make_pair(key,group));
+bool Database::addToGroup(const KeyId &kid, const Group &group) {
+  dcaf_log(DCAF_LOG_DEBUG, "add %s to group %s\n", kid.c_str(), group.c_str());
+
+  groups.insert(std::make_pair(kid,group));
   return true;
 }
 
 bool Database::addToRules(const Audience &aud, const Rule &rule) {
+  dcaf_log(DCAF_LOG_DEBUG, "add rule for %s: allow %u on %s for %s\n",
+           aud.c_str(), rule.permissions, rule.resource.c_str(), rule.group.c_str());
+
   rules.insert(std::make_pair(aud,rule));
   return true;
 }
