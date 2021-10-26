@@ -6,7 +6,7 @@
 # COPYING for terms of use.
 
 # picking up the default warning CFLAGS into AM_CFLAGS
-AM_CXXFLAGS = -std=c++17
+AM_CXXFLAGS = -std=c++20
 AM_CPPFLAGS = -I @top_builddir@/include $(yaml_cpp_CFLAGS) $(WARNING_CXXFLAGS) @libcoap_CFLAGS@
 
 AM_LDFLAGS = -L@top_builddir@
