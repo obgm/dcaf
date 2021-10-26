@@ -146,10 +146,10 @@ parser::readEndpoints(void) {
 
 void
 parser::readGroups(void) {
-  if (auto groups= (*config_root)["groups"]) {
+  if (auto conf_groups = (*config_root)["groups"]) {
 
-    if (groups.IsSequence()) {
-      for (const auto &group : groups) {
+    if (conf_groups.IsSequence()) {
+      for (const auto &group : conf_groups) {
         if (group.IsMap()) {
           auto name = group["name"];
           auto members = group["members"];
@@ -161,8 +161,13 @@ parser::readGroups(void) {
               if (member.IsScalar()) {
                 // TODO: check if tagged with "!cert"
                 std::cout << "Member: " << member.as<std::string>() << std::endl;
+                groups[name.as<std::string>()].insert(member.as<std::string>());
               } else if (member.IsMap()) {
-                // TODO: get name, key
+                auto mem_name = member["name"];
+                if (mem_name.IsDefined() && mem_name.IsScalar()) {
+                  std::cout << "Member: " << mem_name.as<std::string>() << std::endl;
+                  groups[name.as<std::string>()].insert(mem_name.as<std::string>());
+                }
               }
             }
           }
@@ -215,11 +220,23 @@ void parser::readRules(void) {
 
             if (allow.IsDefined()) {
               if (allow.IsScalar()) {
-                r.allowed.insert(allow.as<std::string>());
+                const std::string &entry = allow.as<std::string>();
+                // Add entry if not already present
+                // (TODO: do we want to remove the existing value and add
+                // the new entry instead?)
+                if (find(r.allowed.cbegin(), r.allowed.cend(), entry) == r.allowed.cend()) {
+                  r.allowed.push_back(entry);
+                }
               } else if (allow.IsSequence()) {
                 for (const auto &a : allow) {
                   if (a.IsScalar()) {
-                    r.allowed.insert(a.as<std::string>());
+                    const std::string &entry = a.as<std::string>();
+                    // Add entry if not already present
+                    // (TODO: do we want to remove the existing value and add
+                    // the new entry instead?)
+                    if (find(r.allowed.cbegin(), r.allowed.cend(), entry) == r.allowed.cend()) {
+                      r.allowed.push_back(entry);
+                    }
                   }
                 }
               }

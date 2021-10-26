@@ -14,14 +14,14 @@ namespace am_config {
 
 std::string getDefaultConfigFile(void);
 
-using Groups = std::set<std::string>;
+using Allowed = std::vector<std::string>;
 
 struct Rule {
   enum Method : uint8_t { GET=0x01, POST=0x02, PUT=0x04, DELETE=0x08, FETCH=0x10, PATCH=0x20, IPATCH=0x40 };
   
   std::string resource;
   uint32_t methods;
-  Groups allowed;
+  Allowed allowed;
 
   Rule(const std::string &r, uint32_t m = Method::GET) : resource(r), methods(m) {}
   ~Rule(void);
@@ -43,7 +43,8 @@ public:
   using HostConfig = std::map<std::string, std::string>;
   using Hosts = std::map<std::string, HostConfig>;
   using Endpoints = std::vector<Endpoint>;
-
+  using Groups = std::map<std::string, std::set<std::string>>;
+  
   ~parser(void);
 
   bool parse(std::istream& input);
@@ -54,6 +55,7 @@ public:
   Hosts hosts;
   Rules rulebase;
   Endpoints endpoints;
+  Groups groups;
 protected:
   std::unique_ptr<YAML::Node> config_root;
 
