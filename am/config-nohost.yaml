@@ -1,0 +1,31 @@
+---
+endpoints:
+  - interface: "::1"
+
+keystore:
+  - name: "node1"
+    psk: "secretPSK"
+  - name: "node2"
+    psk: "foo"
+    rpk: 0x1234556
+  - &dcaf-temp
+    name: "coaps://dcaf-temp"
+    psk: "geheim"
+
+groups:
+  - name: "registered"
+    members:
+      - *dcaf-temp
+      - node1
+
+rules:
+  - device: "am"
+    resource: "/authorize"
+    methods: [GET, POST]
+    allow: "*"
+  - device: "coaps://dcaf-temp"
+    resource: "/restricted"
+    methods: [GET]
+    allow:
+      - registered
+      - "other group"
