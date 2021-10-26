@@ -11,6 +11,7 @@
  */
 
 #include <algorithm>
+#include <functional>
 #include <iterator>
 #include <random>
 #include <string>
@@ -20,6 +21,8 @@
 #include <iostream>
 #include <iomanip>
 #include <memory>
+#include <set>
+#include <vector>
 
 #include <cstring>
 #include <cstdlib>
@@ -31,6 +34,7 @@
 
 #include "dcaf/dcaf.h"
 #include "dcaf/dcaf_am.h"
+#include "dcaf/dcaf_int.h"
 #include "config_parser.hh"
 #include "db.hh"
 #include "coap_config.hh"
@@ -76,13 +80,23 @@ getTicket(const coap_session_t *session,
           const dcaf_ticket_request_t *ticket_request,
           dcaf_aif_t **result) {
   dcaf_context_t *dcaf_context = dcaf_get_dcaf_context_from_session(session);
-  const coap_bin_const_t *key = coap_session_get_psk_identity(session);
+  const coap_bin_const_t *psk_identity = coap_session_get_psk_identity(session);
+  const dcaf_key_t *key;
   assert(dcaf_context);
 
-  if (!key || !dcaf_context) {
+  if (!psk_identity || !dcaf_context) {
     return 0;
   }
-  dcaf_log(DCAF_LOG_DEBUG, "lookup rules for %.*s\n", (int)key->length, key->s);
+  key = dcaf_find_key(dcaf_context, nullptr,
+                      psk_identity->s, psk_identity->length);
+  if (!key) {
+    dcaf_log(DCAF_LOG_DEBUG, "cannot find key for %.*s\n",
+             (int)psk_identity->length, psk_identity->s);
+    return 0;
+  }
+
+  dcaf_log(DCAF_LOG_DEBUG, "lookup rules for %.*s\n",
+           (int)psk_identity->length, psk_identity->s);
 
   Database *db = (Database *)dcaf_get_app_data(dcaf_context);
   if (!db) {
@@ -91,10 +105,34 @@ getTicket(const coap_session_t *session,
   }
 
   std::vector<Rule> rules;
+  std::set<Group> groups;
+  std::string kid{std::string{(const char *)key->kid, key->kid_length}};
+  db->findGroups(kid, std::inserter(groups, groups.end()));
   db->findRules(ticket_request->aud, std::back_inserter(rules));
+
+  if (groups.empty()) {
+    dcaf_log(DCAF_LOG_DEBUG, "no known groups for this identity\n");
+  } else {
+    for (const auto &group: groups) {
+      dcaf_log(DCAF_LOG_DEBUG, "known group for this identity %s\n",
+               group.c_str());
+    }
+  }
+
+  std::erase_if(rules,
+                [&groups](auto const &r) {
+                  bool res = !(r.group == "*" || groups.contains(r.group));
+                  if (res) {
+                    dcaf_log(DCAF_LOG_DEBUG, "remove rule for %s\n",
+                             r.group.c_str());
+                  }
+                  return res;
+  });
 
   dcaf_log(DCAF_LOG_DEBUG, "found %zu rules\n", rules.size());
 
+  // TODO: override "*" with more specific entries (i.e., narrow down
+  // or widen permissions for specific groups)
   for (const auto &rule: rules) {
     dcaf_log(DCAF_LOG_DEBUG, "allow %u on %s for %s\n",
              rule.permissions, rule.resource.c_str(), rule.group.c_str());
@@ -363,6 +401,12 @@ main(int argc, char **argv) {
       db.addToRules(std::string{p.first}, am::Rule{p.second.resource, g, p.second.methods});
     }
   }
+  /* copy group set into data base */
+  std::for_each(parser.groups.begin(), parser.groups.end(),
+                [&db](const auto &p) {
+                  std::for_each(p.second.begin(), p.second.end(),
+                                std::bind(&Database::addToGroup, &db, std::placeholders::_1, p.first));
+                });
 
   dcaf_set_ticket_cb(dcaf, getTicket);
   dcaf_set_app_data(dcaf, &db);
