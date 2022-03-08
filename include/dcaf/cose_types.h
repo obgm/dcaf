@@ -1,7 +1,7 @@
 /*
  * cose_types.h -- definitions from COSE (RFC 8152)
  *
- * Copyright (C) 2017-2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2017-2022 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -37,7 +37,7 @@ typedef enum {
   COSE_KEY_KTY_SYMMETRIC = 4,
 } cose_key_type_value;
 
-/* see https://tools.ietf.org/html/draft-ietf-ace-cwt-proof-of-possession */
+/* see RFC 8747 */
 #define CWT_COSE_KEY              1
 #define CWT_ENCRYPTED_COSE_KEY    2
 #define CWT_KID                   3
