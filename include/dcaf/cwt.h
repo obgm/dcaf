@@ -26,8 +26,8 @@ enum cwt_claim {
   CWT_CLAIM_IAT = 6,
   CWT_CLAIM_CTI = 7,
   CWT_CLAIM_CNF = 8,
-  /* additional claim keys from draft-ietf-ace-oauth-authz-33: */
-  CWT_CLAIM_SCOPE  = 9,
+  /* additional claim keys from RFC 9200: */
+  CWT_CLAIM_SCOPE       = 9,
   CWT_CLAIM_ACE_PROFILE = 38,
   CWT_CLAIM_CNONCE      = 39,
   CWT_CLAIM_EXI         = 40,

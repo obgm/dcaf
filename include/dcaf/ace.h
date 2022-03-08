@@ -10,7 +10,7 @@
 #ifndef _ACE_H_
 #define _ACE_H_ 1
 
-/** OAuth grant types as defined in draft-ietf-ace-oauth-authz */
+/** OAuth grant types as defined in RFC 9200 */
 enum ace_grant_type {
   ACE_GRANT_PASSWORD = 0,
   ACE_GRANT_AUTHORIZATION_CODE = 1,
@@ -20,8 +20,8 @@ enum ace_grant_type {
 
 /** Values for the profile parameter */
 enum ace_profile {
-  ACE_PROFILE_DTLS = 1,         /* draft-ietf-ace-dtls-authorize */
-  ACE_PROFILE_OSCORE = 2        /* draft-ietf-ace-oscore-profile */
+  ACE_PROFILE_DTLS = 1,         /* RFC 9202 */
+  ACE_PROFILE_OSCORE = 2        /* RFC 9203 */
 };
 
 #ifdef CONFIG_ACE_REQUEST_PROFILE
@@ -30,14 +30,15 @@ enum ace_profile {
 #define ACE_REQUEST_PROFILE 0
 #endif /* !CONFIG_ACE_REQUEST_PROFILE */
 
-/* CBOR mappings for token request and response fields according to
- * draft-ietf-ace-oauth-authz-33, draft-ietf-ace-oauth-params-13
+/**
+ * CBOR mappings for token request and response fields according to
+ * RFCs 9200 and 9201
  */
-
 enum ace_msg {
   ACE_MSG_ACCESS_TOKEN      = 1,
   ACE_MSG_EXPIRES_IN        = 2,
-  ACE_MSG_AUDIENCE          = 3,
+  ACE_MSG_REQ_CNF           = 4,
+  ACE_MSG_AUDIENCE          = 5,
   ACE_MSG_CNF               = 8,
   ACE_MSG_SCOPE             = 9,
   ACE_MSG_CLIENT_ID         = 24,
@@ -59,8 +60,9 @@ enum ace_msg {
   ACE_MSG_RS_CNF            = 41,
 };
 
-/* CBOR values for ACE AS Request Creation Hints according to
- * draft-ietf-ace-oauth-authz-33:
+/**
+ * CBOR values for ACE AS Request Creation Hints according to
+ * RFC 9200
  */
 enum ace_req_creation_hints {
   ACE_REQ_HINT_AS     = 1,
@@ -70,7 +72,7 @@ enum ace_req_creation_hints {
   ACE_REQ_HINT_CNONCE = 39
 };
 
-/** Error codes from ACE framework */
+/** Error codes from ACE framework (RFC 9200) */
 enum ace_error_code {
   ACE_ERROR_INVALID_REQUEST        = 1,
   ACE_ERROR_INVALID_CLIENT         = 2,
