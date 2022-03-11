@@ -41,3 +41,7 @@ am/dcaf-am
 **/am.config*
 examples/dcaf-client
 examples/s
+
+# do not include local customizations
+.dir-locals.el
+.envrc
