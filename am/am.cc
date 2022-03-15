@@ -1,8 +1,8 @@
 /*
  * am.cc -- DCAF authorization manager
  *
- * Copyright (C) 2015-2021 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2021 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2022 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2022 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -50,6 +50,7 @@ usage( const char *program, const char *version) {
            "\t-A address\tinterface address to bind to\n"
            "\t-a URI\t\tauthorization manager (AM) URI (the \"token endpoint\")\n"
            "\t-C file\t\tload configuration file\n"
+           "\t-H \tstart without host certificate (use for testing only)\n"
            "\t-p port\t\tlisten on specified port\n"
            "\t-v num\t\tverbosity level (default: 3)\n",
     program, version, program );
