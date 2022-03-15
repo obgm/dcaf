@@ -42,6 +42,7 @@ struct dcaf_transaction_t {
   dcaf_host_t aud;              /* contents of the audience parameter */
   coap_endpoint_t *local_interface;
   coap_address_t remote;
+  coap_proto_t proto;           /**< transport used for initial request */
   coap_block_t block;
   dcaf_response_handler_t response_handler;
   dcaf_error_handler_t error_handler;

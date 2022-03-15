@@ -366,6 +366,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
   if (dcaf_check_transaction(dcaf_context, t->state.future)) {
     coap_address_t remote;
+    coap_proto_t proto;
     /* The future transaction can be completed with the access
      * ticket we have received. We need to create a coaps session
      * with the ticket face as identity and the contained key
@@ -376,6 +377,13 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
       dcaf_set_coap_address((const unsigned char *)"192.168.0.30", 12, 5684, &remote);
     } else {
       coap_address_copy(&remote, &t->state.future->remote);
+    }
+    /* Set transport protocol */
+    proto = t->state.future->proto;
+    if ((proto & 1) == 1) {
+      /* Ensure that a secure protocol is used. For coap_proto_t, the
+       * even values greater than 0 are secure. */
+      proto += 1;
     }
     /* FIXME: encapsulate in dcaf_send...something() */
 #if LIBCOAP_VERSION >= 4003000U
@@ -432,7 +440,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
     identity[identity_len] = '\000';
     session = coap_new_client_session_psk(ctx, NULL,
                                           &remote,
-                                          COAP_PROTO_DTLS,
+                                          proto,
                                           (const char *)identity,
                                           cinfo->key->data,
                                           cinfo->key->length);
@@ -445,7 +453,7 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
     session = coap_new_client_session_psk2(ctx, NULL,
                                            &remote,
-                                           COAP_PROTO_DTLS,
+                                           proto,
                                            &setup_data);
 #endif /* LIBCOAP_VERSION >= 4003000 */
     assert(DCAF_UTF8ENCODE_PSKIDENTITY || identity == NULL);
@@ -1300,6 +1308,15 @@ dcaf_new_context(const dcaf_config_t *config) {
           dcaf_log(DCAF_LOG_INFO, "listen on address %s (UDP)\n", buf);
         }
       }
+
+      if (coap_tcp_is_supported() &&
+          set_endpoint(dcaf_context, &addr, COAP_PROTO_TCP)) {
+        unsigned char buf[INET6_ADDRSTRLEN + 8];
+
+        if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
+          dcaf_log(DCAF_LOG_INFO, "listen on address %s (TCP)\n", buf);
+        }
+      }
     }
 
     /* Bind address for secure communication if coaps_port was
@@ -1308,11 +1325,21 @@ dcaf_new_context(const dcaf_config_t *config) {
         (dcaf_set_coap_address((const unsigned char *)addr_str,
                                strlen(addr_str),
                                config->coaps_port, &addr) == DCAF_OK)) {
-      if (set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
+      if (coap_dtls_is_supported() &&
+          set_endpoint(dcaf_context, &addr, COAP_PROTO_DTLS)) {
         unsigned char buf[INET6_ADDRSTRLEN + 8];
 
         if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
           dcaf_log(DCAF_LOG_INFO, "listen on address %s (DTLS)\n", buf);
+        }
+      }
+
+      if (coap_tls_is_supported() &&
+          set_endpoint(dcaf_context, &addr, COAP_PROTO_TLS)) {
+        unsigned char buf[INET6_ADDRSTRLEN + 8];
+
+        if (coap_print_addr(&addr, buf, INET6_ADDRSTRLEN + 8)) {
+          dcaf_log(DCAF_LOG_INFO, "listen on address %s (TLS)\n", buf);
         }
       }
     }
