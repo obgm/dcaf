@@ -268,6 +268,36 @@ dcaf_loop_io(dcaf_context_t *dcaf_context, dcaf_transaction_t *transaction) {
   }
 }
 
+/** Maps coap_uri_scheme_t to coap_proto_t */
+static coap_proto_t
+get_proto_from_scheme(const coap_uri_t *uri) {
+  coap_proto_t proto = COAP_PROTO_NONE;
+  if (!uri) {
+    return proto;
+  }
+
+  switch (uri->scheme & ~COAP_URI_SCHEME_SECURE_MASK) {
+  case COAP_URI_SCHEME_COAP:
+    proto = COAP_PROTO_UDP;
+    break;
+  case COAP_URI_SCHEME_COAP_TCP:
+    proto = COAP_PROTO_TCP;
+    break;
+  case COAP_URI_SCHEME_HTTP:
+    proto = COAP_PROTO_TCP;
+    break;
+  default: /* map unknown schemes to UDP */
+    proto = COAP_PROTO_UDP;
+  }
+
+  /* set secure bit in proto if scheme denotes secure transport */
+  if (uri->scheme & COAP_URI_SCHEME_SECURE_MASK) {
+    proto += 1;
+  }
+
+  return proto;
+}
+
 dcaf_transaction_t *
 dcaf_send_request_uri(dcaf_context_t *dcaf_context,
                       int code,
@@ -284,6 +314,8 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
   coap_session_t *session;
   uint8_t token[DCAF_DEFAULT_TOKEN_SIZE];
   dcaf_transaction_t *t = NULL;
+  coap_proto_t proto;
+
 
   assert(dcaf_context);
   assert(uri);
@@ -299,6 +331,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
              (int)uri->host.length, uri->host.s);
     return NULL;
   }
+  proto = get_proto_from_scheme(uri);
 
   /* check if we have an ongoing session with this peer */
   if (!(session = coap_session_get_by_peer(ctx, &dst, 0 /* ifindex */))) {
@@ -319,10 +352,10 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
       identity[k->kid_length] = '\0';
 
       session = coap_new_client_session_psk(ctx, NULL, &dst,
-                                            COAP_PROTO_DTLS,
+                                            proto,
                                             identity, k->data, k->length);
     } else { /* URI scheme for non-secure traffic */
-      session = coap_new_client_session(ctx, NULL, &dst, COAP_PROTO_UDP);
+      session = coap_new_client_session(ctx, NULL, &dst, proto);
     }
   }
   if (!session) {
@@ -381,6 +414,7 @@ dcaf_send_request_uri(dcaf_context_t *dcaf_context,
     uint16_t port = dcaf_get_coap_port(&t->remote);
     dcaf_set_coap_port(&t->remote, port ? port + 1 : COAPS_DEFAULT_PORT);
   }
+  t->proto = proto;
 
   coap_send(session, pdu);
 
