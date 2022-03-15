@@ -23,7 +23,7 @@ public:
   Database(const std::string &dbname, bool memonly = false);
   Database(const std::string &dbname, const std::string &vfs, bool memonly = false);
   Database(const Database &) = delete;
-  Database(const Database &&);
+  Database(const Database &&) = delete;
   ~Database(void);
 
   Database &operator=(const Database &) = delete;
