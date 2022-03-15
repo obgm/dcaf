@@ -1,8 +1,8 @@
 /*
  * dcaf.h -- main header file for libdcaf
  *
- * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2022 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2022 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -92,8 +92,8 @@ enum dcaf_client_info_field {
 };
 
 typedef enum {
-  DCAF_MEDIATYPE_DCAF_CBOR = 75,
-  DCAF_MEDIATYPE_ACE_CBOR  = COAP_MEDIATYPE_APPLICATION_CBOR
+  DCAF_MEDIATYPE_DCAF_CBOR = COAP_MEDIATYPE_APPLICATION_ACE_CBOR,
+  DCAF_MEDIATYPE_ACE_CBOR  = COAP_MEDIATYPE_APPLICATION_ACE_CBOR
 } dcaf_mediatype_t;
 
 #define  DCAF_MEDIATYPE_DCAF_CBOR_STRING "75"
