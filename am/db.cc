@@ -41,9 +41,9 @@ public:
 #ifdef HAVE_SQLITE
 class Database::SQLite : public Database::Implementation {
 public:
-  SQLite(const std::string &dbname, const std::string &vfs = std::string()); 
+  SQLite(const std::string &dbname, const std::string &vfs = std::string());
 
-  ~SQLite(void) { if (db) { sqlite3_close_v2(db); } }
+  ~SQLite(void) { if (db) { sqlite3_close_v2(db); db = nullptr; } }
 
   operator bool(void) const;
   const char *errmsg(void) const;
