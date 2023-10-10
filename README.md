@@ -31,7 +31,14 @@ The following packages are required for building libdcaf:
 * [libcoap](https://libcoap.net) version 4.2 or above, build with
   either OpenSSL, Mbed TLS, or tinydtls.
 * [yaml-cpp](https://github.com/jbeder/yaml-cpp)
-* [cn-cbor](https://github.com/jimsch/cn-cbor)
+* [cn-cbor](https://github.com/jimsch/cn-cbor)  
+  Note that it might be necessary to build `cn-cbor` without coveralls
+  support to avoid linker errors:
+
+  ```shell
+  $ cd cn-cbor
+  $ OPTIONS=-DCN_CBOR_COVERALLS=off ./build.sh
+  ```
 
 BUILDING
 ========
