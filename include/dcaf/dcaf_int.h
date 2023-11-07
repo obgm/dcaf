@@ -189,11 +189,15 @@ struct dcaf_dep_ticket_t {
 /** The maximum number of bytes in a nonce. */
 #define DCAF_MAX_NONCE_SIZE 8
 
+/** The maximum number of bytes in the audience field. */
+#define DCAF_MAX_AS_HINT_SIZE DCAF_MAX_STRING
+
 /* Information received by a ticket request */
 struct dcaf_ticket_request_t {
   char aud[DCAF_MAX_AUDIENCE_SIZE + 1]; /**< addressed audience */
   uint8_t snc[DCAF_MAX_NONCE_SIZE];     /**< server nonce */
   size_t snc_length;
+  char as_hint[DCAF_MAX_AS_HINT_SIZE + 1];  /**< AS creation hint */
 
   /** The flags field contains additional options for controlling the
    * ticket creation. Currently, the only option to set is
