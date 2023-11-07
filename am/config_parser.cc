@@ -70,8 +70,12 @@ static void flatten(const YAML::Node &mapNode, std::map<K, V, C, A> &result) {
     if (entry.second.IsScalar()) {
       result[key] = entry.second.as<V>();
       std::cout << key << ": " << result[key] << std::endl;
-    }
-    else if (key == "<<" && entry.second.IsMap()) {
+    } else if (entry.second.IsMap()) {
+      for (const auto &addr : entry.second) {
+        const auto &item = addr.first.as<K>();
+        result[item] = addr.second.as<V>();
+      }
+    } else if (key == "<<" && entry.second.IsMap()) {
       flatten(entry.second, result);
     }
   }
@@ -95,9 +99,18 @@ static int find_and_set(const std::map<std::string, std::string> &entry, const s
 
   if (elem != entry.end()) {
     field = std::stoi(elem->second);
+    std::cout << "******* " << elem->second << " --> " << field << std::endl;
     return 1;
   }
   return 0;
+}
+
+template <class InputIterator>
+static void show(InputIterator first, InputIterator last) {
+  while (first != last) {
+    std::cout << "**** " << first->first << " --> " << first->second << std::endl;
+    first++;
+  }
 }
 
 void
@@ -112,21 +125,25 @@ parser::readEndpoints(void) {
     } else if (ep.IsSequence()) { /* list */
       for (const auto &entry : ep) {
         if (entry.IsMap()) {
+          std::cout << "**** ep.IsMap()" << std::endl;
           interfaces.push_back(Entry{});
           flatten(entry, interfaces.back());
+          for (const auto &i : interfaces) {
+            show(i.cbegin(), i.cend());
+          }
         }
       }
     }
 
     /* prepare Endpoint objects from list of interfaces */
     for (const auto &iface : interfaces) {
-      const auto &addr = iface.find("interface");
+      const auto &addr = iface.find("address");
       if (addr == iface.end()) {
         continue;
       }
 
       Endpoint endpoint;
-      bool have_port = false;
+      int have_port = 0;
       endpoint.interface = addr->second;
       have_port += find_and_set(iface, "udp",  endpoint.ports[0]);
       have_port += find_and_set(iface, "dtls", endpoint.ports[1]);

@@ -15,6 +15,7 @@
 #include <iterator>
 #include <random>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 #include <fstream>
@@ -24,6 +25,7 @@
 #include <set>
 #include <vector>
 
+#include <cassert>
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -40,6 +42,8 @@
 #include "coap_config.hh"
 
 #define COAP_RESOURCE_CHECK_TIME 2
+
+static std::set<std::string> vHosts;
 
 static void
 usage( const char *program, const char *version) {
@@ -143,6 +147,58 @@ getTicket(const coap_session_t *session,
   return 1;
 }
 
+static std::pair<std::string_view, std::string_view>
+getHostport(const char *uri) {
+  std::string_view host = uri;
+  std::string_view port;
+
+  auto pos = host.find_first_of(":");
+  if (pos != std::string_view::npos) {
+    //skip schema if present
+    auto it = std::find_if_not(host.cbegin(), host.cbegin() + pos, isalpha);
+    if (it == host.cbegin() + pos && host.size() > pos + 2
+        && host[pos+1] == '/' && host[pos+2] == '/') {
+      host.remove_prefix(pos + 3);
+    }
+  }
+  pos = host.find_first_of(":");
+  if (pos != std::string_view::npos) {
+    port = host.substr(pos+1);
+    host.remove_suffix(host.size() - pos);
+
+    pos = port.find_first_not_of("0123456789");
+    if (pos != std::string_view::npos) {
+      port.remove_suffix(port.size() - pos);
+    }
+  }
+  return {host, port};
+}
+
+static void
+response_handler(struct dcaf_context_t *dcaf_context,
+                 dcaf_transaction_t *transaction,
+                 const coap_pdu_t *received) {
+  (void)dcaf_context;
+  (void)transaction;
+  dcaf_log(DCAF_LOG_INFO, "got response: \n");
+  coap_show_pdu(LOG_INFO, received);
+}
+
+typedef enum {
+  DCAF_AM_DROP_REQUEST,
+  DCAF_AM_FORWARD_REQUEST,
+  DCAF_AM_HANDLE_LOCALLY
+} dcaf_am_request_policy_t;
+
+static dcaf_am_request_policy_t
+checkHost(const std::string_view &host) {
+  if (vHosts.find(std::string{host}) != vHosts.end()) {
+    return DCAF_AM_HANDLE_LOCALLY;
+  } else {
+    return DCAF_AM_FORWARD_REQUEST;
+  }
+}
+
 /* TODO: store issued tickets until they become invalid */
 
 static void
@@ -170,7 +226,36 @@ hnd_post_token(coap_resource_t *resource,
     return;
   }
 
-  dcaf_set_ticket_grant(session, treq, response);
+  assert(treq);
+  auto [host, port] = getHostport(treq->as_hint);
+  switch (checkHost(host)) {
+  case DCAF_AM_HANDLE_LOCALLY:
+    dcaf_set_ticket_grant(session, treq, response);
+    break;
+  case DCAF_AM_FORWARD_REQUEST: {
+    dcaf_context_t *dcaf_context = dcaf_get_dcaf_context_from_session(session);
+    std::cout << "** forward ticket request to " << host << std::endl;
+    if (!dcaf_send_request(dcaf_context,
+                           COAP_REQUEST_POST,
+                           treq->as_hint,
+                           strlen(treq->as_hint),
+                           nullptr,  /* options */
+                           nullptr,  /* data */
+                           0,
+                           response_handler,
+                           DCAF_TRANSACTION_NONBLOCK)) {
+      dcaf_log(DCAF_LOG_EMERG, "cannot send request\n");
+      (void)dcaf_set_error_response(session, DCAF_ERROR_BAD_REQUEST, response);
+    }
+    break;
+  }
+  case DCAF_AM_DROP_REQUEST:
+  default: {
+    /* Decline requests that are not handled locally and should not be
+     * forwarded. */
+    (void)dcaf_set_error_response(session, DCAF_ERROR_BAD_REQUEST, response);
+  }
+  }
 }
 
 static void
@@ -381,10 +466,16 @@ main(int argc, char **argv) {
   unsigned int vhosts = 0;
   /* Setup libcoap PKI. Currently, only one vhost is supported. */
   for (const auto &vhost : parser.hosts) {
-    if (am_config::am_setup_pki(ctx, vhost.second, dtls_pki) && coap_context_set_pki(ctx, &dtls_pki)) {
-      dcaf_log(DCAF_LOG_DEBUG, "Configured vhost %s\n", vhost.first.c_str());
-      vhosts++;
-      break;
+    dcaf_log(DCAF_LOG_DEBUG, "vhost \"%s\"\n", vhost.first.c_str());
+    vHosts.insert(vhost.first);
+
+    /* Skip certificate setup when -H is set */
+    if (need_vhost) {
+      if (am_config::am_setup_pki(ctx, vhost.second, dtls_pki) && coap_context_set_pki(ctx, &dtls_pki)) {
+        dcaf_log(DCAF_LOG_DEBUG, "Certificate for vhost %s configured\n", vhost.first.c_str());
+        vhosts++;
+        break;
+      }
     }
   }
   if (need_vhost && (vhosts == 0)) {
