@@ -1,6 +1,7 @@
 ---
 endpoints:
-  - interface: "::1"
+  - interface:
+      address: "::1"
 
 keystore:
   - name: "node1"
