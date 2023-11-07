@@ -306,7 +306,7 @@ dcaf_parse_ticket_request(const coap_session_t *session,
   abor_decoder_t *abd = NULL;
   abor_decoder_t *aud = NULL;   /* holds the audience field */
   abor_decoder_t *snc = NULL;   /* holds the server nonce */
-  abor_decoder_t *obj;          /* holds temporary cbor objects */
+  abor_decoder_t *obj = NULL;   /* holds temporary cbor objects */
 
   assert(result);
   assert(request);
@@ -329,23 +329,33 @@ dcaf_parse_ticket_request(const coap_session_t *session,
     return *result ? DCAF_OK : DCAF_ERROR_OUT_OF_MEMORY;
   }
 
-  /* TODO: check if we are addressed AM (iss). If not and we are
-   * acting as CAM, the request should be passed on to SAM. */
-  obj = abor_mapget_int(abd, DCAF_REQ_SAM);
-  if (obj && abor_check_type(obj, ABOR_TSTR)) {
-    dcaf_log(DCAF_LOG_INFO, "iss: \"%.*s\"\n", (int)abor_get_sequence_length(obj), abor_get_text(obj));
-  } else {
-    dcaf_log(DCAF_LOG_WARNING, "field iss missing or invalid\n");
-    goto finish;
-  }
-  abor_decode_finish(obj);
-  obj = NULL;
-
   treq = dcaf_new_ticket_request();
   if (!treq) {
     result_code = DCAF_ERROR_OUT_OF_MEMORY;
     goto finish;
   }
+
+  /* TODO: check if we are addressed AM (iss). If not and we are
+   * acting as CAM, the request should be passed on to SAM. */
+  obj = abor_mapget_int(abd, DCAF_REQ_SAM);
+  if (obj && abor_check_type(obj, ABOR_TSTR)) {
+    size_t am_length = abor_get_sequence_length(obj);
+    const char *am = abor_get_text(obj);
+
+    dcaf_log(DCAF_LOG_INFO, "AS creation hint: \"%.*s\"\n", (int)am_length, am);
+
+    if (am_length <= DCAF_MAX_AS_HINT_SIZE) {
+      memset(treq->as_hint, 0, sizeof(treq->as_hint));
+      memcpy(treq->as_hint, am, am_length);
+    } else {
+      dcaf_log(DCAF_LOG_WARNING, "AS creation hint in ticket request too long\n");
+    }
+  } else {
+    dcaf_log(DCAF_LOG_WARNING, "AS creation hint is missing or invalid\n");
+    goto finish;
+  }
+  abor_decode_finish(obj);
+  obj = NULL;
 
   aud = abor_mapget_int(abd, DCAF_REQ_AUD);
   if (!aud) {
