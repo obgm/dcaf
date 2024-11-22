@@ -1,8 +1,8 @@
 /*
  * dcaf.c -- libdcaf core
  *
- * Copyright (C) 2015-2021 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2021 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2024 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2024 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -1462,26 +1462,11 @@ dcaf_get_coap_context(dcaf_context_t *context) {
 static int
 is_secure(const coap_session_t *session) {
   if (session) {
-    coap_proto_t proto = coap_session_get_proto((coap_session_t *)session);
+    coap_proto_t proto = coap_session_get_proto(session);
     return (proto & COAP_PROTO_DTLS) != 0;
   }
   return false;
 }
-#if 0
-coap_endpoint_t *
-dcaf_select_interface(dcaf_context_t *context,
-                      const coap_address_t *dst UNUSED,
-                      int secure) {
-  coap_endpoint_t *ep;
-
-  LL_FOREACH(context->coap_context->endpoint, ep) {
-    if (!secure || is_secure(ep)) {
-      break;
-    }
-  }
-  return ep;
-}
-#endif
 
 static dcaf_check_scope_callback_t check_scope = NULL;
 
