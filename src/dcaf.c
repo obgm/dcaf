@@ -249,6 +249,16 @@ handle_unauthorized(dcaf_context_t *dcaf_context,
 #endif /* DCAF_CLIENT */
 
 #if DCAF_CLIENT
+static coap_proto_t
+get_proto_from_scheme(coap_uri_scheme_t scheme) {
+  if (scheme == COAP_URI_SCHEME_COAPS_TCP)
+    return COAP_PROTO_TLS;
+  else if (scheme == COAP_URI_SCHEME_COAPS_WS)
+    return COAP_PROTO_WSS;
+  else /* everything that is not TLS or WSS must be DTLS */
+    return COAP_PROTO_DTLS;
+}
+
 static void
 handle_ticket_transfer(dcaf_context_t *dcaf_context,
                        dcaf_transaction_t *t,
@@ -260,8 +270,6 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
   abor_decoder_t *cose_key = NULL;
   dcaf_ticket_t *cinfo = NULL;
   dcaf_key_type key_type = DCAF_NONE;
-
-  (void)received;
 
   dcaf_log(DCAF_LOG_DEBUG, "handle ticket transfer\n");
 
@@ -366,20 +374,40 @@ handle_ticket_transfer(dcaf_context_t *dcaf_context,
 
   if (dcaf_check_transaction(dcaf_context, t->state.future)) {
     coap_address_t remote;
-    coap_proto_t proto;
+    coap_proto_t proto = COAP_PROTO_NONE;
     /* The future transaction can be completed with the access
      * ticket we have received. We need to create a coaps session
      * with the ticket face as identity and the contained key
      * as PSK.
      */
     if (t->state.future->state.type == DCAF_TRANSACTION_AUTO) {
-      /* FIXME: set from aud */
-      dcaf_set_coap_address((const unsigned char *)"192.168.0.30", 12, 5684, &remote);
+      coap_uri_t uri;
+      /* FIXME: set from aud, port? */
+      /* FIXME: need to determine where to send the packet
+       *        client has different behavior than CAM
+       *        what does t->aud contain exactly?
+       */
+      if (coap_split_uri((const uint8_t *)t->aud.s, t->aud.length,
+                         &uri) == 0) {
+        dcaf_log(DCAF_LOG_INFO, "Set address from aud: %.*s:%u\n",
+                 (int)uri.host.length, uri.host.s, uri.port);
+        dcaf_set_coap_address(uri.host.s, uri.host.length, uri.port,
+                              &remote);
+
+        t->state.future->proto = get_proto_from_scheme(uri.scheme);
+      } else {
+        /* signal error */
+        dcaf_log(DCAF_LOG_WARNING, "invalid aud URI '%.*s'\n",
+                 (int)t->aud.length, t->aud.s);
+        goto finish;
+      }
     } else {
       coap_address_copy(&remote, &t->state.future->remote);
     }
     /* Set transport protocol */
-    proto = t->state.future->proto;
+    if (proto == COAP_PROTO_NONE) {
+      proto = t->state.future->proto;
+    }
     if ((proto & 1) == 1) {
       /* Ensure that a secure protocol is used. For coap_proto_t, the
        * even values greater than 0 are secure. */
