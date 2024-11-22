@@ -194,9 +194,10 @@ static dcaf_am_request_policy_t
 checkHost(const std::string_view &host) {
   if (vHosts.find(std::string{host}) != vHosts.end()) {
     return DCAF_AM_HANDLE_LOCALLY;
-  } else {
+  } else if (!host.empty()) {
     return DCAF_AM_FORWARD_REQUEST;
   }
+  return DCAF_AM_DROP_REQUEST;
 }
 
 /* TODO: store issued tickets until they become invalid */
@@ -230,20 +231,30 @@ hnd_post_token(coap_resource_t *resource,
   auto [host, port] = getHostport(treq->as_hint);
   switch (checkHost(host)) {
   case DCAF_AM_HANDLE_LOCALLY:
+    dcaf_log(DCAF_LOG_INFO, "request is for %.*s: handle locally", (int)host.size(), host.data());
     dcaf_set_ticket_grant(session, treq, response);
     break;
   case DCAF_AM_FORWARD_REQUEST: {
     dcaf_context_t *dcaf_context = dcaf_get_dcaf_context_from_session(session);
-    std::cout << "** forward ticket request to " << host << std::endl;
-    if (!dcaf_send_request(dcaf_context,
-                           COAP_REQUEST_POST,
-                           treq->as_hint,
-                           strlen(treq->as_hint),
-                           nullptr,  /* options */
-                           nullptr,  /* data */
-                           0,
-                           response_handler,
-                           DCAF_TRANSACTION_NONBLOCK)) {
+    size_t len;
+    const uint8_t *data;
+    dcaf_log(DCAF_LOG_INFO, "forward ticket request to %.*s", (int)host.size(), host.data());
+    if (!coap_get_data(request, &len, &data)) {
+      dcaf_log(DCAF_LOG_WARNING, "empty ticket request\n");
+      /* Bail out with an error message for now because this really
+       * should not happen.  In theory, we should be able to construct
+       * the ticket request from treq, though.
+       */
+      (void)dcaf_set_error_response(session, DCAF_ERROR_INTERNAL_ERROR, response);
+    } else if (!dcaf_send_request(dcaf_context,
+                                  COAP_REQUEST_POST,
+                                  treq->as_hint,
+                                  strlen(treq->as_hint),
+                                  nullptr,  /* options */
+                                  data,
+                                  len,
+                                  response_handler,
+                                  DCAF_TRANSACTION_NONBLOCK)) {
       dcaf_log(DCAF_LOG_EMERG, "cannot send request\n");
       (void)dcaf_set_error_response(session, DCAF_ERROR_BAD_REQUEST, response);
     }
