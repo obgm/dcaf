@@ -1,7 +1,7 @@
 /*
  * aif.c -- authorization information format
  *
- * Copyright (C) 2018 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2018,2024 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -66,7 +66,7 @@ dcaf_aif_parse_string(const abor_decoder_t *cbor, dcaf_aif_t **result) {
     while (len) {
       int method;
 
-      for (; len && isspace(*p); len--, p++)
+      for (; len && isspace((uint8_t)*p); len--, p++)
         ;
 
       /* p now points either to the end or the first non-LWS character */
@@ -76,7 +76,7 @@ dcaf_aif_parse_string(const abor_decoder_t *cbor, dcaf_aif_t **result) {
       }
 
       /* try to parse requested method */
-      for (q = p; len && isalpha(*q); len--, q++)
+      for (q = p; len && isalpha((uint8_t)*q); len--, q++)
         ;
 
       method = get_method(p, q - p);
@@ -87,11 +87,11 @@ dcaf_aif_parse_string(const abor_decoder_t *cbor, dcaf_aif_t **result) {
       }
 
       /* skip whitespace */
-      for (p = q; len && isspace(*p); len--, p++)
+      for (p = q; len && isspace((uint8_t)*p); len--, p++)
         ;
 
       /* try to parse requested URI path */
-      for (q = p; len && (isalnum(*q) || ispunct(*q)); len--, q++)
+      for (q = p; len && (isalnum((uint8_t)*q) || ispunct((uint8_t)*q)); len--, q++)
         ;
 
       if ((q - p) == 0) {
