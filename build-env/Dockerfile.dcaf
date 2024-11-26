@@ -1,0 +1,32 @@
+FROM debian:testing-slim AS coap
+RUN apt-get update && apt-get install -q -y --no-install-recommends --no-install-suggests \
+    ca-certificates autoconf automake gcc g++ \
+    cmake git libtool libtool-bin make pkg-config libcunit1-dev libmbedtls-dev
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV coap_dir=/home/coap
+ENV cbor_dir=/home/cbor
+WORKDIR $coap_dir
+RUN git clone --depth 1 https://github.com/obgm/libcoap.git \
+    && cd libcoap \
+    && ./autogen.sh \
+    && ./configure --disable-documentation --disable-tests --enable-examples --with-mbedtls \
+    && make install
+
+WORKDIR $cbor_dir
+RUN git clone --depth 1 https://github.com/jimsch/cn-cbor.git \
+    && cd cn-cbor \
+    && OPTIONS=-DCN_CBOR_COVERALLS=off ./build.sh all install
+
+# The image for development with libcoap
+FROM debian:testing-slim
+
+RUN apt-get update && apt-get install -q -y --no-install-recommends --no-install-suggests \
+    autoconf automake gcc g++ gdb libtool libtool-bin make pkg-config libyaml-cpp-dev
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY --from=coap /usr/local/include/coap3 /usr/local/include/coap3
+COPY --from=coap /usr/local/lib /usr/local/lib
+COPY --from=coap /usr/local/bin/coap-client /usr/local/bin/
+COPY --from=coap /usr/local/include/cn-cbor /usr/local/include/cn-cbor
+RUN echo "/usr/local/lib" >>/etc/ld.so.conf.d/usr_local.conf && ldconfig /usr/local/lib
