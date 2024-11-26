@@ -22,7 +22,8 @@ RUN git clone --depth 1 https://github.com/jimsch/cn-cbor.git \
 FROM debian:testing-slim
 
 RUN apt-get update && apt-get install -q -y --no-install-recommends --no-install-suggests \
-    autoconf automake gcc g++ gdb libtool libtool-bin make pkg-config libyaml-cpp-dev
+    autoconf automake gcc g++ gdb libtool libtool-bin make pkg-config libyaml-cpp-dev \
+    libmbedtls-dev
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=coap /usr/local/include/coap3 /usr/local/include/coap3
