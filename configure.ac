@@ -91,9 +91,9 @@ case "$libcoap_LIBS" in
     *-mbedtls*)
    # There is no pkgconfig for MbedTLS hence we use the default installation
    AC_MSG_NOTICE([build $LIBCOAP against Mbed TLS])
-   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_MBEDTLS"
-   MbedTLS_LIBS="-lmbedtls -lmbedcrypto -lmbedx509"
-   libcoap_LIBS="$libcoap_LIBS $MbedTLS_LIBS"
+   PKG_CHECK_MODULES([mbdetls], [mbedtls])
+   libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_MBEDTLS $mbedtls_CFLAGS"
+   libcoap_LIBS="$libcoap_LIBS $mbedtls_LIBS"
    ;;
     *-tinydtls*)
    AC_MSG_NOTICE([build $LIBCOAP against tinyDTLS])
