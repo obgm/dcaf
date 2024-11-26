@@ -1,8 +1,8 @@
 /*
  * dcaf_prng.c -- random number generation
  *
- * Copyright (C) 2015-2020 Olaf Bergmann <bergmann@tzi.org>
- *               2015-2020 Stefanie Gerdes <gerdes@tzi.org>
+ * Copyright (C) 2015-2024 Olaf Bergmann <bergmann@tzi.org>
+ *               2015-2024 Stefanie Gerdes <gerdes@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -11,7 +11,7 @@
 #include "dcaf/dcaf_prng.h"
 
 #ifdef ESP_PLATFORM
-#include <esp_system.h>
+#include "esp_random.h"
 #define PRNG_FUNC ((dcaf_rand_func_t)esp_fill_random)
 #else
 #define PRNG_FUNC (NULL)
