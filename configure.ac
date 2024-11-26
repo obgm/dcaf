@@ -91,7 +91,10 @@ case "$libcoap_LIBS" in
     *-mbedtls*)
    # There is no pkgconfig for MbedTLS hence we use the default installation
    AC_MSG_NOTICE([build $LIBCOAP against Mbed TLS])
-   PKG_CHECK_MODULES([mbdetls], [mbedtls])
+   # linking against libmbedtls depends on the private libraries
+   # libmbedcrypto and libmbedx509. Since these cannot be detected
+   # automatically, and therefore, we need to list them explictly.
+   PKG_CHECK_MODULES([mbedtls], [mbedtls mbedcrypto mbedx509])
    libcoap_CFLAGS="$libcoap_CFLAGS -DCOAP_DTLS_MBEDTLS $mbedtls_CFLAGS"
    libcoap_LIBS="$libcoap_LIBS $mbedtls_LIBS"
    ;;
