@@ -1,7 +1,7 @@
 /*
  * dcaf_crypto_mbedtls.c -- MbedTLS implementation for DCAF crypto operations
  *
- * Copyright (C) 2020 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2020-2024 Olaf Bergmann <bergmann@tzi.org>
  *
  * This file is part of the DCAF library libdcaf. Please see README
  * for terms of use.
@@ -112,7 +112,6 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
              uint8_t *result, size_t *max_result_len) {
   mbedtls_cipher_context_t ctx;
   const dcaf_aes_ccm_t *ccm;
-  unsigned char tag[16];
   int ret = false;
   size_t result_len = *max_result_len;
 
@@ -128,22 +127,21 @@ dcaf_encrypt(const dcaf_crypto_param_t *params,
     return false;
   }
 
-  C(mbedtls_cipher_auth_encrypt(&ctx,
+  C(mbedtls_cipher_auth_encrypt_ext(&ctx,
                                     ccm->nonce, 15 - ccm->l,  /* iv */
                                     aad, aad_len,             /* ad */
                                     data, data_len,           /* input */
-                                    result, &result_len,      /* output */
-                                    tag, ccm->tag_len         /* tag */
+                                    result, result_len,       /* output */
+                                    &result_len,              /* number of bytes written */
+                                    ccm->tag_len              /* tag */
                                 ));
 
   /* check if buffer is sufficient to hold tag */
-  if ((result_len + ccm->tag_len) > *max_result_len) {
+  if (result_len > *max_result_len) {
     dcaf_log(DCAF_LOG_ERR, "dcaf_encrypt: buffer too small\n");
     goto error;
   }
-  /* append tag to result */
-  memcpy(result + result_len, tag, ccm->tag_len);
-  *max_result_len = result_len + ccm->tag_len;
+  *max_result_len = result_len;
   ret = true;
  error:
   mbedtls_cipher_free(&ctx);
@@ -157,7 +155,6 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
              uint8_t *result, size_t *max_result_len) {
   mbedtls_cipher_context_t ctx;
   const dcaf_aes_ccm_t *ccm;
-  const unsigned char *tag;
   int ret = false;
   size_t result_len = *max_result_len;
 
@@ -178,13 +175,13 @@ dcaf_decrypt(const dcaf_crypto_param_t *params,
     goto error;
   }
 
-  tag = data + data_len - ccm->tag_len;
-  C(mbedtls_cipher_auth_decrypt(&ctx,
-                                ccm->nonce, 15 - ccm->l,  /* iv */
-                                aad, aad_len,             /* ad */
-                                data, data_len - ccm->tag_len, /* input */
-                                result, &result_len,      /* output */
-                                tag, ccm->tag_len         /* tag */
+  C(mbedtls_cipher_auth_decrypt_ext(&ctx,
+                                    ccm->nonce, 15 - ccm->l,  /* iv */
+                                    aad, aad_len,             /* ad */
+                                    data, data_len - ccm->tag_len, /* input */
+                                    result, result_len,      /* output */
+                                    &result_len,             /* number of bytes written */
+                                    ccm->tag_len             /* tag */
                                 ));
 
   *max_result_len = result_len;
