@@ -1,10 +1,10 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 #
-# Copyright (c) 2016-2020 Olaf Bergmann (TZI)
+# Copyright (c) 2016-2024 Olaf Bergmann (TZI)
 
 AC_PREREQ([2.64])
-AC_INIT([dcaf], [0.1.0])
+AC_INIT([dcaf], [0.2.0])
 AM_INIT_AUTOMAKE([1.10 -Wall no-define no-dist-gzip dist-bzip2])
 PKG_PROG_PKG_CONFIG([0.20])
 
